@@ -641,7 +641,8 @@ call(ErlDrvData handle, unsigned int command,
 				strioctl->ic_dp = (char *) driver_alloc(10);  /* board string */
 				strioctl->ic_dp[0] = ref;                     /* board num  */
 				break;
-#ifdef _LP64 /*  passing a pointer in an ioctl requires 64-bit compilation
+#if !(defined(_ILP64) && defined(KERNEL_64))
+		 /*  passing a pointer in an ioctl requires 64-bit compilation
                  on 64 bit kernels.  if the kernel is 32 bit or if it is
                  64 bit and the Erlang emulator is built 64 bit this works */
 			case BOOT_BOARD:      
