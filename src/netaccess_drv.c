@@ -315,10 +315,6 @@ netaccess_outputv(ErlDrvData handle, ErlIOVec *ev)
 	DriverData *dd = (DriverData *) handle;
 	int sz;
 
-fprintf(stderr, "netaccess_outputv\n\r");
-fprintf(stderr, "ev->vsize = %d\n\r", ev->vsize);
-fprintf(stderr, "ev->size = %d\n\r", ev->size);
-
 	/*  if there's a queue just add to it  */
 	if((sz = driver_sizeq(dd->port)) > 0) {
 			driver_enqv(dd->port, ev, 0);
@@ -328,7 +324,7 @@ fprintf(stderr, "ev->size = %d\n\r", ev->size);
 	}
 
 	/*  send the message to the board  */	
-	if(message_to_board(dd->fd, ev->iov[1]) < 0) {
+	if(message_to_board(dd->fd, &ev->iov[1]) < 0) {
 		switch(errno) {
 			case EINTR:
 			case ENOSR:
@@ -857,22 +853,17 @@ message_to_board(int fd, SysIOVec *iov)
 {
 	struct strbuf ctrlp, datap;
 
-	/*  construct the streams buffers  */
-	memset(&ctrlp, 0, sizeof(ctrlp));
-	memset(&datap, 0, sizeof(datap));
-
-
 	/*  the first byte is the type  */
-	if(iov[0].iov_base[0] == 0) {
-		ctrlp.len = (iov[0].iov_len - 1);
-		ctrlp.buf = &iov[0].iov_base[1];
+	if(iov->iov_base[0] == 0) {
+		ctrlp.len = (iov->iov_len - 1);
+		ctrlp.buf = &iov->iov_base[1];
 		datap.len = 0;
 		datap.buf = NULL;
 	} else {
 		ctrlp.len = 0;
 		ctrlp.buf = NULL;
-		datap.len = (iov[0].iov_len - 1);
-		datap.buf = &iov[0].iov_base[1];
+		datap.len = (iov->iov_len - 1);
+		datap.buf = &iov->iov_base[1];
 	}
 
 	/*  send the message to the board  */	
