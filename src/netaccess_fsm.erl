@@ -24,12 +24,12 @@
 %%% 	<p><tt>{Port, L3L4m}</tt><br/>
 %%% 	<tt>{Port, DataBin}</tt></p>
 %%% 	<ul><li><tt>Port = pid()</tt></li>
-%%% 	<li><tt>L3L4m = <a href="iisdn.html#type-l3_l4">l3_l4()</a></tt></li>
+%%% 	<li><tt>L3L4m = <a href="iisdn.html#type-l3_to_l4">l3_to_l4()</a></tt></li>
 %%% 	<li><tt>DataBin = binary()</tt></li></ul>
 %%%
 %%% 	<h5>Examples:</h5>
-%%% 	<p><tt>idle({Port, L3L4m}, StateData) when is_record(L3L4m, l3_l4),
-%%% 			L3L4m#l3_l4.msgtype == L3L4mSETUP_IND -> </tt></p>
+%%% 	<p><tt>idle({Port, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+%%% 			L3L4m#l3_to_l4.msgtype == L3L4mSETUP_IND -> </tt></p>
 %%% 	<p><tt>connected({Port, IFRAME}, StateData)
 %%% 			when is_binary(IFRAME) -> </tt></p>
 %%%
