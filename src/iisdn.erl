@@ -51,7 +51,7 @@
 %% L4_to_L3_struct
 %%
 %% This function takes a record of the same name and returns a binary
-%% repsentaion of an entire SMI L4L3 message suitable for sending to
+%% representation of an entire SMI L4L3 message suitable for sending to
 %% the boards.  If the data member is assigned a binary it will be sent
 %% as is.  If it is undefined a default record of the type associated
 %% with msgtype is used.  If data is a record of the appropriate type
@@ -518,7 +518,7 @@
 	NewHW = HW#'IISDN_HARDWARE_DATA'{line_data=LD},
 	'IISDN_HARDWARE_DATA'(NewHW);
 'IISDN_HARDWARE_DATA'(HW) when is_binary(HW) ->
-	Size_line = (?IISDN_MAX_LINES * size('IISDN_LINE_DATA'(undef))),
+	Size_line = (?IISDN_MAX_LINES * size('IISDN_LINE_DATA'(#'IISDN_LINE_DATA'{}))),
 	Size_csu = (?IISDN_MAX_LINES * size(<<0:?IISDNu8bit>>)),
 	<<Clocking:?IISDNu8bit, Clocking2:?IISDNu8bit,
 			Enable_clocking2:?IISDNu8bit, Netref_clocking:?IISDNu8bit,

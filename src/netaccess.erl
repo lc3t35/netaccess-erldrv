@@ -1,5 +1,5 @@
 %%%---------------------------------------------------------------------
-%%% Copyright Motivity Telecom Inc. 2001, 2002
+%%% @copyright Motivity Telecom Inc. 2001-2004
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
 %%% used, reproduced, stored in any retrieval system, or transmitted,
@@ -7,6 +7,17 @@
 %%% recording, or otherwise without prior written permission of
 %%% Motivity Telecom Inc.
 %%%---------------------------------------------------------------------
+%%%
+%%% @author Vance Shipley <vances@motivity.ca>
+%%%
+%%% @doc Main <acronym title="Application Programming Interface>API
+%%%			</acronym> of the Netaccess application.
+%%%	<p>This module provides the main application programming interface
+%%%	for the Netaccess application.  The application includes a
+%%%	dynamically linked in device driver to the Netaccess series boards
+%%%	from Brooktrout Technology.  This module is an Erlang binding to
+%%%	the Instant ISDN&trade; Simple Message Interface (SMI) API.</p>
+%%% @end
          
 -module(netaccess).
 -copyright('Copyright (c) 2001, 2002 Motivity Telecom Inc.').
@@ -43,72 +54,92 @@
 %%  The gen_server call backs
 %%----------------------------------------------------------------------
 
-%% 
-%% start the netacccess server
+%% @spec () -> {ok, pid()} | {error, Reason::term()}
 %%
-%% returns {ok, Pid} or {error, Reason} (or ignore?)
+%% @doc Start the netacccess server.
+%%
+%% @see gen_server:start/4
 %%
 start() ->
 	gen_server:start({local, netaccess_server}, ?MODULE, [], []).
 	
+%% @spec () -> {ok, pid()} | {error, Reason::term()}
+%%
+%% @doc Start the netacccess server and link to the calling process.
+%%
+%% @see gen_server:start_link/4
+%%
 start_link() ->
 	gen_server:start_link({local, netaccess_server}, ?MODULE, [], []).
 
 
+%% @spec () -> ok
 %%
-%% stop the netacccess server
-%%
-%% returns ok
+%% @doc Stop the netaccess server.
 %%
 stop() ->
 	do_call(stop).
 
 
+%% @spec () -> {ok, Channel::port()}
 %%
-%% open a channel on a netaccess board
+%% @doc Open a channel on the netaccess board.
 %%
-%% returns {ok, Port} or fails
+%% @see erlang:open_port/2
 %%
 open() ->
 	do_call({open, "netaccess_drv"}).
 
+%% @spec (Board::list() | Board::atom()) -> {ok, Channel::port()}
+%%
+%% @doc Open a channel on a specified netaccess board.
+%%
+%% @see erlang:open_port/2
+%%
 open(Board) when list(Board) ->
 	do_call({open, "netaccess_drv " ++ Board});
 open(Board) when atom(Board) ->
 	do_call({open, "netaccess_drv " ++ atom_to_list(Board)}).
 
 
+%% @spec (Channel::port()) -> true
 %%
-%% close a channel on a netaccess board
+%% @doc Close a channel on a netaccess board.
 %%
-%% returns true
+%% @see erlang:port_close/1
 %%
 close(Port) ->
 	do_call({close, Port}).
 
 
+%% @spec (Channel::port(), Board::integer()) -> ok
 %%
-%% select a netaccess board for the channel 
-%%
-%% returns ok or fails
+%% @doc Select a netaccess board for the channel.
 %%
 select_board(Port, Board) when integer(Board) ->
 	do_ioctl({ioctl, ?SELECT_BOARD, Board, Port}).
 
 
+%% @spec (Channel::port()) -> ok
 %%
-%% enable a management channel on an open netaccess board
-%%
-%% returns ok or fails
+%% @doc Enable a management channel on an open netaccess board.
 %%
 enable_management_chan(Port) ->
 	do_ioctl({ioctl, ?ENABLE_MANAGEMENT_CHAN, [], Port}).
 
 
+%% @spec (Channel::port(), BootFile) -> ok | {error, Reason:term()}
+%%		BootFile = binary() | string() | atom()
 %%
-%% boot an open netaccess board
+%% @doc Boot an open netaccess board.
+%%		<p>BootFile may be either the boot code itself in a binary
+%%		or the file name of the boot file.</p>
 %%
-%% returns ok or {error, Reason}
+%%		<p>If the kernel is 64 bit the Erlang emulator as well
+%%		as the netaccess driver must be compiled as 64 bit for
+%%		this to work.  Otherwise it will return "badarg".</p>
+%%
+%% @see file:read_file/1
 %%
 boot(Port, BootBin) when binary(BootBin) ->
 	do_ioctl({ioctl, ?BOOT_BOARD, BootBin, Port}, 62000);
@@ -121,48 +152,55 @@ boot(Port, Filename) when list(Filename) ->
 	end.
 
 
+%% @spec (Channel::port()) -> ok
 %%
-%% perform a reset on an open netaccess board
-%%
-%% returns ok or fails
+%% @doc Perform a reset on an open netaccess board.
 %%
 reset_board(Port) ->
 	do_ioctl({ioctl, ?RESET_BOARD, [], Port}).
 
 
+%% @spec (Channel:port()) -> returns {ok, Version::string()} or {error, Reason::term()}
 %%
-%% get software version string from an open netaccess board
-%%
-%% returns {ok, VersionString} or {error, Reason}
+%% @doc Get software version string from an open netaccess board.
 %%
 get_version(Port) ->
 	do_ioctl({ioctl, ?GET_VERSION, [], Port}).
 
 
+%% @spec (Channel:port()) -> returns {ok, driver_info()} or {error, Reason::term()}
 %%
-%% get driver information from an open netaccess board
+%% @type driver_info(). A record which includes the following fields:
+%%		<dl>
+%%			<dt>board_type</dt> <dd><code>integer()</code></dd>
+%%			<dt>hangup_on_red_alarm</dt> <dd><code>integer()</code></dd>
+%%			<dt>flow_control_board</dt> <dd><code>integer()</code></dd>
+%%			<dt>flow_control_wsrv</dt> <dd><code>integer()</code></dd>
+%%			<dt>flow_control_rsrv</dt> <dd><code>integer()</code></dd>
+%%			<dt>hdrops</dt> <dd><code>integer()</code></dd>
+%%			<dt>sdrops</dt> <dd><code>integer()</code></dd>
+%%			<dt>tx_msg_size</dt> <dd><code>integer()</code></dd>
+%%			<dt>rx_msg_size</dt> <dd><code>integer()</code></dd>
+%%			<dt>tx_num_bufs</dt> <dd><code>integer()</code></dd>
+%%			<dt>rx_num_bufs</dt> <dd><code>integer()</code></dd>
+%%			<dt>max_data_channels</dt> <dd><code>integer()</code>
+%%					maximum number of data channels the driver can support</dd>
+%%		</dl>
 %%
-%% returns {ok, DriverInfo} or {error, Reason}
+%% @doc Get driver information from an open netaccess board.
 %%
-%%   DriverInfo = [{item, Value}, ...]
-%%   item       = hangup_on_red_alarm | flow_control_board |
-%%                   flow_control_wsrv | flow_control_rsrv |
-%%                   hdrops | sdrops | tx_msg_size | rx_msg_size |
-%%                   tx_num_bufs | rx_num_bufs | max_data_channels
-%%   Value      = int()
 %%
 get_driver_info(Port) ->
 	case do_ioctl({ioctl, ?GET_DRIVER_INFO, [], Port}) of
-		{ok, ?DriverInfoMask} -> {ok, ?DriverInfoTerms};
+		{ok, DriverInfo} ->
+			{ok, pridrv:driver_info(DriverInfo)};
 		Return -> Return
 	end.
 	
 
 %%
-%% set hardware settings on board such as clocking, framing
+%% @doc Set hardware settings on board such as clocking, framing, etc.
 %%
-%% returns true or fails
-%% 
 
 % may be called without line settings and CSU flags, we'll use defaults
 set_hardware(Port, HardwareSettings) ->
@@ -207,31 +245,59 @@ set_hardware(Port, HardwareSettings, LineSettings, CsuFlags)
 	do_call({'L4L3m', Port, L4_Ref, L4_to_L3_struct}).
 
 
+%% @spec (Channel::port()) -> {ok, hardware_data()}
 %%
-%% query the hardware setup
+%% @type hardware_data().  A record which includes the following fields:
+%% 	<dl>
+%% 		<dt>clocking</dt> <dd><code>integer()</code></dd>
+%% 		<dt>clocking2</dt> <dd><code>integer()</code></dd>
+%% 		<dt>enable_clocking2</dt> <dd><code>integer()</code></dd>
+%% 		<dt>netref_clocking</dt> <dd><code>integer()</code></dd>
+%% 		<dt>netref_rate</dt> <dd><code>integer()</code></dd>
+%% 		<dt>ctbus_mode</dt> <dd><code>integer()</code></dd>
+%% 		<dt>force_framer_init</dt> <dd><code>integer()</code></dd>
+%% 		<dt>tdm_rate</dt> <dd><code>integer()</code></dd>
+%% 		<dt>enable_8370_rliu_monitor</dt> <dd><code>integer()</code></dd>
+%% 		<dt>dbcount</dt> <dd><code>integer()</code></dd>
+%% 		<dt>enable_t810x_snap_mode</dt> <dd><code>integer()</code></dd>
+%% 		<dt>clk_status</dt> <dd><code>integer()</code></dd>
+%% 		<dt>line_data</dt> <dd><code>[line_data()]</code></dd>
+%% 		<dt>csu</dt> <dd><code>[boolean()]</code></dd>
+%% 	</dl>
 %%
-%% returns {ok, [HardwareTerms], [[LineTerms]|...], CsuTerms}
+%% @type line_data(). A record which includes the following fields:
+%% 	<dl>
+%% 		<dt>framing</dt> <dd><code>integer()</code></dd>
+%% 		<dt>line_code</dt> <dd><code>integer()</code></dd>
+%% 		<dt>pm_mode</dt> <dd><code>integer()</code></dd>
+%% 		<dt>line_length</dt> <dd><code>integer()</code></dd>
+%% 		<dt>term</dt> <dd><code>integer()</code></dd>
+%% 		<dt>line_type</dt> <dd><code>integer()</code></dd>
+%% 		<dt>integrate_alarms</dt> <dd><code>integer()</code></dd>
+%% 		<dt>filter_unsolicited</dt> <dd><code>integer()</code></dd>
+%% 		<dt>filter_yellow</dt> <dd><code>integer()</code></dd>
+%% 		<dt>bri_l1mode</dt> <dd><code>integer()</code></dd>
+%% 		<dt>briL1_cmd</dt> <dd><code>integer()</code></dd>
+%% 		<dt>bri_loop</dt> <dd><code>integer()</code></dd>
+%% 		<dt>briL1_T3</dt> <dd><code>integer()</code></dd>
+%% 		<dt>briL1_T4</dt> <dd><code>integer()</code></dd>
+%% 	</dl>
+%%
+%% @doc Query the hardware setup.
 %%
 req_hw_status(Port) ->
-	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mREQ_HW_STATUS, 16#FFFF, 0, 0),
+	L4L3_Bin = iisdn:'L4_to_L3_struct'(#'L4_to_L3_struct'{msgtype = ?L4L3mREQ_HW_STATUS}),
 	port_command(Port, L4L3_Bin),
 	receive 
-		{Port, {'L3L4m', ?L3L4_Mask(_LapdId, ?L3L4mHARDWARE_STATUS,
-				_L4Ref, _CallRef, _BChan, _IFace, _BChanMask, _Lli,
-				_DataChan, Rest), _DataBin}} ->
-			?IISDN_HARDWARE_DATA = Rest,
-			?HardwareMask = HardwareBin,
-			{ok, ?HardwareTerms, req_hw_status(LineBins,
-					size(LineBins) div ?IISDN_MAX_LINES, []),
-					binary_to_list(CsuBin)}; 
+		{Port, {'L3L4m', <<_LapdId:?IISDNu8bit, ?L3L4mHARDWARE_STATUS,
+				_L4Ref:?IISDNu16bit, _CallRef:?IISDNu16bit, _BChan:?IISDNu8bit,
+				_Iface:?IISDNu8bit, _BChanMask:?IISDNu32bit, _Lli:?IISDNu16bit,
+				_DataChan:?IISDNu16bit, HardwareData/binary>>}} ->
+			iisdn:'IISDN_HARDWARE_DATA'(HardwareData);
 		{Port, {error, Reason}} -> {error, Reason}
 	after
 		1000 -> {error, timeout}
 	end.
-req_hw_status(<<>>, LineBinSize, LineTerms) -> LineTerms;
-req_hw_status(LineBins, LineBinSize, LineTerms) ->
-	{?LineMask, Rest} = split_binary(LineBins, LineBinSize),
-	req_hw_status(Rest, LineBinSize, LineTerms ++ ?LineTerms).
 	
 	
 %%
@@ -278,7 +344,7 @@ req_tsi_status(Port) ->
 	end.
 req_tsi_status(TsiMapBins, 0, TsiTerms) -> TsiTerms;
 req_tsi_status(TsiMapBins, NumMaps, TsiTerms) ->
-	{?TsiMapMask, Rest} = split_binary(TsiMapBins, 4),
+	<<?TsiMapMask, Rest/binary>> = split_binary(TsiMapBins, 4),
 	req_tsi_status(Rest, NumMaps - 1, TsiTerms ++ ?TsiMapTerms).
 	
 

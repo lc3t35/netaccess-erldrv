@@ -1,10 +1,10 @@
-%%% @configure_input@                      
+%%% @configure_input@                                                   %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% pridrv.hrl  Erlang header file defining the structures in pridrv.h  %%%
 %%%                                                                     %%%
 %%%             This file defines the IOCTL interface                   %%%
 %%%---------------------------------------------------------------------%%%
-%%% Copyright Motivity Telecom Inc. 2003                                %%%
+%%% Copyright Motivity Telecom Inc. 2003, 2004                          %%%
 %%%                                                                     %%%
 %%% All rights reserved. No part of this computer program(s) may be     %%%
 %%% used, reproduced, stored in any retrieval system, or transmitted,   %%%
@@ -23,32 +23,11 @@
 -define(SELECT_BOARD, 5).
 -define(CANCEL_ASYNC, 10).
 
+-define(SIZEOF_INT, @SIZEOF_INT@).
+-define(SIZEOF_USHORT, @SIZEOF_USHORT@).
+-define(SIZEOF_UINT, @SIZEOF_UINT@).
 
-%%
-%% defines for get_driver_info/2
-%%
--define(DriverInfoMask,
-		<<BoardType:@SIZEOF_INT@/native-signed-integer-unit:8,
-		HangUpOnRedAlarm:@SIZEOF_INT@/native-signed-integer-unit:8,
-		FlowControlBoard:@SIZEOF_INT@/native-signed-integer-unit:8,
-		FlowControlWsrv:@SIZEOF_INT@/native-signed-integer-unit:8,
-		FlowControlRsrv:@SIZEOF_INT@/native-signed-integer-unit:8,
-		HDrops:@SIZEOF_INT@/native-signed-integer-unit:8,
-		SDrops:@SIZEOF_INT@/native-signed-integer-unit:8,
-		TxMsgSize:@SIZEOF_INT@/native-signed-integer-unit:8,
-		RxMsgSize:@SIZEOF_INT@/native-signed-integer-unit:8,
-		TxNumBufs:@SIZEOF_USHORT@/native-unsigned-integer-unit:8,
-		RxNumBufs:@SIZEOF_USHORT@/native-unsigned-integer-unit:8,
-		MaxDataChannels:@SIZEOF_UINT@/native-unsigned-integer-unit:8>>).
--define(DriverInfoTerms,
-		[{board_type, BoardType}, {hangup_on_red_alarm, HangUpOnRedAlarm},
-		{flow_control_board, FlowControlBoard},
-		{flow_control_wsrv, FlowControlWsrv},
-		{flow_control_rsrv, FlowControlRsrv},
-		{hdrops, HDrops}, {sdrops, SDrops},
-		{tx_msg_size, TxMsgSize}, {rx_msg_size, RxMsgSize},
-		{tx_num_bufs, TxNumBufs},	{rx_num_bufs, RxNumBufs},
-		{max_data_channels, MaxDataChannels}]).
-
-
-
+-record(driver_info, {board_type, hangup_on_red_alarm, flow_control_board,
+		flow_control_wsrv, flow_control_rsrv, hdrops, sdrops,
+		tx_msg_size, rx_msg_size, tx_num_bufs, rx_num_bufs,
+		max_data_channels}).
