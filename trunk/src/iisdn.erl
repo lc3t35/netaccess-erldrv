@@ -1,27 +1,46 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% iisdn.erl   Erlang module to encode/decode iisdn structures/records %%%
-%%%                                                                     %%%
-%%%---------------------------------------------------------------------%%%
-%%% Copyright Motivity Telecom Inc. 2001, 2002, 2003                    %%%
-%%%                                                                     %%%
-%%% All rights reserved. No part of this computer program(s) may be     %%%
-%%% used, reproduced, stored in any retrieval system, or transmitted,   %%%
-%%% in any form or by any means, electronic, mechanical, photocopying,  %%%
-%%% recording, or otherwise without prior written permission of         %%%
-%%% Motivity Telecom Inc.                                               %%%
-%%%---------------------------------------------------------------------%%%
-%%%                                                                     %%%
-%%% For every structure definition in iisdn.h there should be here:     %%%
-%%%                                                                     %%%
-%%%        - a record definition (e.g. #q931{})                         %%%
-%%%                                                                     %%%
-%%%        - a function (e.g. #q931(Q931) -> binary())                  %%%
-%%%                                                                     %%%
-%%% A received binary is decoded to a record, or a record is encoded    %%%
-%%% to a binary with the function of the same name as the structure     %%%
-%%% using the record definition of the same name.                       %%%
-%%%                                                                     %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%---------------------------------------------------------------------
+%%% @copyright Motivity Telecom Inc. 2001-2004
+%%% @end
+%%%
+%%% All rights reserved. No part of this computer program(s) may be
+%%% used, reproduced, stored in any retrieval system, or transmitted,
+%%% in any form or by any means, electronic, mechanical, photocopying,
+%%% recording, or otherwise without prior written permission of
+%%% Motivity Telecom Inc.
+%%%---------------------------------------------------------------------
+%%%
+%%% @author Vance Shipley <vances@motivity.ca>
+%%%
+%%% @doc Conversion routines for the API of the Netaccess application.
+%%%
+%%%	<p>This module provides functions which convert the records used
+%%% 	in the API to the binary format of data exchanged with the boards.
+%%% 	The erlang driver passes L4L3m messages to the board and receives
+%%% 	L3L4m messages from the board.  These binary messages are specified
+%%% 	in a C language API using structures, arrays, longs etc.</p>
+%%%
+%%% 	<p>This module uses a record for each of the C structures documented
+%%% 	in the Instant ISDN&#153; SMI Reference Guide and appearing in the 
+%%%   <tt>iisdn.h</tt> header file provided with the board's drivers. 
+%%% 	The records are defined in <tt>iisdn.hrl</tt>.  Each record has a
+%%% 	corresponding function in this module of the same name which
+%%% 	takes the record and returns a properly packed binary which is 
+%%% 	equivalent to what the C API would have created.  This binary is 
+%%% 	passed to the board as received by the driver.  This is quite
+%%% 	effecient as the memory is allocated once in the emulator and 
+%%% 	reference passed to the driver which sends in down the stream to 
+%%% 	the board.  Portability between architectures is handled in the
+%%% 	driver's build system using GNU autotools (autoconf, automake,
+%%% 	etc.).</p>
+%%%
+%%% 	<p>Some functions encode a record into a binary, others decode 
+%%% 	a binary into a record.  Others work both ways, if you pass it
+%%% 	a record it will return a binary but if you pass it a binary it
+%%% 	will return a record.  The choise is determined by the context
+%%% 	in which the function is used.</p>
+%%%
+%%% @reference Instant ISDN&#153; SMI Reference Guide
+%%%
 
 -module(iisdn).
 
@@ -35,9 +54,9 @@
 -export([l2_lap_params/1, l2_ss7_params/1, l2_udpip_params/1,
 		l2_tcpip_params/1, l2_dpnss_params/1, l2_v110_params/1]).
 -export([data_interface/1]).
--export([q931/1, bonding_data/1, x25_config/1, pm_config/1,
-		relay_config/1, dpnsscc_config/1, dasscc_config/1,
-		q933a_config/1]).
+-export([q931/1, bonding_data/1, x25/1, pm/1,
+		relay/1, dpnss/1, dass/1,
+		q933a/1]).
 -export([l2_lap_consts/1, l2_ss7_consts/1, l2_ip_consts/1,
 	 	l2_dpnss_consts/1]).
 -export([protocol_stat/1, q933a_pvc_status/1]).
@@ -46,6 +65,27 @@
 -include("iisdn.hrl").
 
 
+%% @type l4_to_l3().  L4L3 SMI Message sent from host to board.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>lapdid</tt></dt><dd><tt>integer()</tt>
+%% 				Identifies the physical HDLC channel to be used.</dd>
+%% 		<dt><tt>msgtype</tt></dt><dd><tt>integer()</tt>
+%% 				Identifies the L4L3m message being sent.</dd>
+%% 		<dt><tt>l4_ref</tt></dt><dd><tt>integer()</tt>
+%% 				Reference assigned to outgoing calls by the host application.
+%% 				Subsequent L3L4m for the call will use this value. Used in
+%% 				call control applications only.</dd>
+%% 		<dt><tt>call_ref</tt></dt><dd><tt>integer()</tt>
+%% 				Call reference assigned by the board.  Used in
+%% 				call control applications only.</dd>
+%% 		<dt><tt>lli</tt></dt><dd><tt>integer()</tt>
+%% 				Logical Link ID or DLCI.  Used wth LAPD, LAPB and V.120.</dd>
+%% 	</dl>
+%%
+%% @spec (L4L3m) -> L4L3m
+%% 	L4L3m = l4_to_l3() | binary()
+%%
 l4_to_l3(R) when is_record(R, l4_to_l3) ->
 	MessageType = R#l4_to_l3.msgtype, 
 	CommonHeader = <<(R#l4_to_l3.lapdid):?IISDNu8bit, 
@@ -67,19 +107,74 @@ l4_to_l3(?L4L3mSET_TSI, Header, Data) ->
 l4_to_l3(?L4L3mENABLE_PROTOCOL, Header, Data) ->
 	<<0, Header/binary, (ena_proto_data(Data))/binary>>.
 
+%% @type l3_to_l4().  L3L4 SMI Message sent from board to host.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>lapdid</tt></dt><dd><tt>integer()</tt>
+%% 				Identifies the physical HDLC channel to be used.</dd>
+%% 		<dt><tt>msgtype</tt></dt><dd><tt>integer()</tt>
+%% 				Identifies the L3L4m message being received.</dd>
+%% 		<dt><tt>l4_ref</tt></dt><dd><tt>integer()</tt>
+%% 				Reference previously assigned to outgoing calls by the host application.
+%% 				Used in call control applications only. 16#ffff if unused.</dd>
+%% 		<dt><tt>call_ref</tt></dt><dd><tt>integer()</tt>
+%% 				Call reference assigned by the board.  Used in
+%% 				call control applications only.</dd>
+%% 		<dt><tt>bchanel</tt></dt><dd><tt>integer()</tt>
+%% 				Identifies the bearer channel.</dd>
+%% 		<dt><tt>interface</tt></dt><dd><tt>integer()</tt>
+%% 				Non-Facility Associated Signaling (NFAS) interface (0-19).
+%% 				Used in Q.931 NFAS applications only.  16#ff if unused.</dd>
+%% 		<dt><tt>bchannel_mask</tt></dt><dd><tt>integer()</tt>
+%% 				B-channel bit mask.  Used in mutirate ISDN calls only.</dd>
+%% 		<dt><tt>lli</tt></dt><dd><tt>integer()</tt>
+%% 				Logical Link ID or DLCI.  Used wth LAPD, LAPB and V.120.</dd>
+%% 		<dt><tt>data_channel</tt></dt><dd><tt>integer()</tt>
+%% 				iIdentifies the data stream.  Unused in Solaris driver implementation.</dd>
+%% 	</dl>
+%%
+%% @spec (L3L4m) -> L3L4m
+%% 	L3L4m = l3_to_l4() | binary()
+%%
 l3_to_l4(Bin) when is_binary(Bin) ->
 	<<Lapdid:?IISDNu8bit, Msgtype:?IISDNu8bit, L4_ref:?IISDNu16bit,
 		Call_ref:?IISDNu16bit, Bchanel:?IISDNu8bit, Iface:?IISDNu8bit,
 		Bchannel_mask:?IISDNu32bit, Lli:?IISDNu16bit, Data_channel:?IISDNu16bit,
 		Data/binary>> = Bin,
 	#l3_to_l4{lapdid=Lapdid, msgtype=Msgtype, l4_ref=L4_ref,
-			call_ref=Call_ref, bchanel=Bchanel, iface=Iface,
+			call_ref=Call_ref, bchanel=Bchanel, interface=Iface,
 			bchannel_mask=Bchannel_mask, lli=Lli, 
 			data_channel=Data_channel, data=Data}.
 
+%% @type error_code().  L3L4mERROR error code.
+%% 	 = | no_error | lapdid_out_of_range | lapdid_not_established | invalid_called_number
+%% 		| no_crv_available | no_crstruct_available | call_ref_error | invalid_b_channel 
+%% 		| b_chanel_restarting | b_chanel_oos | invalid_call_type | invalid_conn_type
+%% 		| protocol_not_disabled invalid_hdlc_maping | invalid_data_queue | invalid_comand_args
+%% 		| invalid_msg_for_state | data_packet_lost | pm_not_esf | invalid_interface
+%% 		| b_channel_inuse | invalid_lli | vc_table_full | lli_not_found | blocked
+%% 		| no_hardware | invalid_spid_len | non_nfas | invalid_state | service_not_offered 
+%% 		| dchan_temp_unavail | too_many_q931_stacks | service_not_offered 
+%% 		| data_interface_required data_interface_invalid | sym_mode_not_supported
+%% 		| invalid_bufsz | bond_chan_not_cnfg | bond_chan_bit_conflict
+%% 		| bond_wrong_spyder_chip | bond_too_many_channels | bond_dup_addon_chan
+%% 		| dchan_odd_pointer_error | dchan_too_few_buffers | dchan_too_many_buffers
+%% 		| dchan_give_take_nonzero | dchan_zero_rxbuf_len | sym_mode_required
+%% 		| dlci_manditory | chan_kbit_rate_bad | invalid_mem_size | not_enough_memory 
+%% 		| tx_buffer_misaligned | x_buffer_misaligned | too_many_dlcis | bond_bad_state
+%% 		| spid_rejected | tei_ident_remove_req | spid2_rejected | invalid_smi_msgid 
+%% 		| invalid_clock_mode | no_overflow_queue | too_many_cas_dest | segment_too_large 
+%% 		| segment_message_expected | segment_message_invalid | segment_timer_expired 
+%% 		| invalid_download_msg | protocol_disabled | invalid_variant | too_many_links 
+%% 		| too_many_headers | fatal_error | hot_swap_extraction | dchan_out_of_range 
+%% 		| ether_already_configured | tsi_verification_failed | status_ignored 
+%% 		| bad_call_ref | glare | integer()
+%%
+%% @spec (binary()) -> error_code()
+%%
 error_code(B) when is_binary(B) ->
 	<<ErrorCode:?IISDNu8bit, _Rest/binary>> = B,
-	ErrorCodes = [{0, no_erorr}, {1, lapdid_out_of_range},
+	ErrorCodes = [{0, no_error}, {1, lapdid_out_of_range},
 			{2, lapdid_not_established}, {3, invalid_called_number},
 			{4, no_crv_available}, {5, no_crstruct_available},
 			{6, call_ref_error}, {7, invalid_b_channel},
@@ -94,7 +189,7 @@ error_code(B) when is_binary(B) ->
 			{25, no_hardware}, {26, invalid_spid_len}, {27, non_nfas},
 			{28, invalid_state}, {29, service_not_offered},
 			{30, dchan_temp_unavail}, {31, too_many_q931_stacks},
-			{32, service_not_config}, {33, data_interface_required},
+			{32, service_not_offered}, {33, data_interface_required},
 			{34, data_interface_invalid}, {35, sym_mode_not_supported},
 			{36, invalid_bufsz}, {37, bond_chan_not_cnfg},
 			{38, bond_chan_bit_conflict}, {39, bond_wrong_spyder_chip},
@@ -126,6 +221,26 @@ error_code(B) when is_binary(B) ->
 	end.
 
 
+%% @type board_id(). Board identification.
+%% 	<p>A record which includes the following fields:</p>
+%%		<dl>
+%%			<dt>iisdn_ver</dt> <dd><tt>string()</tt></dd>
+%%			<dt>banner</dt> <dd><tt>string()</tt></dd>
+%%			<dt>date</dt> <dd><tt>string()</tt></dd>
+%%			<dt>model</dt> <dd><tt>string()</tt></dd>
+%%			<dt>rev</dt> <dd><tt>string()</tt></dd>
+%%			<dt>board_type</dt> <dd><tt>integer()</tt></dd>
+%%			<dt>num_lines</dt> <dd><tt>integer()</tt></dd>
+%%			<dt>num_hdlc_chan</dt> <dd><tt>integer()</tt></dd>
+%%			<dt>num_modem_chan</dt> <dd><tt>integer()</tt></dd>
+%%			<dt>line_type</dt> <dd><tt>[line_type()]</tt></dd>
+%%			<dt>kernel_ram_size</dt> <dd><tt>integer()</tt></dd>
+%%			<dt>mezz_ram_size</dt> <dd><tt>integer()</tt></dd>
+%%			<dt>num_bfio_devices</dt> <dd><tt>integer()</tt></dd>
+%%		</dl>
+%%
+%% @spec(binary()) -> board_id()
+%%
 board_id(B) when is_binary(B) ->
 	Size_32 = (32 * ?SIZEOF_IISDNu8bit),
 	Size_16 = (16 * ?SIZEOF_IISDNu8bit),
@@ -150,7 +265,32 @@ board_id(B) when is_binary(B) ->
 			num_bfio_devices = Num_bfio_devices}.
 			
 
-
+%% @type level1().  Layer 1 configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>l1_mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>invert_hdlc</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>num_txbuf</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>num_xxbuf</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>buffsz</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>chain</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>device</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>bit_reverse</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>vme_lock</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>hdlc_channels</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>chan_kbit_rate</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>crc_bytes</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>crc_ignore_errs</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>crc_ignore_errs</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>rate_adapt</tt></dt><dd><tt>rate_adapt()</tt></dd>
+%% 		<dt><tt>raw_fillchar</tt></dt><dd><tt>raw_fillchar()</tt></dd>
+%% 		<dt><tt>hdlc_flag_fill</tt></dt><dd><tt>hdlc_flag_fill()</tt></dd>
+%% 		<dt><tt>modem</tt></dt><dd><tt>modem()</tt></dd>
+%% 		<dt><tt>v110</tt></dt><dd><tt>v110()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (level1()) -> binary()
+%%
 level1(L1) when is_record(L1, level1) ->
 	Digit32 = fun(Digit32, Bin) -> <<Bin/binary, Digit32:?IISDNu32bit>> end,
 	AmfParms = lists:foldl(Digit32, <<>>, (L1#level1.modem)#modem.amf_params),
@@ -188,6 +328,19 @@ level1(L1) when is_record(L1, level1) ->
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit>>.
 			
 
+%% @type level2().  Layer 2 configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>par</tt></dt><dd><tt>l2_lap_params() | l2_udpip_params()
+%% 				| l2_tcpip_params() | l2_dpnss_params() | l2_ss7_params
+%% 				| l2_v110_params()</tt></dd>
+%% 		<dt><tt>data_interface</tt></dt><dd><tt>data_interface()</tt></dd>
+%% 		<dt><tt>consts</tt></dt><dd><tt>l2_lap_consts() | l2_ip_consts()
+%% 				| l2_dpnss_consts() | l2_ss7_consts()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (level2()) -> binary()
+%%
 level2(L2) when is_record(L2, level2),
 		is_record(L2#level2.par, l2_lap_params) ->
 	level2(L2#level2{
@@ -241,13 +394,41 @@ level2(L2) when is_record(L2, level2),
 			(L2#level2.data_interface)/binary,
 			(L2#level2.consts)/binary>>.
 
-
+%% @type data_interface().  Data interfcae configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>enable</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>fillandspill</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>allow_buffer_preload</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (data_interface()) -> binary()
+%%
 data_interface(DataIf) when is_record(DataIf, data_interface) ->
 	<<(DataIf#data_interface.enable):?IISDNu8bit,
 			(DataIf#data_interface.data_channel):?IISDNu8bit,
 			(DataIf#data_interface.fillandspill):?IISDNu8bit,
 			(DataIf#data_interface.allow_buffer_preload):?IISDNu8bit>>.
 
+%% @type l2_lap_params().  Layer 2 LAP parameters.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>dce_dte</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>tei_mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>no_sabme</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>l2_detail</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>timestamp</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>ui_mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>priority</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>no_reestab</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>mode_1tr6</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>mode_tei_1</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>no_piggyback</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (l2_lap_params()) -> binary()
+%%
 l2_lap_params(Lap) when is_record(Lap, l2_lap_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
 			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
@@ -269,6 +450,16 @@ l2_lap_params(Lap) when is_record(Lap, l2_lap_params) ->
 			(Lap#l2_lap_params.no_piggyback):?IISDNu8bit,
 			0:Pad/integer-unit:8>>.
 
+%% @type l2_udpip_params().  Layer 2 UDP/IP parameters.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>dstport</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>dstipaddr</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (l2_udpip_params()) -> binary()
+%%
 l2_udpip_params(Udpip) when is_record(Udpip, l2_udpip_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
 			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
@@ -283,6 +474,16 @@ l2_udpip_params(Udpip) when is_record(Udpip, l2_udpip_params) ->
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
 			0:Pad/integer-unit:8>>.
 
+%% @type l2_tcpip_params().  Layer 2 TCP/IP parameters.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>dstport</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>dstipaddr</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (l2_tcpip_params()) -> binary()
+%%
 l2_tcpip_params(Tcpip) when is_record(Tcpip, l2_tcpip_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
 			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
@@ -297,6 +498,17 @@ l2_tcpip_params(Tcpip) when is_record(Tcpip, l2_tcpip_params) ->
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
 			0:Pad/integer-unit:8>>.
 
+%% @type l2_dpnss_params().  Layer 2 DPNSS parameters.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>pbx_b</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>sabmr_as_ack</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>tie_line_mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (l2_dpnss_params()) -> binary()
+%%
 l2_dpnss_params(Dpnss) when is_record(Dpnss, l2_dpnss_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
 			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
@@ -310,6 +522,15 @@ l2_dpnss_params(Dpnss) when is_record(Dpnss, l2_dpnss_params) ->
 			(Dpnss#l2_dpnss_params.tie_line_mode):?IISDNu8bit,
 			0:Pad/integer-unit:8>>.
 
+%% @type l2_ss7_params().  Layer 2 SS7 parameters.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>variant</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (l2_ss7_params()) -> binary()
+%%
 l2_ss7_params(Mtp2) when is_record(Mtp2, l2_ss7_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
 			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
@@ -324,6 +545,21 @@ l2_ss7_params(Mtp2) when is_record(Mtp2, l2_ss7_params) ->
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
 			0:Pad/integer-unit:8>>.
 
+%% @type l2_v110_params().  Layer 2 V.110 parameters.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>ebits</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>flow_control</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>nine_byte_rx_frames</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>num_tx_idle_frames</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>max_rx_frame_size</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>stale_rx_data_timer</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>filter_status_messages</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (l2_v110_params()) -> binary()
+%%
 l2_v110_params(V110) when is_record(V110, l2_v110_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
 			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
@@ -341,6 +577,21 @@ l2_v110_params(V110) when is_record(V110, l2_v110_params) ->
 			(V110#l2_v110_params.filter_status_messages):?IISDNu8bit,
 			0:?IISDNu8bit, 0:Pad/integer-unit:8>>.
 	
+%% @type l2_lap_consts().  Layer 2 LAP constants.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>t200</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t201</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t202</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t203</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>n200</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>n201</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>n202</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>k</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (l2_lap_consts()) -> binary()
+%%
 l2_lap_consts(L2) when is_record(L2, l2_lap_consts) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
 			?SIZEOF_IISDN_L2_IP_CONSTS,
@@ -356,6 +607,18 @@ l2_lap_consts(L2) when is_record(L2, l2_lap_consts) ->
 			(L2#l2_lap_consts.k):?IISDNu16bit,
 			0:Pad/integer-unit:8>>.
 
+%% @type l2_ip_consts().  Layer 2 IP constants.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>no_dhcp</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>ipaddr</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>gwaddr</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>subnet_mask</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (L2IpConsts) -> L2IpConsts
+%% 	L2IpConsts = l2_ip_consts() | binary()
+%%
 l2_ip_consts(Ip) when is_record(Ip, l2_ip_consts) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
 			?SIZEOF_IISDN_L2_IP_CONSTS,
@@ -374,6 +637,16 @@ l2_ip_consts(Ip) when is_binary(Ip) ->
 	#l2_ip_consts{no_dhcp = No_dhcp, ipaddr = Ipaddr,
 			gwaddr = Gwaddr, subnet_mask = Subnet_mask}.
 
+%% @type l2_dpnss_consts().  Layer 2 DPNSS constants.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>nl</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>nt1</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>nt2</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (l2_dpnss_consts()) -> binary()
+%%
 l2_dpnss_consts(Dpnss) when is_record(Dpnss, l2_dpnss_consts) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
 			?SIZEOF_IISDN_L2_IP_CONSTS,
@@ -385,6 +658,21 @@ l2_dpnss_consts(Dpnss) when is_record(Dpnss, l2_dpnss_consts) ->
 			(Dpnss#l2_dpnss_consts.nt2):?IISDNu32bit,
 			0:Pad/integer-unit:8>>.
 
+%% @type l2_ss7_consts().  Layer 2 SS7 constants.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>t1</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t2</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t3</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t4n</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t4e</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t5</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t6</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t7</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (l2_ss7_consts()) -> binary()
+%%
 l2_ss7_consts(Mtp2) when is_record(Mtp2, l2_ss7_consts) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
 			?SIZEOF_IISDN_L2_IP_CONSTS,
@@ -400,7 +688,17 @@ l2_ss7_consts(Mtp2) when is_record(Mtp2, l2_ss7_consts) ->
 			(Mtp2#l2_ss7_consts.t7):?IISDNu16bit,
 			0:Pad/integer-unit:8>>.
 
-
+%% @type level3().  Layer 3 configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>l3_mode</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>cnfg</tt></dt><dd><tt>q931() | bonding_data()
+%% 				| x25() | pm() | relay() | dpnss() | dass() 
+%% 				| q933a</tt></dd>
+%% 	</dl>
+%%
+%% @spec (level3()) -> binary()
+%%
 level3(L3) when is_record(L3, level3),
 		is_record(L3#level3.cnfg, q931) ->
 	Bin = q931(L3#level3.cnfg),
@@ -410,28 +708,28 @@ level3(L3) when is_record(L3, level3),
 	Bin = bonding_data(L3#level3.cnfg),
 	level3(L3#level3{cnfg = Bin});
 level3(L3) when is_record(L3, level3),
-		is_record(L3#level3.cnfg, x25_config) ->
-	Bin = x25_config(L3#level3.cnfg),
+		is_record(L3#level3.cnfg, x25) ->
+	Bin = x25(L3#level3.cnfg),
 	level3(L3#level3{cnfg = Bin});
 level3(L3) when is_record(L3, level3),
-		is_record(L3#level3.cnfg, pm_config) ->
-	Bin = pm_config(L3#level3.cnfg),
+		is_record(L3#level3.cnfg, pm) ->
+	Bin = pm(L3#level3.cnfg),
 	level3(L3#level3{cnfg = Bin});
 level3(L3) when is_record(L3, level3),
-		is_record(L3#level3.cnfg, relay_config) ->
-	Bin = relay_config(L3#level3.cnfg),
+		is_record(L3#level3.cnfg, relay) ->
+	Bin = relay(L3#level3.cnfg),
 	level3(L3#level3{cnfg = Bin});
 level3(L3) when is_record(L3, level3),
-		is_record(L3#level3.cnfg, dpnsscc_config) ->
-	Bin = dpnsscc_config(L3#level3.cnfg),
+		is_record(L3#level3.cnfg, dpnss) ->
+	Bin = dpnss(L3#level3.cnfg),
 	level3(L3#level3{cnfg = Bin});
 level3(L3) when is_record(L3, level3),
-		is_record(L3#level3.cnfg, dasscc_config) ->
-	Bin = dasscc_config(L3#level3.cnfg),
+		is_record(L3#level3.cnfg, dass) ->
+	Bin = dass(L3#level3.cnfg),
 	level3(L3#level3{cnfg = Bin});
 level3(L3) when is_record(L3, level3),
-		is_record(L3#level3.cnfg, q933a_config) ->
-	Bin = q933a_config(L3#level3.cnfg),
+		is_record(L3#level3.cnfg, q933a) ->
+	Bin = q933a(L3#level3.cnfg),
 	level3(L3#level3{cnfg = Bin});
 level3(L3) when is_record(L3, level3),
 		is_binary(L3#level3.cnfg) ->
@@ -439,6 +737,68 @@ level3(L3) when is_record(L3, level3),
 			0:?IISDNu16bit, (L3#level3.cnfg)/binary>>.
 
 
+%% @type q931().  Q.931 call control configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>switch_type</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>variant</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>call_filtering</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>q931_timers</tt></dt><dd><tt>q931_timers()</tt></dd>
+%%			<dt><tt>b_channel_service_state</tt></dt><dd><tt>[integer()]</tt></dd>
+%%			<dt><tt>nfas</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>e1_30_bchan</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>basic_rate</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>net_side_emul</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>b_chan_negot</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>proc_on_exclusv</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>chanid_slot_map</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>sprs_chanid_callproc</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>no_chanid_callproc</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>append_raw_qmsg</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>ccitt_mode</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>raw_qmsg</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>no_ie_errcheck</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>user_ie_encode</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>user_ie_encode</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>overlap_rcv</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>send_l3l4_callproc</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>sending_cmplt</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>require_send_complete</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>report_incoming_callproc</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>no_tx_conn_ack</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>no_rx_conn_ack</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>sprs_chanid_setupack</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>no_chanid_setupack</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>no_canned_spid_rej</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>call_reject_notify</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>advice_of_charge</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>message_segmentation</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>no_bc_user_info</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>incoming_call_slot_map</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>release_complete_control</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>primary_lapdid</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>backup_lapdid</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>primary_ifnum</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>backup_ifnum</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>backup_control</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>backup_control</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>spid_len</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>spid_1_len</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>dn_len</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>dn_1_len</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>spid</tt></dt><dd><tt>[integer()]</tt></dd>
+%%			<dt><tt>spid_1</tt></dt><dd><tt>[integer()]</tt></dd>
+%%			<dt><tt>dn</tt></dt><dd><tt>[integer()]</tt></dd>
+%%			<dt><tt>dn_1</tt></dt><dd><tt>[integer()]</tt></dd>
+%%			<dt><tt>chan_id_high_bit</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>att_cust_bri_ekts</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>subscribe_connack</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>suppress_auto_spid</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>accept_all_bri_calls</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec(bonding_data()()) -> binary()
+%%
 q931(Q931) when is_record(Q931, q931) ->
 	Q931_Timers = q931_timers(Q931#q931.q931_timers),
 	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
@@ -510,6 +870,66 @@ q931(Q931) when is_record(Q931, q931) ->
 			(Q931#q931.accept_all_bri_calls):?IISDNu8bit,
 			0:?IISDNu16bit, 0:Pad/integer-unit:8>>.
 
+%% @type x25().  X.25 configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>cfg_msk</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>t10</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>t11</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>t12</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>t13</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>t28</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>p</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>w</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>max_clr_retry</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>max_svcs</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>max_pvcs</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec(x25()()) -> binary()
+%%
+x25(X25) when is_record(X25, x25) ->
+	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
+			?SIZEOF_IISDN_BONDING_DATA,
+			?SIZEOF_IISDN_X25_CONFIG,
+			?SIZEOF_IISDN_PM_CONFIG,
+			?SIZEOF_IISDN_RELAY_CONFIG,
+			?SIZEOF_IISDN_DPNSSCC_CONFIG,
+			?SIZEOF_IISDN_DASSCC_CONFIG,
+			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_X25_CONFIG,
+	<<(X25#x25.cfg_msk):?IISDNu32bit,
+			(X25#x25.t10):?IISDNu16bit,
+			(X25#x25.t11):?IISDNu16bit,
+			(X25#x25.t12):?IISDNu16bit,
+			(X25#x25.t13):?IISDNu16bit,
+			(X25#x25.t28):?IISDNu16bit,
+			(X25#x25.p):?IISDNu16bit,
+			(X25#x25.w):?IISDNu8bit,
+			(X25#x25.max_clr_retry):?IISDNu8bit,
+			(X25#x25.max_svcs):?IISDNu8bit,
+			(X25#x25.max_pvcs):?IISDNu8bit,
+			0:Pad/integer-unit:8>>.
+
+%% @type bonding_data().  Bandwidth On Demand configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>mode</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>destination</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>num_tx_buf</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>num_rx_buf</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>data_channel</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>txinit</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>txadd01</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>txfa</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>txdisc</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>tcid</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>tanull</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>channels</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>directory</tt></dt><dd><tt>[integer()]</tt></dd>
+%% 	</dl>
+%%
+%% @spec(bonding_data()()) -> binary()
+%%
 bonding_data(Bond) when is_record(Bond, bonding_data) ->
 	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
 	Directory = lists:foldl(Digit32, <<>>, Bond#bonding_data.directory),
@@ -536,35 +956,28 @@ bonding_data(Bond) when is_record(Bond, bonding_data) ->
 			(Bond#bonding_data.channels):?IISDNu16bit,
 			Directory/binary, 0:Pad/integer-unit:8>>.
 	
-x25_config(X25) when is_record(X25, x25_config) ->
-	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
-			?SIZEOF_IISDN_BONDING_DATA,
-			?SIZEOF_IISDN_X25_CONFIG,
-			?SIZEOF_IISDN_PM_CONFIG,
-			?SIZEOF_IISDN_RELAY_CONFIG,
-			?SIZEOF_IISDN_DPNSSCC_CONFIG,
-			?SIZEOF_IISDN_DASSCC_CONFIG,
-			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_X25_CONFIG,
-	<<(X25#x25_config.cfg_msk):?IISDNu32bit,
-			(X25#x25_config.t10):?IISDNu16bit,
-			(X25#x25_config.t11):?IISDNu16bit,
-			(X25#x25_config.t12):?IISDNu16bit,
-			(X25#x25_config.t13):?IISDNu16bit,
-			(X25#x25_config.t28):?IISDNu16bit,
-			(X25#x25_config.p):?IISDNu16bit,
-			(X25#x25_config.w):?IISDNu8bit,
-			(X25#x25_config.max_clr_retry):?IISDNu8bit,
-			(X25#x25_config.max_svcs):?IISDNu8bit,
-			(X25#x25_config.max_pvcs):?IISDNu8bit,
-			0:Pad/integer-unit:8>>.
-
-pm_config(PM) when is_record(PM, pm_config) ->
+%% @type pm().  Performance Monitoring configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>mode</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>carrier</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>fdl_alert</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>equipmentid</tt></dt><dd><tt>[integer()]</tt></dd>
+%%			<dt><tt>locationid</tt></dt><dd><tt>[integer()]</tt></dd>
+%%			<dt><tt>frameid</tt></dt><dd><tt>[integer()]</tt></dd>
+%%			<dt><tt>unitid</tt></dt><dd><tt>[integer()]</tt></dd>
+%%			<dt><tt>facilityid</tt></dt><dd><tt>[integer()]</tt></dd>
+%% 	</dl>
+%%
+%% @spec(pm()()) -> binary()
+%%
+pm(PM) when is_record(PM, pm) ->
 	Digit8 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu8bit>> end,
-	Equipmentid = lists:foldl(Digit8, <<>>, PM#pm_config.equipmentid),
-	Locationid = lists:foldl(Digit8, <<>>, PM#pm_config.locationid),
-	Frameid = lists:foldl(Digit8, <<>>, PM#pm_config.frameid),
-	Unitid = lists:foldl(Digit8, <<>>, PM#pm_config.unitid),
-	Facilityid = lists:foldl(Digit8, <<>>, PM#pm_config.facilityid),
+	Equipmentid = lists:foldl(Digit8, <<>>, PM#pm.equipmentid),
+	Locationid = lists:foldl(Digit8, <<>>, PM#pm.locationid),
+	Frameid = lists:foldl(Digit8, <<>>, PM#pm.frameid),
+	Unitid = lists:foldl(Digit8, <<>>, PM#pm.unitid),
+	Facilityid = lists:foldl(Digit8, <<>>, PM#pm.facilityid),
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
 			?SIZEOF_IISDN_BONDING_DATA,
 			?SIZEOF_IISDN_X25_CONFIG,
@@ -573,15 +986,25 @@ pm_config(PM) when is_record(PM, pm_config) ->
 			?SIZEOF_IISDN_DPNSSCC_CONFIG,
 			?SIZEOF_IISDN_DASSCC_CONFIG,
 			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_PM_CONFIG,
-	<<(PM#pm_config.mode):?IISDNu8bit, 
-			(PM#pm_config.carrier):?IISDNu8bit,
-			(PM#pm_config.fdl_alert):?IISDNu8bit,
+	<<(PM#pm.mode):?IISDNu8bit, 
+			(PM#pm.carrier):?IISDNu8bit,
+			(PM#pm.fdl_alert):?IISDNu8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit,
 			Equipmentid/binary, Locationid/binary, Frameid/binary,
 			Unitid/binary, Facilityid/binary,
 			0:Pad/integer-unit:8>>.
 
-relay_config(Relay) when is_record(Relay, relay_config) ->
+%% @type relay().  On board packet relay and routing configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>default_dest</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>default_dest_id</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>default_root_idx</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec(relay()()) -> binary()
+%%
+relay(Relay) when is_record(Relay, relay) ->
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
 			?SIZEOF_IISDN_BONDING_DATA,
 			?SIZEOF_IISDN_X25_CONFIG,
@@ -590,13 +1013,27 @@ relay_config(Relay) when is_record(Relay, relay_config) ->
 			?SIZEOF_IISDN_DPNSSCC_CONFIG,
 			?SIZEOF_IISDN_DASSCC_CONFIG,
 			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_RELAY_CONFIG,
-	<<(Relay#relay_config.default_dest):?IISDNu8bit,
-			(Relay#relay_config.default_dest_id):?IISDNu8bit,
-			(Relay#relay_config.default_root_idx):?IISDNu8bit,
+	<<(Relay#relay.default_dest):?IISDNu8bit,
+			(Relay#relay.default_dest_id):?IISDNu8bit,
+			(Relay#relay.default_root_idx):?IISDNu8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit,
 			0:Pad/integer-unit:8>>.
 
-dpnsscc_config(Dpnss) when is_record(Dpnss, dpnsscc_config) ->
+%% @type dpnss().  Digital Private Network Signaling System (DPNSS) configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>pbx_y</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>no_virtual_channels</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>dest_addr_len</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>b_channel_service_state</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>v_channel_service_state</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>t_i_msg</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>t_guard</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec(dpnss()()) -> binary()
+%%
+dpnss(Dpnss) when is_record(Dpnss, dpnss) ->
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
 			?SIZEOF_IISDN_BONDING_DATA,
 			?SIZEOF_IISDN_X25_CONFIG,
@@ -605,17 +1042,27 @@ dpnsscc_config(Dpnss) when is_record(Dpnss, dpnsscc_config) ->
 			?SIZEOF_IISDN_DPNSSCC_CONFIG,
 			?SIZEOF_IISDN_DASSCC_CONFIG,
 			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_DPNSSCC_CONFIG,
-	<<(Dpnss#dpnsscc_config.pbx_y):?IISDNs8bit,
-			(Dpnss#dpnsscc_config.no_virtual_channels):?IISDNs8bit,
-			(Dpnss#dpnsscc_config.dest_addr_len):?IISDNs8bit,
+	<<(Dpnss#dpnss.pbx_y):?IISDNs8bit,
+			(Dpnss#dpnss.no_virtual_channels):?IISDNs8bit,
+			(Dpnss#dpnss.dest_addr_len):?IISDNs8bit,
 			0:?IISDNu8bit,
-			(Dpnss#dpnsscc_config.b_channel_service_state):?IISDNu32bit,
-			(Dpnss#dpnsscc_config.v_channel_service_state):?IISDNu32bit,
-			(Dpnss#dpnsscc_config.t_i_msg):?IISDNs32bit,
-			(Dpnss#dpnsscc_config.t_guard):?IISDNs32bit,
+			(Dpnss#dpnss.b_channel_service_state):?IISDNu32bit,
+			(Dpnss#dpnss.v_channel_service_state):?IISDNu32bit,
+			(Dpnss#dpnss.t_i_msg):?IISDNs32bit,
+			(Dpnss#dpnss.t_guard):?IISDNs32bit,
 			0:Pad/integer-unit:8>>.
 
-dasscc_config(Dass) when is_record(Dass, dasscc_config) ->
+%% @type dass().  Digital Access Signaling System (DASS) configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>b_channel_service_state</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>t_digit_racking</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>n_clear_retries</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec(dass()()) -> binary()
+%%
+dass(Dass) when is_record(Dass, dass) ->
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
 			?SIZEOF_IISDN_BONDING_DATA,
 			?SIZEOF_IISDN_X25_CONFIG,
@@ -624,13 +1071,26 @@ dasscc_config(Dass) when is_record(Dass, dasscc_config) ->
 			?SIZEOF_IISDN_DPNSSCC_CONFIG,
 			?SIZEOF_IISDN_DASSCC_CONFIG,
 			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_DASSCC_CONFIG,
-	<<(Dass#dasscc_config.b_channel_service_state):?IISDNu32bit,
-			(Dass#dasscc_config.t_digit_racking):?IISDNs32bit,
-			(Dass#dasscc_config.n_clear_retries):?IISDNs8bit,
+	<<(Dass#dass.b_channel_service_state):?IISDNu32bit,
+			(Dass#dass.t_digit_racking):?IISDNs32bit,
+			(Dass#dass.n_clear_retries):?IISDNs8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
 			0:Pad/integer-unit:8>>.
 
-q933a_config(Q933a) when is_record(Q933a, q933a_config) ->
+%% @type q933a().  Q.933 (Frame Realy) Annex A configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>network_side</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>n391</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>n392</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>n393</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>t391</tt></dt><dd><tt>integer()</tt></dd>
+%%			<dt><tt>t392</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec(q933a()) -> binary()
+%%
+q933a(Q933a) when is_record(Q933a, q933a) ->
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
 			?SIZEOF_IISDN_BONDING_DATA,
 			?SIZEOF_IISDN_X25_CONFIG,
@@ -639,15 +1099,33 @@ q933a_config(Q933a) when is_record(Q933a, q933a_config) ->
 			?SIZEOF_IISDN_DPNSSCC_CONFIG,
 			?SIZEOF_IISDN_DASSCC_CONFIG,
 			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_Q933A_CONFIG,
-	<<(Q933a#q933a_config.network_side):?IISDNu8bit,
-			(Q933a#q933a_config.n391):?IISDNu8bit,
-			(Q933a#q933a_config.n392):?IISDNu8bit,
-			(Q933a#q933a_config.n393):?IISDNu8bit,
-			(Q933a#q933a_config.t391):?IISDNu16bit,
-			(Q933a#q933a_config.t392):?IISDNu16bit,
+	<<(Q933a#q933a.network_side):?IISDNu8bit,
+			(Q933a#q933a.n391):?IISDNu8bit,
+			(Q933a#q933a.n392):?IISDNu8bit,
+			(Q933a#q933a.n393):?IISDNu8bit,
+			(Q933a#q933a.t391):?IISDNu16bit,
+			(Q933a#q933a.t392):?IISDNu16bit,
 			0:Pad/integer-unit:8>>.
 
 
+%% @type ena_proto_data().  Enable protocol configuration.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>command</tt></dt><dd><tt>integer()</tt>
+%% 				Send a command to a protocol.  Used only after a
+%% 				protocol was previously successfully configured.</dd>
+%%			<dt><tt>command_parameter</tt></dt><dd><tt>integer()</tt>
+%% 				Command parameter.  Unused.</dd>
+%%			<dt><tt>level1</tt></dt><dd><tt>level1()</tt>
+%% 				Specifies the layer 1 configuration (e.g. HDLC).</dd>
+%%			<dt><tt>level2</tt></dt><dd><tt>level2()</tt>
+%% 				Specifies the layer 2 configuration (e.g. LAPD).  Optional.</dd>
+%%			<dt><tt>level3</tt></dt><dd><tt>level3()</tt>
+%% 				Specifies the layer 3 configuration (e.g. Q.931).  Optional.</dd>
+%% 	</dl>
+%%
+%% @spec(ena_proto_data()) ->  binary()
+%%
 ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
 		is_record(Proto#ena_proto_data.level1, level1) ->
 	ena_proto_data(Proto#ena_proto_data{
@@ -670,6 +1148,28 @@ ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
 			(Proto#ena_proto_data.level2)/binary,
 			(Proto#ena_proto_data.level3)/binary>>.
 
+%% @type hardware_data().  A record which includes the following fields:
+%% 	<dl>
+%% 		<dt><tt>clocking</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>clocking2</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>enable_clocking2</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>netref_clocking</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>netref_rate</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>ctbus_mode</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>force_framer_init</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>tdm_rate</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>enable_8370_rliu_monitor</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>dbcount</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>enable_t810x_snap_mode</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>clk_status</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>line_data</tt></dt> <dd><tt>[line_data()]</tt></dd>
+%% 		<dt><tt>csu</tt></dt> <dd><tt>[boolean()]</tt></dd>
+%% 	</dl>
+%%
+%% @spec(HardwareData) -> HardwareData
+%% 	HardwareData = hardware_data() | binary()
+
+%%
 hardware_data(HW) when is_record(HW, hardware_data),
 		is_binary(HW#hardware_data.line_data) ->
 	Digit8 = fun(Digit8, Bin) -> <<Bin/binary, Digit8:?IISDNu8bit>> end,
@@ -725,6 +1225,27 @@ hardware_data(HW) when is_binary(HW) ->
 			csu = U8toL(U8toL, Csu, [])}.
 
 
+%% @type line_data(). A record which includes the following fields:
+%% 	<dl>
+%% 		<dt><tt>framing</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>line_code</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>pm_mode</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>line_length</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>term</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>line_type</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>integrate_alarms</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>filter_unsolicited</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>filter_yellow</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>bri_l1mode</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>briL1_cmd</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>bri_loop</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>briL1_T3</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>briL1_T4</tt></dt> <dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec(LineData) -> LineData
+%% 	LineData = line_data() | binary()
+%%
 line_data(LD) when is_record(LD, line_data) ->
 	<<(LD#line_data.framing):?IISDNu8bit,
 			(LD#line_data.line_code):?IISDNu8bit,
@@ -756,6 +1277,41 @@ line_data(LD) when is_binary(LD) ->
 			briL1_cmd=BriL1_cmd, bri_loop=Bri_loop,
 			bril1_t3=Bril1_t3, bril1_t4=Bril1_t4}.
 
+%% @type line_type().  t1 | t1_csu | pri_e1 | bri_u | bri_st | integer()
+%%
+%% @spec(LineType) -> LineType
+%% 	LineType = line_type() | binary() | [line_type()]
+%%
+line_type(1) -> t1;
+line_type(2) -> t1_csu;
+line_type(3) -> pri_e1;
+line_type(4) -> bri_u;
+line_type(5) -> bri_st;
+line_type(t1) -> 1;
+line_type(t1_csu) -> 2;
+line_type(pri_e1) -> 3;
+line_type(bri_u) -> 4;
+line_type(bri_st) -> 5;
+line_type(Bin) when is_binary(Bin) ->
+	line_type(Bin, []);
+line_type(Other) -> Other.
+line_type(<<>>, List) -> List;
+line_type(<<Type:?IISDNu8bit, Rest/binary>>, List) ->
+	line_type(Rest, List ++ [line_type(Type)]).
+	
+	
+%% @type tsi_data().  A record which includes the following fields:
+%% 	<dl>
+%% 		<dt><tt>tsi_ack_enable</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>num_mappings</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>granularity</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>last</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>tsi_map</tt></dt> <dd><tt>[tsi_map()]</tt></dd>
+%% 	</dl>
+%%
+%% @spec(TsiData) -> TsiData
+%% 	TsiData = tsi_data() | binary()
+%%
 tsi_data(TS) when is_record(TS, tsi_data),
 		is_binary(TS#tsi_data.tsi_map) ->
 	<<(TS#tsi_data.tsi_ack_enable):?IISDNu8bit,
@@ -786,6 +1342,16 @@ tsi_data(N, <<Destination:?IISDNu16bit, Source:?IISDNu16bit,
 	tsi_data(N - 1, Rest, MapList ++ [tsi_map(<<Destination:?IISDNu16bit,
 			Source:?IISDNu16bit>>)]).
 
+%% @type tsi_map().  A unidirectional timeslot mapping.
+%% 	<p>A record which contains the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>destination</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>source</tt></dt> <dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec(TsiMap) -> TsiMap
+%% 	TsiMap = tsi_map() | binary()
+%%
 tsi_map(MAP) when is_record(MAP, tsi_map) ->
 	<<(MAP#tsi_map.destination):?IISDNu16bit,
 			(MAP#tsi_map.source):?IISDNu16bit>>;
@@ -793,6 +1359,23 @@ tsi_map(MAP) when is_binary(MAP) ->
 	<<Destination:?IISDNu16bit, Source:?IISDNu16bit>> = MAP,
 	#tsi_map{destination = Destination, source = Source}.
 
+%% @type q931_timers().  Q.931 timers configuration.
+%% 	<p>A record which contains the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>t302</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t305</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t308</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t313</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t314</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t316</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t318</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t319</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t3m1</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>t321</tt></dt> <dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (q931_timers()) -> binary()
+%%
 q931_timers(T) when is_record(T, q931_timers) ->
 	<<(T#q931_timers.t302):?IISDNu16bit,
 			(T#q931_timers.t305):?IISDNu16bit,
@@ -805,6 +1388,36 @@ q931_timers(T) when is_record(T, q931_timers) ->
 			(T#q931_timers.t3m1):?IISDNu16bit,
 			(T#q931_timers.t321):?IISDNu16bit>>.
 
+%% @type protocol_stat().  Protocol status.
+%% 	<p>A record which contains the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>status</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>l2_state</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>l2_error</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>l2_errpt</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>b_channels</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>b_chan_req</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>txcount</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>rxcount</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>l2_detail</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>l2_detail_data</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>all_calls_dropped</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>num_q933a_pvcs</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>n_b_channels</tt></dt> <dd><tt>[integer()]</tt></dd>
+%% 		<dt><tt>n_b_chan_req</tt></dt> <dd><tt>[integer()]</tt></dd>
+%% 		<dt><tt>nfas_primary_dchan_status</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>nfas_backup_dchan_status</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>ethernet_speed</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>ethernet_mode</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>connectBPS</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>connectTyp</tt></dt> <dd><tt>integer()</tt></dd>
+%% 		<dt><tt>ip</tt></dt> <dd><tt>l2_ip_consts()</tt></dd>
+%% 		<dt><tt>q933a_pvcs</tt></dt> <dd><tt>[q933a_pvc_status()]</tt></dd>
+%% 		<dt><tt>amf_status</tt></dt> <dd><tt>[integer()]</tt></dd>
+%% 	</dl>
+%%
+%% @spec (binary()) -> protocol_stat()
+%%
 protocol_stat(P) when is_binary(P) ->
 	Size_bchans = (?IISDN_NUM_DS1_INTERFACES * ?SIZEOF_IISDNu32bit),
 	Size_q933a = ((?IISDN_MAX_VC_PER_CHAN - 1) * ?SIZEOF_IISDN_Q933A_PVC_STATUS),
@@ -842,29 +1455,20 @@ protocol_stat(P) when is_binary(P) ->
 			ip = l2_ip_consts(L2IpConsts), q933a_pvcs = QList,
 			amf_status = Amf_status}.
 
+%% @type q933a_pvc_status(). Q.933 (Frame Relay) Annex A PVC status.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>lli</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>status</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%% @spec (binary()) -> q933a_pvc_status()
+%%
 q933a_pvc_status(Q) when is_binary(Q) ->
 	<<Lli:?IISDNu16bit, Status:?IISDNu8bit, _Pad:?IISDNu8bit>> = Q,
 	#q933a_pvc_status{lli = Lli, status = Status}.
+%% @hidden
 q933a_pvc_status(<<>>, QList) -> QList;
 q933a_pvc_status(<<Q:?SIZEOF_IISDN_Q933A_PVC_STATUS/binary, Rest/binary>>, QList) ->
 	q933a_pvc_status(Rest, QList ++ [q933a_pvc_status(Q)]).
 	
 
-%%%
-%%% internal functions
-%%%
-
-%%% @hidden
-line_type(1) -> t1;
-line_type(2) -> t1_csu;
-line_type(3) -> pri_e1;
-line_type(4) -> bri_u;
-line_type(5) -> bri_st;
-line_type(Bin) when is_binary(Bin) ->
-	line_type(Bin, []);
-line_type(Other) -> Other.
-line_type(<<>>, List) -> List;
-line_type(<<Type:?IISDNu8bit, Rest/binary>>, List) ->
-	line_type(Rest, List ++ [line_type(Type)]).
-	
-	

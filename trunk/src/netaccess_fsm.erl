@@ -20,19 +20,26 @@
 %%% 	directly in the user's state handlers.  Data messages are sent as 
 %%% 	binaries but are also received as events.</p>
 %%%
-%%% 	<p>Examples:</p>
-%%% 	<p><code>idle(L3L4m, StateData) when is_record(L3L4m, l3_l4),
-%%% 			L3L4m#l3_l4.msgtype == L3L4mSETUP_IND -> </code></p>
-%%% 	<p><code>connected(IFRAME, StateData)
-%%% 			when is_binary(IFRAME) -> </code></p>
+%%% 	<h5>Message format:</h5>
+%%% 	<p><tt>{Port, L4L3m}</tt><br/>
+%%% 	<tt>{Port, DataBin}</tt></p>
+%%% 	<ul><li><tt>Port = pid()</tt></li>
+%%% 	<li><tt>L4L3m = <a href="iisdn.html#type-l3_l4">l3_l4()</a></tt></li>
+%%% 	<li><tt>DataBin = binary()</tt></li></ul>
+%%%
+%%% 	<h5>Examples:</h5>
+%%% 	<p><tt>idle({Port, L3L4m}, StateData) when is_record(L3L4m, l3_l4),
+%%% 			L3L4m#l3_l4.msgtype == L3L4mSETUP_IND -> </tt></p>
+%%% 	<p><tt>connected({Port, IFRAME}, StateData)
+%%% 			when is_binary(IFRAME) -> </tt></p>
 %%%
 %%% 	<p>User processes must be started with the provided start 
 %%% 	functions.  This module exports the same API as gen_fsm
 %%% 	however you are free to use the gen_fsm functions to communicate
 %%% 	with it once started.</p>
 %%%
-%%% 	<p><code>{ok, ChannelFsm} = netaccess_fsm:start(UserModule, [], [])
-%%% 	<br/>gen_fsm:send_event(ChannelFsm, Event)</code></p>
+%%% 	<p><tt>{ok, ChannelFsm} = netaccess_fsm:start(UserModule, [], [])<br/>
+%%% 	gen_fsm:send_event(ChannelFsm, Event)</tt></p>
 %%%
 %%% @see gen_fsm
 %%%
