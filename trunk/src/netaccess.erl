@@ -55,7 +55,8 @@
 start() ->
 	gen_server:start(netaccess_server, [?DEFAULT_BOARDNAME, 0], []).
 	
-%% @spec (BoardName::string()) -> {ok, Server} | {error, Reason}
+%% @spec (BoardName) -> {ok, Server} | {error, Reason}
+%% 	BoardName = string()
 %%		Server = pid()
 %%		Reason = term()
 %%
@@ -68,7 +69,9 @@ start() ->
 start(BoardName) ->
 	gen_server:start(netaccess_server, [BoardName, 0], []).
 	
-%% @spec (BoardName::string(), BoardNumber::integer()) -> {ok, Server} | {error, Reason}
+%% @spec (BoardName, BoardNumber) -> {ok, Server} | {error, Reason}
+%% 	BoardName = string()
+%% 	BoardNumber = integer()
 %%		Server = pid()
 %%		Reason = term()
 %%
@@ -81,8 +84,10 @@ start(BoardName) ->
 start(BoardName, BoardNumber) ->
 	gen_server:start(netaccess_server, [BoardName, BoardNumber], []).
 	
-%% @spec (ServerName, BoardName::string(), BoardNumber::integer()) -> {ok, Server} | {error, Reason}
+%% @spec (ServerName, BoardName, BoardNumber) -> {ok, Server} | {error, Reason}
 %% 	ServerName = {local,Name} | {global,Name}
+%% 	BoardName = string()
+%% 	BoardNumber = integer()
 %% 	Name = atom()
 %% 	Node = atom()
 %%		Server = pid()
@@ -95,7 +100,8 @@ start(BoardName, BoardNumber) ->
 start(ServerName, BoardName, BoardNumber) ->
 	gen_server:start(ServerName, netaccess_server, [BoardName, BoardNumber], []).
 	
-%% @spec (BoardName::string()) -> {ok, Server} | {error, Reason}
+%% @spec (BoardName) -> {ok, Server} | {error, Reason}
+%% 	BoardName = string()
 %%		Server = pid()
 %%		Reason = term()
 %%
@@ -106,7 +112,9 @@ start(ServerName, BoardName, BoardNumber) ->
 start_link(BoardName) ->
 	gen_server:start_link(netaccess_server, [BoardName, 0], []).
 
-%% @spec (BoardName::string(), BoardNumber::integer()) -> {ok, Server} | {error, Reason}
+%% @spec (BoardName, BoardNumber) -> {ok, Server} | {error, Reason}
+%% 	BoardName = string()
+%% 	BoardNumber = integer()
 %%		Server = pid()
 %%		Reason = term()
 %%
@@ -119,8 +127,10 @@ start_link(BoardName) ->
 start_link(BoardName, BoardNumber) ->
 	gen_server:start_link(netaccess_server, [BoardName, BoardNumber], []).
 	
-%% @spec (ServerName, BoardName::string(), BoardNumber::integer()) -> {ok, Server} | {error, Reason}
+%% @spec (ServerName, BoardName, BoardNumber) -> {ok, Server} | {error, Reason}
 %% 	ServerName = {local,Name} | {global,Name}
+%% 	BoardName = string()
+%% 	BoardNumber = integer()
 %% 	Name = atom()
 %% 	Node = atom()
 %%		Server = pid()
@@ -161,7 +171,8 @@ stop(ServerRef) ->
 open(ServerRef) ->
 	do_call(ServerRef, open).
 
-%% @spec (Channel::port()) -> true
+%% @spec (Channel)) -> true
+%% 	Channel = port()
 %%
 %% @doc Close a channel on a netaccess board.
 %%
@@ -229,10 +240,11 @@ get_version(ServerRef) ->
 	do_ioctl(ServerRef, {ioctl, ?GET_VERSION, 0}, 2000).
 
 
-%% @spec (ServerRef) -> {ok, driver_info()} | {error, Reason}
+%% @spec (ServerRef) -> {ok, DriverInfo} | {error, Reason}
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
+%% 	DriverInfo = driver_info()
 %%		Reason = term()
 %%
 %% @see pridrv:driver_info()
@@ -254,10 +266,11 @@ get_driver_info(ServerRef) ->
 %%                                                                       %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% @spec (ServerRef) -> {ok, board_id()} | {error, Reason}
+%% @spec (ServerRef) -> {ok, BoardId} | {error, Reason}
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
+%% 	BoardId = board_id()
 %%		Reason = term()
 %%
 %% @doc Get board identification.
@@ -267,10 +280,11 @@ board_id(ServerRef) ->
 	do_call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
-%% @spec (ServerRef, hardware_data()) -> ok
+%% @spec (ServerRef, HardWareData) -> ok
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
+%% 	HardwareData = hardware_data()
 %%
 %% @doc Set hardware settings on a board.
 %%
@@ -279,10 +293,11 @@ set_hardware(ServerRef, Data) when is_record(Data, hardware_data) ->
 	do_cast(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
-%% @spec (ServerRef) -> {ok, hardware_data()} | {error, Reason}
+%% @spec (ServerRef) -> {ok, HardwareData} | {error, Reason}
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
+%% 	HardwareData = hardware_data()
 %%		Reason = term()
 %%
 %% @doc Query the hardware setup.
@@ -292,10 +307,11 @@ req_hw_status(ServerRef) ->
 	do_call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 	
 	
-%% @spec (ServerRef, tsi_data()) -> ok
+%% @spec (ServerRef, TsiData) -> ok
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
+%% 	TsiData = tsi_data()
 %%
 %% @doc Create timeslot mappings.
 %%
@@ -304,10 +320,11 @@ set_tsi(ServerRef, Data) ->
 	do_cast(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
-%% @spec (ServerRef) -> {ok, [tsi_data()]} | {error, Reason}
+%% @spec (ServerRef) -> {ok, TsiDataList} | {error, Reason}
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
+%% 	TsiDataList = [tsi_data()]
 %%		Reason = term()
 %%
 %% @doc Retrieve the timeslot mappings.
@@ -317,7 +334,10 @@ req_tsi_status(ServerRef) ->
 	do_call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
-%% @spec (Channel::port(), LapdId::integer(), ena_proto_data()) -> true
+%% @spec (Channel, LapdId, EnaProtoData) -> true
+%% 	Channel = port()
+%% 	LapdId = integer()
+%% 	EnaProtoData = ena_proto_data()
 %%
 %% @doc Specifies and enables layer 1, 2 &amp; 3 processing on an open channel.
 %%

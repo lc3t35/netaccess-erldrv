@@ -11,7 +11,7 @@
 %%%
 %%% @author Vance Shipley <vances@motivity.ca>
 %%%
-%%% @doc Conversion routines for the driver of the Netaccess application.
+%%% @doc Conversion routines for the driver of the netaccess application.
 %%%	<p>This module provides functions which convert the binary 
 %%% 	format of data passed with IOCTL calls by the linked in driver
 %%% 	to the records which are used in the erlang API.  The C language
@@ -34,7 +34,8 @@
 
 -include("pridrv.hrl").
 
-%% @type driver_info(). A record which includes the following fields:
+%% @type driver_info(). Statistical information pertaining to a particular board.
+%% 	<p>A record which includes the following fields:</p>
 %%		<dl>
 %%			<dt>board_type</dt> <dd><code>integer()</code></dd>
 %%			<dt>hangup_on_red_alarm</dt> <dd><code>integer()</code></dd>
@@ -51,7 +52,9 @@
 %%					maximum number of data channels the driver can support</dd>
 %%		</dl>
 %%
-%% @spec (binary()) -> driver_info()
+%% @spec (DriverInfoBin) -> DriverInfoRec
+%% 	DriverInfoBin = binary()
+%% 	DriverInfoRec = driver_info()
 %%
 driver_info(R) when is_record(R, driver_info) ->
 	<<(R#driver_info.board_type):?SIZEOF_int/native-signed-integer-unit:8,

@@ -11,7 +11,7 @@
 %%%
 %%% @author Vance Shipley <vances@motivity.ca>
 %%%
-%%% @doc Conversion routines for the API of the Netaccess application.
+%%% @doc Conversion routines for the API of the netaccess application.
 %%%
 %%%	<p>This module provides functions which convert the records used
 %%% 	in the API to the binary format of data exchanged with the boards.
@@ -28,15 +28,16 @@
 %%% 	equivalent to what the C API would have created.  This binary is 
 %%% 	passed to the board as received by the driver.  This is quite
 %%% 	effecient as the memory is allocated once in the emulator and 
-%%% 	reference passed to the driver which sends in down the stream to 
+%%% 	reference passed to the driver which sends it down the stream to 
 %%% 	the board.  Portability between architectures is handled in the
 %%% 	driver's build system using GNU autotools (autoconf, automake,
-%%% 	etc.).</p>
+%%% 	etc.).  The iisdn.hrl header file is generated automatically during
+%%% 	the build process.</p>
 %%%
 %%% 	<p>Some functions encode a record into a binary, others decode 
 %%% 	a binary into a record.  Others work both ways, if you pass it
 %%% 	a record it will return a binary but if you pass it a binary it
-%%% 	will return a record.  The choise is determined by the context
+%%% 	will return a record.  The choice is determined by the context
 %%% 	in which the function is used.</p>
 %%%
 %%% @reference Instant ISDN&#153; SMI Programmer's Guide
@@ -84,8 +85,9 @@
 %% 				Logical Link ID or DLCI.  Used wth LAPD, LAPB and V.120.</dd>
 %% 	</dl>
 %%
-%% @spec (L4L3m) -> L4L3m
-%% 	L4L3m = l4_to_l3() | binary()
+%% @spec (L4L3mRec) -> L4L3mBin
+%% 	L4L3mRec = l4_to_l3()
+%% 	L4L3mBin = binary()
 %%
 l4_to_l3(R) when is_record(R, l4_to_l3) ->
 	MessageType = R#l4_to_l3.msgtype, 
@@ -131,11 +133,12 @@ l4_to_l3(?L4L3mENABLE_PROTOCOL, Header, Data) ->
 %% 		<dt><tt>lli</tt></dt><dd><tt>integer()</tt>
 %% 				Logical Link ID or DLCI.  Used wth LAPD, LAPB and V.120.</dd>
 %% 		<dt><tt>data_channel</tt></dt><dd><tt>integer()</tt>
-%% 				iIdentifies the data stream.  Unused in Solaris driver implementation.</dd>
+%% 				Identifies the data stream.  Unused in Solaris driver implementation.</dd>
 %% 	</dl>
 %%
-%% @spec (L3L4m) -> L3L4m
-%% 	L3L4m = l3_to_l4() | binary()
+%% @spec (L3L4mBin) -> L3L4mRec
+%% 	L3L4mBin = binary()
+%% 	L3L4mRec = l3_to_l4()
 %%
 l3_to_l4(Bin) when is_binary(Bin) ->
 	<<Lapdid:?IISDNu8bit, Msgtype:?IISDNu8bit, L4_ref:?IISDNu16bit,
@@ -148,7 +151,8 @@ l3_to_l4(Bin) when is_binary(Bin) ->
 			data_channel=Data_channel, data=Data}.
 
 %% @type error_code().  L3L4mERROR error code.
-%% 	 = | no_error | lapdid_out_of_range | lapdid_not_established | invalid_called_number
+%% 	<p><tt>
+%% 	error_code() = no_error | lapdid_out_of_range | lapdid_not_established | invalid_called_number
 %% 		| no_crv_available | no_crstruct_available | call_ref_error | invalid_b_channel 
 %% 		| b_chanel_restarting | b_chanel_oos | invalid_call_type | invalid_conn_type
 %% 		| protocol_not_disabled invalid_hdlc_maping | invalid_data_queue | invalid_comand_args
@@ -169,9 +173,11 @@ l3_to_l4(Bin) when is_binary(Bin) ->
 %% 		| invalid_download_msg | protocol_disabled | invalid_variant | too_many_links 
 %% 		| too_many_headers | fatal_error | hot_swap_extraction | dchan_out_of_range 
 %% 		| ether_already_configured | tsi_verification_failed | status_ignored 
-%% 		| bad_call_ref | glare | integer()
+%% 		| bad_call_ref | glare | integer()</tt></p>
 %%
-%% @spec (binary()) -> error_code()
+%% @spec (ErrorCodeBin) -> ErrorCode
+%% 	ErrorCodeBin = binary()
+%% 	ErrorCode = error_code()
 %%
 error_code(B) when is_binary(B) ->
 	<<ErrorCode:?IISDNu8bit, _Rest/binary>> = B,
@@ -225,22 +231,24 @@ error_code(B) when is_binary(B) ->
 %% @type board_id(). Board identification.
 %% 	<p>A record which includes the following fields:</p>
 %%		<dl>
-%%			<dt>iisdn_ver</dt> <dd><tt>string()</tt></dd>
-%%			<dt>banner</dt> <dd><tt>string()</tt></dd>
-%%			<dt>date</dt> <dd><tt>string()</tt></dd>
-%%			<dt>model</dt> <dd><tt>string()</tt></dd>
-%%			<dt>rev</dt> <dd><tt>string()</tt></dd>
-%%			<dt>board_type</dt> <dd><tt>integer()</tt></dd>
-%%			<dt>num_lines</dt> <dd><tt>integer()</tt></dd>
-%%			<dt>num_hdlc_chan</dt> <dd><tt>integer()</tt></dd>
-%%			<dt>num_modem_chan</dt> <dd><tt>integer()</tt></dd>
-%%			<dt>line_type</dt> <dd><tt>[line_type()]</tt></dd>
-%%			<dt>kernel_ram_size</dt> <dd><tt>integer()</tt></dd>
-%%			<dt>mezz_ram_size</dt> <dd><tt>integer()</tt></dd>
-%%			<dt>num_bfio_devices</dt> <dd><tt>integer()</tt></dd>
+%%			<dt><tt>iisdn_ver</tt></dt> <dd><tt>string()</tt></dd>
+%%			<dt><tt>banner</tt></dt> <dd><tt>string()</tt></dd>
+%%			<dt><tt>date</tt></dt> <dd><tt>string()</tt></dd>
+%%			<dt><tt>model</tt></dt> <dd><tt>string()</tt></dd>
+%%			<dt><tt>rev</tt></dt> <dd><tt>string()</tt></dd>
+%%			<dt><tt>board_type</tt></dt> <dd><tt>integer()</tt></dd>
+%%			<dt><tt>num_lines</tt></dt> <dd><tt>integer()</tt></dd>
+%%			<dt><tt>num_hdlc_chan</tt></dt> <dd><tt>integer()</tt></dd>
+%%			<dt><tt>num_modem_chan</tt></dt> <dd><tt>integer()</tt></dd>
+%%			<dt><tt>line_type</tt></dt> <dd><tt>[line_type()]</tt></dd>
+%%			<dt><tt>kernel_ram_size</tt></dt> <dd><tt>integer()</tt></dd>
+%%			<dt><tt>mezz_ram_size</tt></dt> <dd><tt>integer()</tt></dd>
+%%			<dt><tt>num_bfio_devices</tt></dt> <dd><tt>integer()</tt></dd>
 %%		</dl>
 %%
-%% @spec(binary()) -> board_id()
+%% @spec(BoardIdBin) -> BoardIdRec
+%% 	BoardIdBin = binary()
+%% 	BoardIdRec = board_id()
 %%
 board_id(B) when is_binary(B) ->
 	Size_32 = (32 * ?SIZEOF_IISDNu8bit),
@@ -272,7 +280,7 @@ board_id(B) when is_binary(B) ->
 %% 		<dt><tt>l1_mode</tt></dt><dd><tt>integer()</tt></dd>
 %% 		<dt><tt>invert_hdlc</tt></dt><dd><tt>integer()</tt></dd>
 %% 		<dt><tt>num_txbuf</tt></dt><dd><tt>integer()</tt></dd>
-%% 		<dt><tt>num_xxbuf</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>num_rxbuf</tt></dt><dd><tt>integer()</tt></dd>
 %% 		<dt><tt>buffsz</tt></dt><dd><tt>integer()</tt></dd>
 %% 		<dt><tt>chain</tt></dt><dd><tt>integer()</tt></dd>
 %% 		<dt><tt>device</tt></dt><dd><tt>integer()</tt></dd>
@@ -290,7 +298,9 @@ board_id(B) when is_binary(B) ->
 %% 		<dt><tt>v110</tt></dt><dd><tt>v110()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (level1()) -> binary()
+%% @spec (Level1Rec) -> Level1Bin
+%% 	Level1Rec = level1()
+%% 	Level1Bin = binary()
 %%
 level1(L1) when is_record(L1, level1) ->
 	Digit32 = fun(Digit32, Bin) -> <<Bin/binary, Digit32:?IISDNu32bit>> end,
@@ -340,7 +350,9 @@ level1(L1) when is_record(L1, level1) ->
 %% 				| l2_dpnss_consts() | l2_ss7_consts()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (level2()) -> binary()
+%% @spec (Level2Rec) -> Level1Bin
+%% 	Level2Rec = level2()
+%% 	Level2Bin = binary()
 %%
 level2(L2) when is_record(L2, level2),
 		is_record(L2#level2.par, l2_lap_params) ->
@@ -395,7 +407,7 @@ level2(L2) when is_record(L2, level2),
 			(L2#level2.data_interface)/binary,
 			(L2#level2.consts)/binary>>.
 
-%% @type data_interface().  Data interfcae configuration.
+%% @type data_interface().  Data interface configuration.
 %% 	<p>A record which includes the following fields:</p>
 %% 	<dl>
 %% 		<dt><tt>enable</tt></dt><dd><tt>integer()</tt></dd>
@@ -403,7 +415,9 @@ level2(L2) when is_record(L2, level2),
 %% 		<dt><tt>allow_buffer_preload</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (data_interface()) -> binary()
+%% @spec (DataInterfaceRec) -> DataInterfaceBin
+%% 	DataInterfaceRec = data_interface()
+%% 	DataInterfaceBin = binary()
 %%
 data_interface(DataIf) when is_record(DataIf, data_interface) ->
 	<<(DataIf#data_interface.enable):?IISDNu8bit,
@@ -428,7 +442,9 @@ data_interface(DataIf) when is_record(DataIf, data_interface) ->
 %% 		<dt><tt>no_piggyback</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (l2_lap_params()) -> binary()
+%% @spec (L2LapParamsRec) -> L2LapParamsBin
+%% 	L2LapParamsRec = l2_lap_params()
+%% 	L2LapParamsBin = binary()
 %%
 l2_lap_params(Lap) when is_record(Lap, l2_lap_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
@@ -459,7 +475,9 @@ l2_lap_params(Lap) when is_record(Lap, l2_lap_params) ->
 %% 		<dt><tt>dstipaddr</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (l2_udpip_params()) -> binary()
+%% @spec (L2UdpIpParamsRec) -> L2UdpIpParamsBin
+%% 	L2UdpIpParamsRec = l2_udpip_params()
+%% 	L2UdpIpParamsBin = binary()
 %%
 l2_udpip_params(Udpip) when is_record(Udpip, l2_udpip_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
@@ -483,7 +501,9 @@ l2_udpip_params(Udpip) when is_record(Udpip, l2_udpip_params) ->
 %% 		<dt><tt>dstipaddr</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (l2_tcpip_params()) -> binary()
+%% @spec (L2TcpIpParamsRec) -> L2TcpIpParamsBin
+%% 	L2TcpIpParamsRec = l2_tcpip_params()
+%% 	L2UTcIpParamsBin = binary()
 %%
 l2_tcpip_params(Tcpip) when is_record(Tcpip, l2_tcpip_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
@@ -508,7 +528,9 @@ l2_tcpip_params(Tcpip) when is_record(Tcpip, l2_tcpip_params) ->
 %% 		<dt><tt>tie_line_mode</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (l2_dpnss_params()) -> binary()
+%% @spec (L2DpnssParamsRec) -> L2DpnssParamsBin
+%% 	L2DpnssParamsRec = l2_dpnss_params()
+%% 	L2DpnssParamsBin = binary()
 %%
 l2_dpnss_params(Dpnss) when is_record(Dpnss, l2_dpnss_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
@@ -530,7 +552,9 @@ l2_dpnss_params(Dpnss) when is_record(Dpnss, l2_dpnss_params) ->
 %% 		<dt><tt>variant</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (l2_ss7_params()) -> binary()
+%% @spec (L2Ss7ParamsRec) -> L2Ss7ParamsBin
+%% 	L2Ss7ParamsRec = l2_ss7_params()
+%% 	L2Ss7ParamsBin = binary()
 %%
 l2_ss7_params(Mtp2) when is_record(Mtp2, l2_ss7_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
@@ -559,7 +583,9 @@ l2_ss7_params(Mtp2) when is_record(Mtp2, l2_ss7_params) ->
 %% 		<dt><tt>filter_status_messages</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (l2_v110_params()) -> binary()
+%% @spec (L2V110ParamsRec) -> L2V110ParamsBin
+%% 	L2V110ParamsRec = l2_v110_params()
+%% 	L2V110ParamsBin = binary()
 %%
 l2_v110_params(V110) when is_record(V110, l2_v110_params) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
@@ -591,7 +617,9 @@ l2_v110_params(V110) when is_record(V110, l2_v110_params) ->
 %% 		<dt><tt>k</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (l2_lap_consts()) -> binary()
+%% @spec (L2LapConstsRec) -> L2LapConstsBin
+%% 	L2LapConstsRec = l2_lap_consts()
+%% 	L2LapConstsBin = binary()
 %%
 l2_lap_consts(L2) when is_record(L2, l2_lap_consts) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
@@ -646,7 +674,9 @@ l2_ip_consts(Ip) when is_binary(Ip) ->
 %% 		<dt><tt>nt2</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (l2_dpnss_consts()) -> binary()
+%% @spec (L2DpnssConstsRec) -> L2DpnssConstsBin
+%% 	L2DpnssConstsRec = l2_dpnss_consts()
+%% 	L2DpnssConstsBin = binary()
 %%
 l2_dpnss_consts(Dpnss) when is_record(Dpnss, l2_dpnss_consts) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
@@ -672,7 +702,9 @@ l2_dpnss_consts(Dpnss) when is_record(Dpnss, l2_dpnss_consts) ->
 %% 		<dt><tt>t7</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (l2_ss7_consts()) -> binary()
+%% @spec (L2Ss7ConstsRec) -> L2Ss7ConstsRecBin
+%% 	L2Ss7ConstsRec = l2_ss7_consts()
+%% 	L2Ss7ConstsRecBin = binary()
 %%
 l2_ss7_consts(Mtp2) when is_record(Mtp2, l2_ss7_consts) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
@@ -698,7 +730,9 @@ l2_ss7_consts(Mtp2) when is_record(Mtp2, l2_ss7_consts) ->
 %% 				| q933a</tt></dd>
 %% 	</dl>
 %%
-%% @spec (level3()) -> binary()
+%% @spec (Level3Rec) -> Level3Bin
+%% 	Level3Rec = level3()
+%% 	Level3Bin = binary()
 %%
 level3(L3) when is_record(L3, level3),
 		is_record(L3#level3.cnfg, q931) ->
@@ -798,7 +832,9 @@ level3(L3) when is_record(L3, level3),
 %%			<dt><tt>accept_all_bri_calls</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec(bonding_data()()) -> binary()
+%% @spec(Q931Rec) -> Q931Bin
+%% 	Q931Rec = q931()
+%% 	Q931Bin = binary()
 %%
 q931(Q931) when is_record(Q931, q931) ->
 	Q931_Timers = q931_timers(Q931#q931.q931_timers),
@@ -887,7 +923,9 @@ q931(Q931) when is_record(Q931, q931) ->
 %%			<dt><tt>max_pvcs</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec(x25()()) -> binary()
+%% @spec(X25Rec) -> X25Bin
+%% 	X25Rec = x25()
+%% 	X25Bin = binary()
 %%
 x25(X25) when is_record(X25, x25) ->
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
@@ -929,7 +967,9 @@ x25(X25) when is_record(X25, x25) ->
 %%			<dt><tt>directory</tt></dt><dd><tt>[integer()]</tt></dd>
 %% 	</dl>
 %%
-%% @spec(bonding_data()()) -> binary()
+%% @spec(BondingDataRec) -> BondingDataBin
+%% 	BondingDataRec = bonding_data()
+%% 	BondingDataBin = binary()
 %%
 bonding_data(Bond) when is_record(Bond, bonding_data) ->
 	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
@@ -970,7 +1010,9 @@ bonding_data(Bond) when is_record(Bond, bonding_data) ->
 %%			<dt><tt>facilityid</tt></dt><dd><tt>[integer()]</tt></dd>
 %% 	</dl>
 %%
-%% @spec(pm()()) -> binary()
+%% @spec(PMRec) -> PMBin
+%% 	PMRec = pm()
+%% 	PMBin = binary()
 %%
 pm(PM) when is_record(PM, pm) ->
 	Digit8 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu8bit>> end,
@@ -1003,7 +1045,9 @@ pm(PM) when is_record(PM, pm) ->
 %%			<dt><tt>default_root_idx</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec(relay()()) -> binary()
+%% @spec(RelayRec) -> RelayBin
+%% 	RelayRec = relay()
+%% 	RelayBin = binary()
 %%
 relay(Relay) when is_record(Relay, relay) ->
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
@@ -1032,7 +1076,9 @@ relay(Relay) when is_record(Relay, relay) ->
 %%			<dt><tt>t_guard</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec(dpnss()()) -> binary()
+%% @spec(DpnssRec) -> DpnssBin
+%% 	DpnssRec = dpnss()
+%% 	DpnssBin = binary()
 %%
 dpnss(Dpnss) when is_record(Dpnss, dpnss) ->
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
@@ -1061,7 +1107,9 @@ dpnss(Dpnss) when is_record(Dpnss, dpnss) ->
 %%			<dt><tt>n_clear_retries</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec(dass()()) -> binary()
+%% @spec(DassRec) -> DassBin
+%% 	DassRec = dass()
+%% 	DassBin = binary()
 %%
 dass(Dass) when is_record(Dass, dass) ->
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
@@ -1089,7 +1137,9 @@ dass(Dass) when is_record(Dass, dass) ->
 %%			<dt><tt>t392</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec(q933a()) -> binary()
+%% @spec(Q933aRec) -> Q933aBin
+%% 	Q933aRec = q933a()
+%% 	Q933aBin = binary()
 %%
 q933a(Q933a) when is_record(Q933a, q933a) ->
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
@@ -1125,7 +1175,9 @@ q933a(Q933a) when is_record(Q933a, q933a) ->
 %% 				Specifies the layer 3 configuration (e.g. Q.931).  Optional.</dd>
 %% 	</dl>
 %%
-%% @spec(ena_proto_data()) ->  binary()
+%% @spec(EnaProtoDataRec) -> EnaProtoDataBin
+%% 	EnaProtoDataRec = ena_proto_data()
+%% 	EnaProtoDataBin = binary()
 %%
 ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
 		is_record(Proto#ena_proto_data.level1, level1) ->
@@ -1375,7 +1427,9 @@ tsi_map(MAP) when is_binary(MAP) ->
 %% 		<dt><tt>t321</tt></dt> <dd><tt>integer()</tt></dd>
 %% 	</dl>
 %%
-%% @spec (q931_timers()) -> binary()
+%% @spec (Q931TimersRec) -> Q931TimersBin
+%% 	Q931TimersRec = q931_timers()
+%% 	Q931TimersBin = binary()
 %%
 q931_timers(T) when is_record(T, q931_timers) ->
 	<<(T#q931_timers.t302):?IISDNu16bit,
@@ -1417,7 +1471,9 @@ q931_timers(T) when is_record(T, q931_timers) ->
 %% 		<dt><tt>amf_status</tt></dt> <dd><tt>[integer()]</tt></dd>
 %% 	</dl>
 %%
-%% @spec (binary()) -> protocol_stat()
+%% @spec (ProtocolStateBin) -> ProtocolStateRec
+%% 	ProtocolStateBin = binary()
+%% 	ProtocolStateRec = protocol_stat()
 %%
 protocol_stat(P) when is_binary(P) ->
 	Size_bchans = (?IISDN_NUM_DS1_INTERFACES * ?SIZEOF_IISDNu32bit),
@@ -1462,7 +1518,9 @@ protocol_stat(P) when is_binary(P) ->
 %% 		<dt><tt>lli</tt></dt><dd><tt>integer()</tt></dd>
 %% 		<dt><tt>status</tt></dt><dd><tt>integer()</tt></dd>
 %% 	</dl>
-%% @spec (binary()) -> q933a_pvc_status()
+%% @spec (Q933aPvcStatusBin) -> Q933aPvcStatusRec
+%% 	Q933aPvcStatusBin = binary()
+%% 	Q933aPvcStatusRec = q933a_pvc_status()
 %%
 q933a_pvc_status(Q) when is_binary(Q) ->
 	<<Lli:?IISDNu16bit, Status:?IISDNu8bit, _Pad:?IISDNu8bit>> = Q,
