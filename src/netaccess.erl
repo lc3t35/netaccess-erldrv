@@ -31,10 +31,10 @@
 	terminate/2, code_change/3]).
 
 %% our published API functions
--export([start/0,start_link/0,stop/0]).
--export([open/0,open/1,close/1]).
--export([select_board/2,boot/2,enable_management_chan/1,
-			reset_board/1,get_version/1, get_driver_info/1]).
+-export([start/0, start_link/0, stop/1]).
+-export([open/1, open/2, close/1]).
+-export([select_board/3, boot/3, enable_management_chan/2,
+			reset_board/2,get_version/2, get_driver_info/2]).
 -export([set_hardware/2, req_hw_status/1]).
 -export([set_tsi/2, req_tsi_status/1]).
 -export([enable_protocol/3]).
@@ -54,7 +54,7 @@
 %%  The API functions
 %%----------------------------------------------------------------------
 
-%% @spec () -> {ok, pid()} | {error, Reason::term()}
+%% @spec () -> {ok, Server::pid()} | {error, Reason::term()}
 %%
 %% @doc Start the netacccess server.
 %%
@@ -63,7 +63,7 @@
 start() ->
 	gen_server:start({local, netaccess_server}, ?MODULE, [], []).
 	
-%% @spec () -> {ok, pid()} | {error, Reason::term()}
+%% @spec () -> {ok, Server::pid()} | {error, Reason::term()}
 %%
 %% @doc Start the netacccess server and link to the calling process.
 %%
@@ -73,62 +73,76 @@ start_link() ->
 	gen_server:start_link({local, netaccess_server}, ?MODULE, [], []).
 
 
-%% @spec () -> ok
+%% @spec (ServerRef) -> ok
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%
 %% @doc Stop the netaccess server.
 %%
-stop() ->
-	do_call(stop).
+stop(ServerRef) ->
+	do_call(ServerRef, stop).
 
 
-%% @spec () -> {ok, Channel::port()}
+%% @spec (ServerRef) -> {ok, Channel::port()}
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%
 %% @doc Open a channel on the netaccess board.
 %%
 %% @see erlang:open_port/2
 %%
-open() ->
-	do_call({open, "netaccess_drv"}).
+open(ServerRef) ->
+	do_call(ServerRef, {open, "netaccess_drv"}).
 
-%% @spec (Board::list() | Board::atom()) -> {ok, Channel::port()}
+%% @spec (ServerRef::pid, Board::list() | Board::atom()) -> {ok, Channel::port()}
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%
 %% @doc Open a channel on a specified netaccess board.
 %%
 %% @see erlang:open_port/2
 %%
-open(Board) when list(Board) ->
-	do_call({open, "netaccess_drv " ++ Board});
-open(Board) when atom(Board) ->
-	do_call({open, "netaccess_drv " ++ atom_to_list(Board)}).
+open(ServerRef, Board) when list(Board) ->
+	do_call(ServerRef, {open, "netaccess_drv " ++ Board});
+open(ServerRef, Board) when atom(Board) ->
+	do_call(ServerRef, {open, "netaccess_drv " ++ atom_to_list(Board)}).
 
 
-%% @spec (Channel::port()) -> true
+%% @spec (ServerRef, Channel::port()) -> true
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%
 %% @doc Close a channel on a netaccess board.
 %%
 %% @see erlang:port_close/1
 %%
-close(Port) ->
-	do_call({close, Port}).
+close(ServerRef, Port) ->
+	do_call(ServerRef, {close, Port}).
 
 
-%% @spec (Channel::port(), Board::integer()) -> ok
+%% @spec (ServerRef, Channel::port(), Board::integer()) -> ok
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%
 %% @doc Select a netaccess board for the channel.
 %%
-select_board(Port, Board) when integer(Board) ->
-	do_ioctl({ioctl, ?SELECT_BOARD, Board, Port}, 1000).
+select_board(ServerRef, Port, Board) when integer(Board) ->
+	do_ioctl(ServerRef, {ioctl, ?SELECT_BOARD, Board, Port}, 1000).
 
 
-%% @spec (Channel::port()) -> ok
+%% @spec (ServerRef, Channel::port()) -> ok
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%
 %% @doc Enable a management channel on an open netaccess board.
 %%
-enable_management_chan(Port) ->
-	do_ioctl({ioctl, ?ENABLE_MANAGEMENT_CHAN, [], Port}, 1000).
+enable_management_chan(ServerRef, Port) ->
+	do_ioctl(ServerRef, {ioctl, ?ENABLE_MANAGEMENT_CHAN, [], Port}, 1000).
 
 
-%% @spec (Channel::port(), BootFile) -> ok | {error, Reason:term()}
+%% @spec (ServerRef, Channel::port(), BootFile) -> ok | {error, Reason:term()}
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%		BootFile = binary() | string() | atom()
 %%
 %% @doc Boot an open netaccess board.
@@ -141,34 +155,40 @@ enable_management_chan(Port) ->
 %%
 %% @see file:read_file/1
 %%
-boot(Port, BootBin) when binary(BootBin) ->
-	do_ioctl({ioctl, ?BOOT_BOARD, BootBin, Port}, 62000);
-boot(Port, Filename) when list(Filename) ->
+boot(ServerRef, Port, BootBin) when binary(BootBin) ->
+	do_ioctl(ServerRef, {ioctl, ?BOOT_BOARD, BootBin, Port}, 62000);
+boot(ServerRef, Port, Filename) when list(Filename) ->
 	case catch file:read_file(Filename) of
 		{ok, BootBin} ->
-			boot(Port, BootBin);
+			boot(ServerRef, Port, BootBin);
 		{error, Reason} ->
 			{error, Reason}
 	end.
 
 
-%% @spec (Channel::port()) -> ok
+%% @spec (ServerRef, Channel::port()) -> ok
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%
 %% @doc Perform a reset on an open netaccess board.
 %%
-reset_board(Port) ->
-	do_ioctl({ioctl, ?RESET_BOARD, [], Port}).
+reset_board(ServerRef, Port) ->
+	do_ioctl(ServerRef, {ioctl, ?RESET_BOARD, [], Port}).
 
 
-%% @spec (Channel:port()) -> returns {ok, Version::string()} or {error, Reason::term()}
+%% @spec (ServerRef, Channel:port()) -> returns {ok, Version::string()} or {error, Reason::term()}
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%
 %% @doc Get software version string from an open netaccess board.
 %%
-get_version(Port) ->
-	do_ioctl({ioctl, ?GET_VERSION, [], Port}, 2000).
+get_version(ServerRef, Port) ->
+	do_ioctl(ServerRef, {ioctl, ?GET_VERSION, [], Port}, 2000).
 
 
-%% @spec (Channel:port()) -> {ok, driver_info()} | {error, Reason::term()}
+%% @spec (ServerRef, Channel:port()) -> {ok, driver_info()} | {error, Reason::term()}
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%
 %% @type driver_info(). A record which includes the following fields:
 %%		<dl>
@@ -190,22 +210,24 @@ get_version(Port) ->
 %% @doc Get driver information from an open netaccess board.
 %%
 %%
-get_driver_info(Port) ->
-	case do_ioctl({ioctl, ?GET_DRIVER_INFO, [], Port}, 2000) of
+get_driver_info(ServerRef, Port) ->
+	case do_ioctl(ServerRef, {ioctl, ?GET_DRIVER_INFO, [], Port}, 2000) of
 		{ok, DriverInfo} ->
 			{ok, pridrv:driver_info(DriverInfo)};
 		Return -> Return
 	end.
 	
 
-%% @spec (Channel::port(), hardware_data()) -> 
+%% @spec (ServerRef, Channel::port(), hardware_data()) -> 
+%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	Name = Node = atom()
 %%
 %% @doc Set hardware settings on a board.
 %%
-set_hardware(Port, Data) when is_record(Data, hardware_data) ->
+set_hardware(ServerRef, Port, Data) when is_record(Data, hardware_data) ->
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_HARDWARE, data = Data},
 	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
-	do_call({'L4L3m', Port, 0, L4L3_bin}).
+	do_call(ServerRef, {'L4L3m', Port, 0, L4L3_bin}).
 
 
 %% @spec (Channel::port()) -> {ok, hardware_data()}
@@ -457,15 +479,15 @@ code_change(_, _, _) -> ok.
 %%  internal functions
 %%----------------------------------------------------------------------
 
-do_ioctl(Request) ->
-	do_ioctl(Request, 30000).
-do_ioctl(Request, Timeout) ->
-	gen_server:call(netaccess_server, Request, Timeout).
+do_ioctl(Pid, Request) ->
+	do_ioctl(Pid, Request, 30000).
+do_ioctl(Pid, Request, Timeout) ->
+	gen_server:call(Pid, Request, Timeout).
 
-do_call(Request) ->
-	gen_server:call(netaccess_server, Request).
+do_call(Pid, Request) ->
+	gen_server:call(Pid, Request).
 
-do_cast(Request) ->
+do_cast(Pid, Request) ->
 	gen_server:cast(netaccess_server, Request).
 
 clean_pid(Pid, State) when is_pid(Pid) ->
