@@ -1,25 +1,32 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% pridrv.erl Erlang module to encode/decode pridrv structures/records %%%
-%%%                                                                     %%%
-%%%---------------------------------------------------------------------%%%
-%%% @copyright Motivity Telecom Inc. 2001-2004                          %%%
-%%%                                                                     %%%
-%%% @author Vance Shipley <vances@motivity.ca>                          %%%
-%%%                                                                     %%%
-%%% All rights reserved. No part of this computer program(s) may be     %%%
-%%% used, reproduced, stored in any retrieval system, or transmitted,   %%%
-%%% in any form or by any means, electronic, mechanical, photocopying,  %%%
-%%% recording, or otherwise without prior written permission of         %%%
-%%% Motivity Telecom Inc.                                               %%%
-%%%---------------------------------------------------------------------%%%
-%%%                                                                     %%%
-%%% For every structure definition in pridrv.h (e.g. driver_info) we    %%%
-%%% have a corresponding record definition (e.g. #driver_info{}) and    %%%
-%%% function (e.g. driver_info/1).  The function takes a single         %%%
-%%% argument which is either a record or a binary.  The function will   %%%
-%%% return a binary given a record or a record given a binary.          %%%
-%%%                                                                     %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%---------------------------------------------------------------------
+%%% @copyright Motivity Telecom Inc. 2001-2004
+%%% @end
+%%%
+%%% All rights reserved. No part of this computer program(s) may be
+%%% used, reproduced, stored in any retrieval system, or transmitted,
+%%% in any form or by any means, electronic, mechanical, photocopying,
+%%% recording, or otherwise without prior written permission of
+%%% Motivity Telecom Inc.
+%%%---------------------------------------------------------------------
+%%%
+%%% @author Vance Shipley <vances@motivity.ca>
+%%%
+%%% @doc Conversion routines for the driver of the Netaccess application.
+%%%	<p>This module provides functions which convert the binary 
+%%% 	format of data passed with IOCTL calls by the linked in driver
+%%% 	to the records which are used in the erlang API.  The C language
+%%% 	structures defined in the Device Driver Programmer's Manual, and
+%%% 	appearing in the <tt>pridrv.h</tt> header file provided with the 
+%%% 	board's device drivers, are defined as records in 
+%%% 	<tt>pridrv.hrl</tt>.  Each record has a corresponding function
+%%% 	with the same name in this module which takes a binary and returns
+%%% 	a record.  The same function when given a record will return a
+%%% 	properly packed binary which is equivalent to what the C API
+%%% 	would have created.  This binary is passed to the board as
+%%% 	received by the driver.</p>
+%%%
+%%% @reference Netaccess&#153; Solaris Device Driver's Manual
+%%%
 
 -module(pridrv).
 
@@ -27,6 +34,25 @@
 
 -include("pridrv.hrl").
 
+%% @type driver_info(). A record which includes the following fields:
+%%		<dl>
+%%			<dt>board_type</dt> <dd><code>integer()</code></dd>
+%%			<dt>hangup_on_red_alarm</dt> <dd><code>integer()</code></dd>
+%%			<dt>flow_control_board</dt> <dd><code>integer()</code></dd>
+%%			<dt>flow_control_wsrv</dt> <dd><code>integer()</code></dd>
+%%			<dt>flow_control_rsrv</dt> <dd><code>integer()</code></dd>
+%%			<dt>hdrops</dt> <dd><code>integer()</code></dd>
+%%			<dt>sdrops</dt> <dd><code>integer()</code></dd>
+%%			<dt>tx_msg_size</dt> <dd><code>integer()</code></dd>
+%%			<dt>rx_msg_size</dt> <dd><code>integer()</code></dd>
+%%			<dt>tx_num_bufs</dt> <dd><code>integer()</code></dd>
+%%			<dt>rx_num_bufs</dt> <dd><code>integer()</code></dd>
+%%			<dt>max_data_channels</dt> <dd><code>integer()</code>
+%%					maximum number of data channels the driver can support</dd>
+%%		</dl>
+%%
+%% @spec (binary()) -> driver_info()
+%%
 driver_info(R) when is_record(R, driver_info) ->
 	<<(R#driver_info.board_type):?SIZEOF_int/native-signed-integer-unit:8,
 			(R#driver_info.hangup_on_red_alarm):?SIZEOF_int/native-signed-integer-unit:8,

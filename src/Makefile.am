@@ -14,7 +14,8 @@ e_src_DATA = netaccess_app.erl netaccess.erl \
 
 docdir = $(datadir)/doc
 if EDOC
-doc_DATA = ../doc/netaccess.html ../doc/netaccess_fsm.html
+doc_DATA = ../doc/netaccess.html ../doc/netaccess_fsm.html \
+		../doc/iisdn.html ../doc/pridrv.html
 endif
 
 if DEBUG

@@ -117,7 +117,7 @@
 %%
 -record(l3_to_l4,
 		{lapdid=0, msgtype=0, l4_ref=0, call_ref=0, bchanel=0,
-		iface=0, bchannel_mask=0, lli=0, data_channel=0, data = <<>>}).
+		interface=0, bchannel_mask=0, lli=0, data_channel=0, data = <<>>}).
 
 %%
 %% error in response to L4L3mXXXXX
@@ -206,9 +206,10 @@
 -define(L3L4errGLARE,                    102).
 
 
--define(L4L3mREQ_BOARD_ID,,   16#C1).
--define(L3L4mBOARD_ID,,       16#3B).
--record(board_id,,{iisdn_ver, banner, date, model, rev, board_type,
+-define(L4L3mREQ_BOARD_ID,   16#C1).
+-define(L3L4mBOARD_ID,       16#3B).
+-record(board_id,
+		{iisdn_ver, banner, date, model, rev, board_type,
 		num_lines, num_hdlc_chan, num_modem_chan, line_type,
 		kernel_ram_size, mezz_ram_size, num_bfio_devices, bfio_device}).
 
@@ -465,25 +466,25 @@
 		txdeq=0, tcid=0, tanull=0, channels=0, 
 		directory=lists:duplicate(?IISDN_MAX_BOND_CHAN, 0)}).
 
--record(x25_config,
+-record(x25,
 		{cfg_msk=0, t10=0, t11=0, t12=0, t13=0, t28=0, p=0, w=0,
 		max_clr_retry=0, max_svcs=0, max_pvcs=0}).
--record(pm_config,
+-record(pm,
 		{mode=0, carrier=0, fdl_alert=0, 
 		equipmentid=lists:duplicate(10, 0),
 		locationid=lists:duplicate(11, 0),
 		frameid=lists:duplicate(10, 0),
 		unitid=lists:duplicate(6, 0),
 		facilityid=lists:duplicate(38, 0)}).
--record(relay_config,
+-record(relay,
 		{default_dest=0, default_dest_id=0, default_root_idx=0}).
--record(dpnsscc_config,
+-record(dpnss,
 		{pbx_y=0, no_virtual_channels=0, dest_addr_len=0, 
 		b_channel_service_state=0, v_channel_service_state=0,
 		t_i_msg=0, t_guard=0}).
--record(dasscc_config,
+-record(dass,
 		{b_channel_service_state=0, t_digit_racking=0, n_clear_retries=0}).
--record(q933a_config,
+-record(q933a,
 		{network_side=0, n391=0, n392=0, n393=0, t391=0, t392=0}).
 
 -define(L3L4mPROTOCOL_STATUS,   16#21).

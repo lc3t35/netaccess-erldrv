@@ -235,25 +235,9 @@ get_version(ServerRef) ->
 %% 	Node = atom()
 %%		Reason = term()
 %%
-%% @type driver_info(). A record which includes the following fields:
-%%		<dl>
-%%			<dt>board_type</dt> <dd><code>integer()</code></dd>
-%%			<dt>hangup_on_red_alarm</dt> <dd><code>integer()</code></dd>
-%%			<dt>flow_control_board</dt> <dd><code>integer()</code></dd>
-%%			<dt>flow_control_wsrv</dt> <dd><code>integer()</code></dd>
-%%			<dt>flow_control_rsrv</dt> <dd><code>integer()</code></dd>
-%%			<dt>hdrops</dt> <dd><code>integer()</code></dd>
-%%			<dt>sdrops</dt> <dd><code>integer()</code></dd>
-%%			<dt>tx_msg_size</dt> <dd><code>integer()</code></dd>
-%%			<dt>rx_msg_size</dt> <dd><code>integer()</code></dd>
-%%			<dt>tx_num_bufs</dt> <dd><code>integer()</code></dd>
-%%			<dt>rx_num_bufs</dt> <dd><code>integer()</code></dd>
-%%			<dt>max_data_channels</dt> <dd><code>integer()</code>
-%%					maximum number of data channels the driver can support</dd>
-%%		</dl>
+%% @see pridrv:driver_info()
 %%
 %% @doc Get driver information from an open netaccess board.
-%%
 %%
 get_driver_info(ServerRef) ->
 	case do_ioctl(ServerRef, {ioctl, ?GET_DRIVER_INFO, 0}, 2000) of
