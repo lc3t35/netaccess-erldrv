@@ -27,6 +27,7 @@
 -export([set_hardware/2, set_hardware/3, set_hardware/4, req_hw_status/1]).
 -export([set_tsi/3, req_tsi_status/1]).
 
+-include("pridrv.hrl").
 -include("naii.hrl").
 
 
@@ -279,6 +280,23 @@ req_tsi_status(TsiMapBins, NumMaps, TsiTerms) ->
 	{?TsiMapMask, Rest} = split_binary(TsiMapBins, 4),
 	req_tsi_status(Rest, NumMaps - 1, TsiTerms ++ ?TsiMapTerms).
 	
+
+%%
+%% enable_protocol(Port, Command, CommandParameter, Level1,
+%%                 Level2, Level3) ->  
+%% 
+%%    Command          = int()
+%%    CommandParameter = int()
+%%    Level1           = record() of type pri_level1_config
+%%    Level2           = record() of type pri_level2_config
+%%    Level3           = record() of type pri_level3_config
+%%
+%% Use the naii library to decode/encode these records and the
+%% binaries received/sent to the boards.
+%%
+enable_protocol(Port, Command, CommandParameter,
+		Level1, Level2, Level3) -> ok.
+
 
 %%----------------------------------------------------------------------
 %%  The gen_server call backs
