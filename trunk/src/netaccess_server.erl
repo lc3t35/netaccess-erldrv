@@ -1,5 +1,6 @@
 %%%---------------------------------------------------------------------
 %%% @copyright Motivity Telecom Inc. 2001-2004
+%%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
 %%% used, reproduced, stored in any retrieval system, or transmitted,
@@ -209,7 +210,7 @@ handle_info({Port, {ref, Ref}, Result}, {Port, StateData} = State) when is_port(
 
 % an L3L4 SMI message binary arrived from the board
 handle_info({Port, {'L3L4m', CtrlBin, DataBin}}, {Port, StateData} = State) 
-			when is_binary(CtrlBin) ->
+			when is_binary(CtrlBin), size(CtrlBin) > 0 ->
 	case catch iisdn:l3_to_l4(CtrlBin) of
 		L3L4_rec when is_record(L3L4_rec, l3_to_l4) ->
 			handle_info({Port, {'L3L4m', L3L4_rec, DataBin}}, State);
