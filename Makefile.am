@@ -1,12 +1,12 @@
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = priv/lib c_src include src examples
+SUBDIRS = c_src include src ebin examples
 
 %.boot:ebin/%.rel
-	${ERLC} -pa ./ebin $<
+	${ERLC} $<
 
 %.tar.gz:	%.boot
-	${ERL} -noshell -pa ./ebin -run systools make_tar $* -run init stop
+	${ERL} -noshell -pz ebin -run systools make_tar $* -run init stop
 
 CLEANFILES = *.boot *.script
 
