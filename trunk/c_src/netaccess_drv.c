@@ -550,8 +550,8 @@ call(ErlDrvData handle, unsigned int command,
 			} else
 				/*  TODO:  implement something?  */
 				return(rindex);
-	}
 #endif
+	}
 	/*  these are potentially blocking tasks so we must be threaded  */
 	if (erts_async_max_threads > 0) {
 		/*  initialize thread data  */
