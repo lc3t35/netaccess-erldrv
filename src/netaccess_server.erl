@@ -98,17 +98,17 @@ handle_call(stop, _From, State) ->
 	{stop, shutdown, ok, State};
 
 %% open a port to the netaccess board
-handle_call(open, {Pid, _Tag} = From, {Port, {BoardName, BoardNumber} = Board, StateData} = State)
-		when node(Pid) == node() ->
+handle_call(open, {Pid, _Tag} = From, {ManagementPort, {BoardName, BoardNumber} = Board,
+		StateData} = State) when node(Pid) == node() ->
 	Command = list_to_atom("netaccess_drv " ++ BoardName),
 	case catch erlang:open_port({spawn, Command}, [binary]) of
-		Port when is_port(Port) -> 
-			case catch erlang:port_call(Port, ?SELECT_BOARD, BoardNumber) of
+		Channel when is_port(Channel) -> 
+			case catch erlang:port_call(Channel, ?SELECT_BOARD, BoardNumber) of
 				{ok, Ref} ->
-					NewStateData = gb_trees:insert({ref, Ref}, {From, Port, now()}, StateData), 
-					{noreply, {Port, Board, NewStateData}};
+					NewStateData = gb_trees:insert({ref, Ref}, {From, Channel, now()}, StateData), 
+					{noreply, {ManagementPort, Board, NewStateData}};
 				{Error, Reason} when Error == 'EXIT'; Error == error ->
-					erlang:port_close(Port),
+					erlang:port_close(Channel),
 					catch exit(Pid, Reason),
 					{noreply, State}
 			end;
@@ -216,12 +216,12 @@ handle_info({Port, {ref, Ref}, Result}, {Port, Board, StateData} = State) ->
 			NewStateData = gb_trees:delete({ref, Ref}, StateData),
 			gen_server:reply(From, Result),
 			{noreply, {Port, Board, NewStateData}};
-		{value, {{Pid, _Tag} = From, Port, _Time}} ->
+		{value, {{Pid, _Tag} = From, Channel, _Time}} ->
 			% a select ioctl for an open
 			NewStateData = gb_trees:delete({ref, Ref}, StateData),
-			port_connect(Port, Pid),
-			unlink(Port),
-			gen_server:reply(From, Port),
+			port_connect(Channel, Pid),
+			unlink(Channel),
+			gen_server:reply(From, Channel),
 			{noreply, {Port, Board, NewStateData}};
 		none ->
 			error_logger:error_report([{server, self()}, {ref, Ref},
