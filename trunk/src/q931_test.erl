@@ -17,19 +17,19 @@
 
 -include("iisdn.hrl").
 
--export([start/1]).
+-export([start/2]).
 
-%% @spec (LapdId::integer()) -> void()
+%% @spec (LapdId::integer(), DceDte::integer()) -> void()
 %%
 %% @doc Start the test.
 %%
-start(LapdId) ->
+start(LapdId, Side) ->
 	{ok, Channel} = netaccess:open(),
 	ok = netaccess:select_board(Channel, 0),
  	L1 = #level1_cnfg{l1_mode = ?IISDNl1modHDLC},
  	L2Parms = #l2_lap_params{
  			mode = ?IISDNl2modLAP_D, 
- 			dce_dte = ?IISDNdirSYMMETRIC},
+ 			dce_dte = Side},
  	D = #data_interface{enable = 1},
  	L2 = #level2_cnfg{par = L2Parms, data_interface = D},
 	Q = #q931_cnfg{variant = ?IISDNvarNATL_ISDN_2},
