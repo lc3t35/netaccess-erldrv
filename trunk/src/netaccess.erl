@@ -1,5 +1,5 @@
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2001-2004
+%%% @copyright Motivity Telecom Inc. 2001-2005
 %%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
@@ -23,15 +23,12 @@
 %%%
 %%% @reference <a href="http://www.brooktrout.com/products/ns301/">
 %%% 		NS301 product information</a>
-%%% @end
+%%% @reference //netaccess/iisdn
+%%% @reference //netaccess/pridrv
 %%%
-%%% The following are to make the edoc links to types defined in the 
-%%% iisdn module work:
-%%% 
          
 -module(netaccess).
--copyright('Copyright (c) 2001-2004 Motivity Telecom Inc.').
--vsn('0.1').
+-copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
 
 %% our published API functions

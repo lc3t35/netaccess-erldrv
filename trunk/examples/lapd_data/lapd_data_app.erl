@@ -1,4 +1,6 @@
 -module(lapd_data_app).
+-copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
+-author('vances@motivity.ca').
 -behaviour(application).
 -export([start/2, stop/1]).
 

@@ -45,8 +45,7 @@
 %%%
          
 -module(netaccess_fsm).
--copyright('Copyright (c) 2004 Motivity Telecom Inc.').
--vsn('0.1').
+-copyright('Copyright (c) 2004,2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
 
 -behaviour(gen_fsm).

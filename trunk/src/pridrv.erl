@@ -1,5 +1,5 @@
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2001-2004
+%%% @copyright Motivity Telecom Inc. 2001-2005
 %%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
@@ -29,6 +29,8 @@
 %%%
 
 -module(pridrv).
+-copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
+-author('vances@motivity.ca').
 
 -export([driver_info/1]).
 

@@ -1,5 +1,5 @@
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2004
+%%% @copyright Motivity Telecom Inc. 2004,2005
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
 %%% used, reproduced, stored in any retrieval system, or transmitted,
@@ -14,6 +14,8 @@
 %%%
          
 -module(q931_test).
+-copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
+-author('vances@motivity.ca').
 
 -include("iisdn.hrl").
 

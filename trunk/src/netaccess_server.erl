@@ -1,5 +1,5 @@
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2001-2004
+%%% @copyright Motivity Telecom Inc. 2001-2005
 %%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
@@ -15,8 +15,7 @@
 %%%
          
 -module(netaccess_server).
--copyright('Copyright (c) 2001-2004 Motivity Telecom Inc.').
--vsn('0.1').
+-copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
 
 -behaviour(gen_server).
