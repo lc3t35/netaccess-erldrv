@@ -86,6 +86,8 @@ l3_to_l4(Bin) when is_binary(Bin) ->
 			data_channel=Data_channel, data=Data}.
 
 level1(L1) when is_record(L1, level1) ->
+	Digit32 = fun(Digit32, Bin) -> <<Bin/binary, Digit32:?IISDNu32bit>> end,
+	AmfParms = lists:foldl(Digit32, <<>>, (L1#level1.modem)#modem.amf_params),
 	<<(L1#level1.l1_mode):?IISDNu8bit,
 			(L1#level1.invert_hdlc):?IISDNu8bit,
 	      (L1#level1.num_txbuf):?IISDNu16bit,
@@ -112,10 +114,7 @@ level1(L1) when is_record(L1, level1) ->
 			((L1#level1.modem)#modem.faxClass):?IISDNu8bit,
 			((L1#level1.modem)#modem.encoding):?IISDNu8bit,
 			((L1#level1.modem)#modem.amf):?IISDNu8bit,
-			(((L1#level1.modem)#modem.amf_params)#amf_params.'0'):?IISDNu32bit,
-			(((L1#level1.modem)#modem.amf_params)#amf_params.'1'):?IISDNu32bit,
-			(((L1#level1.modem)#modem.amf_params)#amf_params.'2'):?IISDNu32bit,
-			(((L1#level1.modem)#modem.amf_params)#amf_params.'3'):?IISDNu32bit,
+			AmfParms/binary,
 			((L1#level1.modem)#modem.minBPS):?IISDNu32bit,
 			((L1#level1.modem)#modem.maxBPS):?IISDNu32bit,
 			((L1#level1.v110)#v110.bit_rate):?IISDNu32bit,
@@ -309,6 +308,7 @@ q931(Q931) when is_record(Q931, q931) ->
 	<<(Q931#q931.switch_type):?IISDNu16bit,
 			(Q931#q931.variant):?IISDNu16bit,
 			(Q931#q931.call_filtering):?IISDNu32bit,
+			Q931_Timers/binary,
 			B_channel_service_state/binary,
 			(Q931#q931.nfas):?IISDNu8bit,
 			(Q931#q931.e1_30_bchan):?IISDNu8bit,
@@ -349,6 +349,7 @@ q931(Q931) when is_record(Q931, q931) ->
 			(Q931#q931.spid_len):?IISDNu8bit,
 			(Q931#q931.spid_1_len):?IISDNu8bit,
 			(Q931#q931.dn_len):?IISDNu8bit,
+			(Q931#q931.dn_1_len):?IISDNu8bit,
 			Spid/binary, Spid_1/binary, Dn/binary, Dn_1/binary,
 			(Q931#q931.chan_id_high_bit):?IISDNu8bit,
 			(Q931#q931.att_cust_bri_ekts):?IISDNu8bit,
@@ -450,7 +451,9 @@ ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
 		is_binary(Proto#ena_proto_data.level1);
 		is_binary(Proto#ena_proto_data.level2);
 		is_binary(Proto#ena_proto_data.level3) ->
-	<<(Proto#ena_proto_data.level1)/binary,
+	<<(Proto#ena_proto_data.command):?IISDNu16bit,
+			(Proto#ena_proto_data.command_parameter):?IISDNu16bit,
+			(Proto#ena_proto_data.level1)/binary,
 			(Proto#ena_proto_data.level2)/binary,
 			(Proto#ena_proto_data.level3)/binary>>.
 
