@@ -39,6 +39,7 @@
 %%% 	will return a record.  The choise is determined by the context
 %%% 	in which the function is used.</p>
 %%%
+%%% @reference Instant ISDN&#153; SMI Programmer's Guide
 %%% @reference Instant ISDN&#153; SMI Reference Guide
 %%%
 
