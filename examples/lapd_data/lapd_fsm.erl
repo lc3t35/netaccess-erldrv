@@ -62,6 +62,9 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		?IISDNdsESTABLISHING ->
 			report_status(P, element(2, StateData)),
 			{next_state, establishing, StateData};
+		?IISDNdsNOT_ESTABLISHED ->
+			report_status(P, element(2, StateData)),
+			{next_state, not_established, StateData};
 		?IISDNdsESTABLISHED ->
 			report_status(P, element(2, StateData)),
 			{Delay, _} = random:uniform_s(element(3, StateData), now()),
@@ -104,6 +107,7 @@ established({Channel, <<Hash:8/unit:8, Data/binary>>}, StateData) ->
 	end;	
 established(timeout, {Channel, LapdId, Timeout} = StateData) ->
 	% send an IFRAME
+io:fwrite("~b sending IFRAME~n", [LapdId]),
 	netaccess:send(Channel, iframe()),
 	{next_state, established, StateData, Timeout};
 established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
