@@ -47,5 +47,5 @@ Building:
 
 Options:
 
-	./configure --enable-debug --enable-threads --enable-maintainer-mode
+	./configure --enable-debug --enable-threads
 
