@@ -68,7 +68,7 @@ init_protocol(StateData) ->
 
 
 %% waiting to establish multiframe state
-establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+establishing({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mPROTOCOL_STATUS ->
 	P = iisdn:protocol_stat(L3L4m#l3_to_l4.data),
 	case 	P#protocol_stat.status of
@@ -85,11 +85,11 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 			NewStateData = StateData#state{iframe_ref = I_ref},
 			{next_state, established, NewStateData}
 	end;
-establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+establishing({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
 	print_stats(L3L4m#l3_to_l4.data, StateData),
 	{next_state, establishing, StateData};
-establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+establishing({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
@@ -104,7 +104,7 @@ establishing(Other, StateData) ->
 
 
 %% multiframe state established
-established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+established({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mPROTOCOL_STATUS ->
 	P = iisdn:protocol_stat(L3L4m#l3_to_l4.data),
 	case 	P#protocol_stat.status of
@@ -121,7 +121,7 @@ established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 			{next_state, not_established, StateData}
 	end;
 %% receive an IFRAME
-established({Channel, <<Hash:8/unit:8, Data/binary>>}, StateData) ->
+established({_Channel, <<Hash:8/unit:8, Data/binary>>}, StateData) ->
 	case erlang:phash2(Data) of
 		Hash -> 
 			{next_state, established, StateData};
@@ -137,11 +137,11 @@ established(report_timer, StateData) ->
 	netaccess:req_l2_stats(StateData#state.port, StateData#state.lapdid),
 	R_ref = gen_fsm:send_event_after(3600000, report_timer),
 	{next_state, established, StateData#state{report_ref = R_ref}};
-established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+established({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
 	print_stats(L3L4m#l3_to_l4.data, StateData),
 	{next_state, established, StateData};
-established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+established({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
@@ -151,7 +151,7 @@ established(Other, StateData) ->
 	{next_state, established, StateData}.
 
 %% multiframe not established
-not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+not_established({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mPROTOCOL_STATUS ->
 	P = iisdn:protocol_stat(L3L4m#l3_to_l4.data),
 	case 	P#protocol_stat.status of
@@ -167,11 +167,11 @@ not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 			report_status(P, StateData#state.lapdid),
 			{next_state, not_established, StateData}
 	end;
-not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+not_established({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
 	print_stats(L3L4m#l3_to_l4.data, StateData),
 	{next_state, not_established, StateData};
-not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+not_established({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
