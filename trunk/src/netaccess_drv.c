@@ -860,7 +860,7 @@ free_tdata(void *t_data)
 }
 
 
-/*  output control and data messages e.g. {Port, {<<Control>>,<<Data>>}}  */
+/*  output control and data messages {Port, {'L3L4m', <<Control>>,<<Data>>}}  */
 int
 message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl, int ctrllen,
 		ErlDrvBinary *data, int datalen)
