@@ -304,7 +304,7 @@ get_driver_info(ServerRef) ->
 %% @end
 %%
 get_qsize(Channel) ->
-	port:call(Channel, ?QSIZE, 0).
+	erlang:port_call(Channel, ?QSIZE, 0).
 
 %% @spec (Channel, NewValue) -> OldValue
 %% 	Channel = port()
@@ -320,7 +320,7 @@ get_qsize(Channel) ->
 %% 	<p>Returns the previous value of the highwater mark.</p>
 %%
 set_highwater(Channel, NewValue) ->
-	port:call(Channel, ?HIGHWATER, NewValue).
+	erlang:port_call(Channel, ?HIGHWATER, NewValue).
 
 %% @spec (Channel, NewValue) -> OldValue
 %% 	Channel = port()
@@ -335,7 +335,7 @@ set_highwater(Channel, NewValue) ->
 %% 	<p>Returns the previous value of the lowwater mark.</p>
 %%
 set_lowwater(Channel, NewValue) ->
-	port:call(Channel, ?LOWWATER, NewValue).
+	erlang:port_call(Channel, ?LOWWATER, NewValue).
 
 %% @spec (Channel, NewValue) -> OldValue
 %% 	Channel = port()
@@ -357,7 +357,7 @@ set_lowwater(Channel, NewValue) ->
 %% 	ITU-T Recommendation Q.921.</p>
 %%
 set_maxiframesize(Channel, NewValue) ->
-	port:call(Channel, ?MAXIFRAMESIZE, NewValue).
+	erlang:port_call(Channel, ?MAXIFRAMESIZE, NewValue).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
