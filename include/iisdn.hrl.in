@@ -373,6 +373,10 @@
 		v110=#v110{}}).
 -record(rate_adapt, {enable=0, rate_adapt_value=0}).
 -record(raw_fillchar, {enable=0, fill_value=0}).
+-define(IISDNflgmCONST,             0).
+-define(IISDNflgmCONST_FLAG_ADJUST, 1).
+-define(IISDNflgmRTA,               2).
+-define(IISDNflgmRTA_FLAG_ADJUST,   3).
 -record(hdlc_flag_fill, {enable=0, mode=0, value=0}).
 -record(modem, {originate=0, faxClass=0, encoding=0, amf=0,
 		amf_params=[0,0,0,0], minBPS=0, maxBPS=0}).

@@ -227,6 +227,21 @@ handle_sync_event(Event, From, statename, {Module, StateName, StateData}) ->
 
 
 %% @hidden
+%% an L3L4mERROR message arrived from the driver
+handle_info({Port, {'L3L4m', CtrlBin, _DataBin}}, statename, {Module, StateName, StateData}) 
+			when is_binary(CtrlBin), size(CtrlBin) > 0 ->
+	L3L4_rec = iisdn:l3_to_l4(CtrlBin),
+	case Module:StateName({Port, L3L4_rec}, StateData) of
+		{next_state, NextStateName, NewStateData} ->
+			{next_state, statename, {Module, NextStateName, NewStateData}};
+		{next_state, NextStateName, NewStateData, Timeout} ->
+			{next_state, statename, {Module, NextStateName, NewStateData}, Timeout};
+		{stop, Reason, NewStateData} ->
+			{stop, Reason, {Module, StateName, NewStateData}};
+		Other ->
+			Other
+	end;
+%% @hidden
 %% an L3L4 SMI control message arrived from the driver
 handle_info({Port, {'L3L4m', CtrlBin, _DataBin}}, statename, {Module, StateName, StateData}) 
 			when is_binary(CtrlBin), size(CtrlBin) > 0 ->
