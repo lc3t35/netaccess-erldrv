@@ -15,7 +15,7 @@ if DEBUG
 else
 .erl.beam:
 	$(ERLC) -b beam -W -v -o ../ebin -I ../include $<
-fi
+endif
 
 ebin/netaccess.beam:	src/netaccess.erl include/iisdn.hrl include/pridrv.hrl
 ebin/netaccess_server.beam:	src/netaccess_server.erl \
