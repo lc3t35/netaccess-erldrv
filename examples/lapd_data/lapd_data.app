@@ -10,6 +10,7 @@
 			[{server_name, pri0},
 			{device_name, "/dev/pri0"},
 			{board_number, 0},
-			{interval, 5000},
+			{iframe_interval, 5000},
+			{report_interval, 600000},
 			{lapdids, [0,1,2,3]}]},
 		{mod,          {lapd_app, []}}]}.
