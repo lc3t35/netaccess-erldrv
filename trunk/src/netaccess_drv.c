@@ -1,5 +1,5 @@
 /* --------------------------------------------------------------------- 
- * Copyright Motivity Telecom Inc. 2001, 2002 
+ * Copyright Motivity Telecom Inc. 2001-2004
  *
  * All rights reserved. No part of this computer programs(s) may be 
  * used, reproduced, stored in any retrieval system, or transmitted,
