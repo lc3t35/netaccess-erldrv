@@ -1805,7 +1805,7 @@ alarm_status(AlarmStatusBin) when is_binary(AlarmStatusBin) ->
 	#alarm_status{rcv_yellow=RcvYellow, rcv_blue=RcvBlue, 
 			rcv_red=RcvRed, snd_yellow=SndYellow}.
 
-%% @type pp().  Performance Monitoring parameters.
+%% @type pp().  Combined Performance Parameters.
 %% 	<p>A record which includes the following fields:</p>
 %% 	<dl>
 %% 		<dt><tt>bpv</tt></dt><dd><tt>integer()</tt> bipolar violations</dd>
@@ -1824,9 +1824,12 @@ alarm_status(AlarmStatusBin) when is_binary(AlarmStatusBin) ->
 %% 		<dt><tt>dm</tt></dt><dd><tt>integer()</tt> degraded minutes</dd>
 %% 		<dt><tt>uas</tt></dt><dd><tt>integer()</tt> unavailable seconds</dd>
 %% 	</dl>
-%% @see ATT TR 54016
 %%
-%% @spec (PP::binary()) -> pp()
+%% @spec (PP) -> PP
+%% 	PP = binary() | pp()
+%%
+%% @doc Combined Performance Parameters.
+%% 	<p>The 15 minute guages defined in <a href="http://www.ietf.org/rfc/rfc1406.txt">RFC1406</a>.</p>
 %%
 pp(PP) when is_binary(PP) ->
 	<<BPV:?IISDNu32bit, EXZ:?IISDNu32bit, LCV:?IISDNu32bit, PCV:?IISDNu32bit, CS:?IISDNu32bit,
@@ -1834,7 +1837,13 @@ pp(PP) when is_binary(PP) ->
 			ES:?IISDNu32bit, BES:?IISDNu32bit, SES:?IISDNu32bit, SEFS:?IISDNu32bit, DM:?IISDNu32bit, 
 			UAS:?IISDNu32bit, _Rest/binary>> = PP,
 	#pp{bpv=BPV, exz=EXZ, lcv=LCV, pcv=PCV, cs=CS, oofs=OOFS, aiss=AISS, les=LES, css=CSS,
-			es=ES, bes=BES, ses=SES, sefs=SEFS, dm=DM, uas=UAS}.
+			es=ES, bes=BES, ses=SES, sefs=SEFS, dm=DM, uas=UAS};
+pp(PP) when is_record(PP, pp) ->
+	<<(PP#pp.bpv):?IISDNu32bit, (PP#pp.exz):?IISDNu32bit, (PP#pp.lcv):?IISDNu32bit,
+			(PP#pp.pcv):?IISDNu32bit, (PP#pp.cs):?IISDNu32bit, (PP#pp.oofs):?IISDNu32bit,
+			(PP#pp.aiss):?IISDNu32bit, (PP#pp.les):?IISDNu32bit, (PP#pp.css):?IISDNu32bit,
+			(PP#pp.es):?IISDNu32bit, (PP#pp.bes):?IISDNu32bit, (PP#pp.ses):?IISDNu32bit,
+			(PP#pp.sefs):?IISDNu32bit, (PP#pp.dm):?IISDNu32bit, (PP#pp.uas):?IISDNu32bit>>.
 
 %% @type pm_req_data().  Performance Monitoring request data.
 %% 	<p>A record which includes the following fields:</p>
@@ -1848,12 +1857,11 @@ pp(PP) when is_binary(PP) ->
 %% 			<tt>?IISDNpmcPLB_ACTIVATE</tt><tt>?IISDNpmcPLB_DEACTIVATE</tt>
 %% 			<tt>?IISDNpmcLLB_ACTIVATE</tt><tt>?IISDNpmcLLB_DEACTIVATE</tt>
 %% 			<tt>?IISDNpmcSEND_FDL_REQUEST</tt></dd>
-%% 		<dt><tt>fdl_request</tt></dt><dd><tt>integer()</tt> see ATT TR 54016 Table B</dd>
+%% 		<dt><tt>fdl_request</tt></dt><dd><tt>integer()</tt></dd>
 %% 		<dt><tt>interval_id</tt></dt><dd><tt>integer()</tt> <tt>0-95</tt> or <tt>255</tt> for current interval</dd>
 %% 		<dt><tt>num_intervals</tt></dt><dd><tt>integer()</tt> <tt>0-?IISDN_PP_NUM_INTERVALS_PER_PACKET</tt></dd>
 %% 		<dt><tt>threshold</tt></dt><dd><tt><a href="#type-pp">pp()</a></tt> <tt>0</tt> entries are disabled</dd>
 %% 	</dl>
-%% @see ATT TR 54016
 %%
 %% @spec (PM::pm_req_data()) -> binary()
 %%
@@ -1886,7 +1894,6 @@ pm_req_data(PM) when is_record(PM, pm_req_data) ->
 %% 		<dt><tt>num_intervals</tt></dt><dd><tt>integer()</tt> <tt>0-?IISDN_PP_NUM_INTERVALS_PER_PACKET</tt></dd>
 %% 		<dt><tt>pp</tt></dt><dd><tt><a href="#type-pp">pp()</a></tt></dd>
 %% 	</dl>
-%% @see ATT TR 54016
 %%
 %% @spec (PM::binary()) -> pm_rsp_data()
 %%
@@ -1915,7 +1922,6 @@ pm_rsp_data(PM) when is_binary(PM) ->
 %% 		<dt><tt>interval</tt></dt><dd><tt><a href="#type-pp">pp()</a></tt></dd>
 %% 		<dt><tt>threshold</tt></dt><dd><tt><a href="#type-pp">pp()</a></tt></dd>
 %% 	</dl>
-%% @see ATT TR 54016
 %%
 %% @spec (PM::binary()) -> pm_rsp_data()
 %%
@@ -1934,12 +1940,11 @@ pm_threshold_xing_data(PM) when is_binary(PM) ->
 %% 		<dt><tt>msg_code</tt></dt><dd><tt>integer()</tt>FDL maintenance response message</dd>
 %% 		<dt><tt>data</tt></dt><dd><tt>binary()</tt></dd>
 %% 	</dl>
-%% @see ATT TR 54016
 %%
 %% @spec (FDL::binary()) -> pm_fdl_msg_data()
 %%
 pm_fdl_msg_data(FDL) when is_binary(FDL) ->
-	<<Line:?IISDNu8bit, MsgCode:?IISDNu8bit, Len:?IISDNs16bit, Mode/binary>> = FDL,
+	<<Line:?IISDNu8bit, MsgCode:?IISDNu8bit, Len:?IISDNs16bit, More/binary>> = FDL,
 	<<Data:Len/binary, _Rest/binary>> = More,
 	#pm_fdl_msg_data{line=Line, msg_code=MsgCode, data=Data}.
 
@@ -1951,18 +1956,17 @@ pm_fdl_msg_data(FDL) when is_binary(FDL) ->
 %% 		<dt><tt>a</tt></dt><dd><tt><a href="#type-pm_threshold_xing_data">pm_threshold_xing_data()</a></tt>
 %% 				<tt><a href="#type-pm_fdl_msg_data">pm_fdl_msg_data()</a></tt></dd>
 %% 	</dl>
-%% @see ATT TR 54016
 %%
 %% @spec (AD::binary()) -> pm_alert_data()
 %%
 pm_alert_data(AD) when is_binary(AD) ->
-	<<Alert_type:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, A/Rest>> = AD,
+	<<Alert_type:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, A/binary>> = AD,
 	case Alert_type of
 		?IISDNpmaTHRESHOLD_XING ->
 			#pm_alert_data{alert_type = Alert_type, a = pm_threshold_xing_data(A)};
 		?IISDNpmaFDL_RX_MOP ->
 			#pm_alert_data{alert_type = Alert_type, a = pm_fdl_msg_data(A)};
-		?IISDNpmaFDL_RX_MOP ->
+		?IISDNpmaFDL_RX_BOP ->
 			#pm_alert_data{alert_type = Alert_type, a = pm_fdl_msg_data(A)}
 	end.
 

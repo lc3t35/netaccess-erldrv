@@ -46,12 +46,13 @@
 -export([get_qsize/1, set_maxiframesize/2, set_lowwater/2, set_highwater/2]).
 -export([enable_protocol/3, disable_protocol/3, req_protocol_status/2]).
 -export([relay_add_rule/4, relay_clear_rules/3, relay_del_rule/4]).
--export([req_l2_stats/2]).
+-export([req_l2_stats/2, pm_request/3]).
 -export([send/2]).
 
 -include("pridrv.hrl").
 -include("iisdn.hrl").
 
+-define(REQ_TIMEOUT, 15000).  % 15sec command timeout
 
 %%----------------------------------------------------------------------
 %%  The API functions
@@ -432,32 +433,31 @@ req_tsi_status(ServerRef) ->
 	gen_server:call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
-%% @spec (Channel, LapdId, EnaProtoData) -> ok
+%% @spec (Channel, LapdId, EnaProtoData) -> Status
 %% 	Channel = port()
 %% 	LapdId = integer()
 %% 	EnaProtoData = iisdn:ena_proto_data()
+%% 	Status = iisdn:protocol_stat()
 %%
 %% @doc Specifies and enables layer 1, 2 &amp; 3 processing on an open channel.
 %%
 enable_protocol(Channel, LapdId, EnaProtoData)  ->
 	enable_protocol(Channel, LapdId,  0, EnaProtoData).
 
-%% @spec (Channel, LapdId, LogicalLinkID, EnaProtoData) -> ok
+%% @spec (Channel, LapdId, LogicalLinkID, EnaProtoData) -> Status
 %% 	Channel = port()
 %% 	LapdId = integer()
 %% 	LogicalLinkID = integer()
 %% 	EnaProtoData = iisdn:ena_proto_data()
+%% 	Status = iisdn:protocol_stat()
 %%
 %% @doc Specifies and enables layer 1, 2 &amp; 3 processing on an open channel.
 %%
-enable_protocol(Channel, LapdId, LogicalLinkID, EnaProtoData) 
-		when is_record(EnaProtoData, ena_proto_data) ->
-	DataBin = iisdn:ena_proto_data(EnaProtoData),
-	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID, 
-			msgtype = ?L4L3mENABLE_PROTOCOL, data = DataBin},
-	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
-	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
-	
+enable_protocol(Channel, LapdId, LogicalLinkID, #ena_proto_data{} = EnaProtoData) ->
+	Data = iisdn:ena_proto_data(EnaProtoData),
+	L4L3 = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID, msgtype = ?L4L3mENABLE_PROTOCOL, data = Data},
+	L3L4 = call_l4l3m(Channel, L4L3, ?L3L4mPROTOCOL_STATUS),
+	iisdn:protocol_stat(L3L4#l3_to_l4.data).
 
 %% @spec (Channel, LapdId, LogicalLinkID, RelayRules) -> ok
 %% 	Channel = port()
@@ -467,22 +467,18 @@ enable_protocol(Channel, LapdId, LogicalLinkID, EnaProtoData)
 %%
 %% @doc Add relay rules on a channel previously enabled for packet relay.
 %%
-relay_add_rule(Channel, LapdId, LogicalLinkID, RelayRules)
-		when length(RelayRules) =< 8 ->
+relay_add_rule(Channel, LapdId, LogicalLinkID, RelayRules) when length(RelayRules) =< 8 ->
 	relay_add_rule(Channel, LapdId, LogicalLinkID, RelayRules, <<>>).
 %% @hidden
-relay_add_rule(Channel, LapdId, LogicalLinkID, [RelayRule|T], Rules) 
-		when is_record(RelayRule, relay_rule) ->
+relay_add_rule(Channel, LapdId, LogicalLinkID, [RelayRule|T], Rules) ->
 	NewRule = iisdn:relay_rule(RelayRule),
 	NewBin = <<Rules/binary, NewRule/binary>>,
 	relay_add_rule(Channel, LapdId, LogicalLinkID, T, NewBin);
 relay_add_rule(Channel, LapdId, LogicalLinkID, [], Rules) ->
 	EmptyRule = iisdn:relay_rule(#relay_rule{}),
-	DataBin = <<Rules/binary, EmptyRule/binary>>,
-	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID,
-			msgtype = ?L4L3mRELAY_ADD_RULE, data = DataBin},
-	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
-	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+	Data = <<Rules/binary, EmptyRule/binary>>,
+	L4L3 = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID, msgtype = ?L4L3mRELAY_ADD_RULE, data = Data},
+	cast_l3l4m(Channel, L4L3).
 	
 
 %% @spec (Channel, LapdId, LogicalLinkID) -> ok
@@ -493,10 +489,8 @@ relay_add_rule(Channel, LapdId, LogicalLinkID, [], Rules) ->
 %% @doc Clear all relay rules on a channel previously enabled for packet relay.
 %%
 relay_clear_rules(Channel, LapdId, LogicalLinkID) ->
-	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID, 
-			msgtype = ?L4L3mRELAY_CLEAR_RULES},
-	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
-	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+	L4L3 = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID, msgtype = ?L4L3mRELAY_CLEAR_RULES},
+	cast_l3l4m(Channel, L4L3).
 	
 
 %% @spec (Channel, LapdId, LogicalLinkID, RelayRule) -> ok
@@ -507,13 +501,10 @@ relay_clear_rules(Channel, LapdId, LogicalLinkID) ->
 %%
 %% @doc Delete a relay rule previously added on a channel enabled for packet relay.
 %%
-relay_del_rule(Channel, LapdId, LogicalLinkID, RelayRule) 
-		when is_record(RelayRule, relay_rule) ->
-	DataBin = iisdn:relay_rule(RelayRule),
-	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID,
-			msgtype = ?L4L3mRELAY_DEL_RULE, data = DataBin},
-	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
-	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+relay_del_rule(Channel, LapdId, LogicalLinkID, #relay_rule{} = RelayRule) ->
+	Data = iisdn:relay_rule(RelayRule),
+	L4L3 = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID, msgtype = ?L4L3mRELAY_DEL_RULE, data = Data},
+	cast_l3l4m(Channel, L4L3).
 	
 
 %% @spec (Channel, LapdId, LogicalLinkID) -> ok
@@ -525,10 +516,8 @@ relay_del_rule(Channel, LapdId, LogicalLinkID, RelayRule)
 %% @doc Disable the protocol stack running on an HDLC channel.
 %%
 disable_protocol(Channel, LapdId, LogicalLinkID) ->
-	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID,
-			msgtype = ?L4L3mDISABLE_PROTOCOL},
-	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
-	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+	L4L3 = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID, msgtype = ?L4L3mDISABLE_PROTOCOL},
+	cast_l3l4m(Channel, L4L3).
 	
 
 %% @spec (Channel, LapdId) -> ProtocolStatus
@@ -537,25 +526,63 @@ disable_protocol(Channel, LapdId, LogicalLinkID) ->
 %% 	ProtocolStatus = iisdn:protocol_stat()
 %%
 %% @doc Retrieves the current protocol status for an active channel.
+%% 	<p>NOTE:  not implemented yet in IISDN v7.6</p>
 %%
 req_protocol_status(Channel, LapdId) ->
-	L4L3_rec = #l4_to_l3{lapdid = LapdId, msgtype = ?L4L3mREQ_PROTOCOL_STATUS},
-	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
-	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
-	
+	L4L3 = #l4_to_l3{lapdid = LapdId, msgtype = ?L4L3mREQ_PROTOCOL_STATUS},
+	L3L4 = call_l4l3m(Channel, L4L3, ?L3L4mPROTOCOL_STATUS),
+	iisdn:protocol_stat(L3L4#l3_to_l4.data).
 
 %% @spec (Channel, LapdId) -> L2Stats
 %% 	Channel = port()
 %% 	LapdId = integer()
 %% 	L2Stats = iisdn:l2_stats() | iisdn:mtp2_stats()
 %%
-%% @doc Retrieves level statistics for a channel.
+%% @doc Retrieves level 2 statistics for a channel.
 %%
 req_l2_stats(Channel, LapdId) ->
-	L4L3_rec = #l4_to_l3{lapdid = LapdId, msgtype = ?L4L3mREQ_L2_STATS},
-	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
-	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+	L4L3 = #l4_to_l3{lapdid = LapdId, msgtype = ?L4L3mREQ_L2_STATS},
+	L3L4 = call_l4l3m(Channel, L4L3, ?L3L4mL2_STATS),
+	iisdn:pm_rsp_data(L3L4#l3_to_l4.data).
 	
+%% @spec (Channel, LapdId, Request) -> Response
+%% 	Channel = port()
+%% 	LapdId = integer()
+%% 	Request = iisdn:pm_req_data()
+%% 	Response = ok | iisdn:pm_rsp_data()
+%%
+%% @doc Control performance monitoring.
+%% 	<p>Some performance monitoring commands generate response data.
+%% 	Others immediately return <tt>ok</tt> (i.e. <tt>SET</tt>).</p>
+%%
+pm_request(Channel, LapdId, #pm_req_data{pm_cmd = Cmd} = Request) when
+		% asynchronous commands
+		Cmd == ?IISDNpmcSET_THRSHLDS_15MIN;
+		Cmd == ?IISDNpmcSET_THRSHLDS_24HR;
+		Cmd == ?IISDNpmcRESET_PM_COUNTERS;
+		Cmd == ?IISDNpmcPLB_ACTIVATE;
+		Cmd == ?IISDNpmcPLB_DEACTIVATE;
+		Cmd == ?IISDNpmcLLB_ACTIVATE;
+		Cmd == ?IISDNpmcLLB_DEACTIVATE;
+		Cmd == ?IISDNpmcSEND_FDL_REQUEST ->
+	pm_request(Channel, LapdId, Request, false);
+pm_request(Channel, LapdId, #pm_req_data{pm_cmd = Cmd} = Request) when
+		% response commands
+		Cmd == ?IISDNpmcGET_THRSHLDS_15MIN;
+		Cmd == ?IISDNpmcGET_THRSHLDS_24HR;
+		Cmd == ?IISDNpmcGET_15MIN_DATA;
+		Cmd == ?IISDNpmcGET_24HR_DATA ->
+	pm_request(Channel, LapdId, Request, true).
+pm_request(Channel, LapdId, #pm_req_data{} = Request, Synch) ->
+	Data = iisdn:pm_req_data(Request),
+	L4L3 = #l4_to_l3{lapdid = LapdId, msgtype = ?L4L3mPM_REQUEST, data = Data},
+	pm_request1(Channel, L4L3, Synch).
+%% @hidden
+pm_request1(Channel, L4L3, true) ->
+	L3L4 = call_l4l3m(Channel, L4L3, ?L3L4mPM_RESPONSE),
+	iisdn:pm_rsp_data(L3L4#l3_to_l4.data);
+pm_request1(Channel, L4L3, false) ->
+	cast_l3l4m(Channel, L4L3).
 
 %% @spec (Channel, Iframe) -> true
 %% 	Channel = port()
@@ -567,5 +594,49 @@ send(Channel, Iframe) ->
 	port_command(Channel, Iframe).
 	
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                       %%
+%% internal functions                                                    %%
+%%                                                                       %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% @spec(Channel, L4L3, Response) -> Result
+%% 	Channel = port()
+%% 	L4L3 = iisdn:l4_to_l3()
+%% 	Response = integer()
+%% 	Result = iisdn:l3_to_l4()
+%%
+%% @doc Send an synchronous L4L3m and wait for the matching response.
+%%
+%% @hidden
+%%
+call_l4l3m(Channel, L4L3, Response) ->
+	erlang:port_call(Channel, ?L4L3m, iisdn:l4_to_l3(L4L3)),
+	LapdId = L4L3#l4_to_l3.lapdid,
+	Request = L4L3#l4_to_l3.msgtype,
+	receive
+		% the expected L3L4m response
+		{Channel, {'L3L4m', <<LapdId:?IISDNu8bit, Response:?IISDNu8bit, _/binary>> = L3L4, _}} ->
+  			iisdn:l3_to_l4(L3L4);
+		% an L3L4mERROR message with offending_message matching request
+		{Channel, {'L3L4m', <<LapdId:?IISDNu8bit, ?L3L4mERROR:?IISDNu8bit, 
+				_L4_ref:?IISDNu16bit, _Call_ref:?IISDNu16bit, _Bchanel:?IISDNu8bit, _Iface:?IISDNu8bit,
+				_Bchannel_mask:?IISDNu32bit, _Lli:?IISDNu16bit, _Data_channel:?IISDNu16bit,
+				ErrorCode:?IISDNu8bit, Request:?IISDNu8bit, Extra/binary>>, _}} ->
+			ErrorRec = iisdn:error_code(<<ErrorCode:?IISDNu8bit, Request:?IISDNu8bit, Extra/binary>>),
+			exit(ErrorRec#error_code.error_code)
+	after ?REQ_TIMEOUT ->
+		exit(timeout)
+	end.
+
+%% @spec(Channel, L4L3) -> ok
+%% 	Channel = port()
+%% 	L4L3 = iisdn:l4_to_l3()
+%%
+%% @doc Send an asynchronous L4L3m.
+%%
+%% @hidden
+%%
+cast_l3l4m(Channel, L4L3) ->
+	erlang:port_call(Channel, ?L4L3m, iisdn:l4_to_l3(L4L3)).
 
