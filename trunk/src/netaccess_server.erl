@@ -62,25 +62,25 @@ init_driver({error, ErrorDescriptor}, BoardName, BoardNumber) ->
 init_driver(ok, BoardName, BoardNumber) ->
 	Command = list_to_atom("netaccess_drv " ++ BoardName),
 	Result = (catch erlang:open_port({spawn, Command}, [binary])),
-	init_port(Result, BoardNumber).
+	init_port(Result, BoardName, BoardNumber).
 
-init_port(Port, BoardNumber) when is_port(Port) ->
-	Result = ioctl(Port, ?SELECT_BOARD, BoardNumber),
-	init_select(Result, Port);
-init_port(Error, BoardNumber) ->
+init_port(Port, BoardName, BoardNumber) when is_port(Port) ->
+	Result = blocking_ioctl(Port, ?SELECT_BOARD, BoardNumber),
+	init_select(Result, Port, {BoardName, BoardNumber});
+init_port(Error, _BoardName, _BoardNumber) ->
 	{stop, Error}.
 
-init_select(ok, Port) ->
-	Result = ioctl(Port, ?ENABLE_MANAGEMENT_CHAN),
-	init_enable(Result, Port);
-init_select(Error, Port) ->
+init_select(ok, Port, Board) ->
+	Result = blocking_ioctl(Port, ?ENABLE_MANAGEMENT_CHAN, 0),
+	init_enable(Result, Port, Board);
+init_select(Error, Port, _Board) ->
 	erlang:port_close(Port),
 	{stop, Error}.
 
-init_enable(ok, Port) ->
-	NewState = {Port, gb_trees:empty()},
+init_enable(ok, Port, Board) ->
+	NewState = {Port, Board, gb_trees:empty()},
 	{ok, NewState};
-init_enable(Error, Port) ->
+init_enable(Error, Port, _Board) ->
 	erlang:port_close(Port),
 	{stop, Error}.
 
@@ -90,19 +90,22 @@ handle_call(stop, _From, State) ->
 	{stop, shutdown, ok, State};
 
 %% open a port to the netaccess board
-handle_call({open, Board}, {Pid, _Tag}, State) when node(Pid) == node() ->
-	case catch erlang:open_port({spawn, Board}, [binary]) of
+handle_call(open, {Pid, _Tag} = From, {Port, {BoardName, BoardNumber} = Board, StateData} = State)
+		when node(Pid) == node() ->
+	case catch erlang:open_port({spawn, BoardName}, [binary]) of
 		Port when is_port(Port) -> 
-			case ioctl(Port, ?SELECT_BOARD) of
-				ok ->
-					port_connect(Port, Pid),
-					unlink(Port),
-					{reply, Port, State};
-				Reason ->
-					{reply, {error, Reason}, State}
+			case catch erlang:port_call(Port, ?SELECT_BOARD, BoardNumber) of
+				{ok, Ref} ->
+					NewStateData = gb_trees:insert({ref, Ref}, {From, Port, now()}, StateData), 
+					{noreply, {Port, Board, NewStateData}};
+				{Error, Reason} when Error == 'EXIT'; Error == error ->
+					erlang:port_close(Port),
+					catch exit(Pid, Reason),
+					{noreply, State}
 			end;
-		Error ->
-			{reply, Error, State}
+		{'EXIT', Reason} ->
+			catch exit(Pid, Reason),
+			{noreply, State}
 	end;
 %% since the port gets linked to the owner it must be local
 handle_call({open, Board}, {Pid, _Tag}, State) when node(Pid) /= node() ->
@@ -110,18 +113,16 @@ handle_call({open, Board}, {Pid, _Tag}, State) when node(Pid) /= node() ->
 	{noreply, State};
 
 %% perform an ioctl on an open channel to a netaccess board
-handle_call({ioctl, Operation, Data}, From, {Port, StateData} = State) ->
+handle_call({ioctl, Operation, Data}, From, {Port, Board, StateData} = State) ->
 	case catch erlang:port_call(Port, Operation, Data) of
 		{ok, Ref} ->
 			NewStateData = gb_trees:insert({ref, Ref},
 					{From, now()}, StateData),
-			{noreply, {Port, NewStateData}};
-		{'EXIT', Reason} ->
+			{noreply, {Port, Board, NewStateData}};
+		{Error, Reason} when Error == 'EXIT'; Error == error ->
 			{Pid, _Tag} = From,
 			catch exit(Pid, Reason),
-			{noreply, State};
-		Other ->
-			{reply, Other, State}
+			{noreply, State}
 	end;
 
 %% discriminate synchronous from asynchronous L4L3m requests
@@ -145,7 +146,7 @@ handle_call_sync(L4L3_Rec, From, State)  when is_record(L4L3_Rec, l4_to_l3) ->
 	Result = (catch iisdn:l4_to_l3(L4L3_Rec)),
 	handle_call_sync(L4L3_Rec#l4_to_l3.msgtype, Result, From, State).
 %% try to insert the request
-handle_call_sync(MsgType, L4L3_Bin, From, {Port, StateData} = State) when is_binary(L4L3_Bin) ->
+handle_call_sync(MsgType, L4L3_Bin, From, {Port, Board, StateData} = State) when is_binary(L4L3_Bin) ->
 	Timeout = timeout(2000),
 	Result = (catch gb_trees:insert(MsgType, {From, Timeout, []}, StateData)),
 	handle_call_sync(MsgType, L4L3_Bin, From, Result, State);
@@ -154,7 +155,7 @@ handle_call_sync(_MsgType, {'EXIT', _Reason}, {Pid, _Tag}, State) ->
 	catch exit(Pid, badarg),
 	{noreply, State}.
 %% we're holding a request already, check if it's stale
-handle_call_sync(MsgType, L4L3_Bin, From, {'EXIT', _Reason}, {Port, StateData} = State) ->
+handle_call_sync(MsgType, L4L3_Bin, From, {'EXIT', _Reason}, {Port, Board, StateData} = State) ->
 	Now = now(),
 	case gb_trees:lookup(MsgType, StateData) of
 		{value, {{Pid, _Tag}, Time, _Acc}} when Time < Now ->
@@ -168,12 +169,12 @@ handle_call_sync(MsgType, L4L3_Bin, From, {'EXIT', _Reason}, {Port, StateData} =
 			% send to port
 			erlang:port_command(Port, L4L3_Bin),
 			error_logger:error_report(["Stale request", {msgtyp, MsgType}, {tree, StateData}]),
-			{noreply, {Port, NewStateData}}
+			{noreply, {Port, Board, NewStateData}}
 	end;
 %% insertion succeeded, send to port
-handle_call_sync(MsgType, L4L3_Bin, From, NewStateData, {Port, _StateData} = State) ->
+handle_call_sync(MsgType, L4L3_Bin, From, NewStateData, {Port, Board, _StateData} = State) ->
 	erlang:port_command(Port, L4L3_Bin),
-	{noreply, {Port, NewStateData}}.
+	{noreply, {Port, Board, NewStateData}}.
 	
 %% Asynchronous requests
 %%
@@ -182,7 +183,7 @@ handle_call_async(L4L3_Rec, From, State)  when is_record(L4L3_Rec, l4_to_l3) ->
 	Result = (catch iisdn:l4_to_l3(L4L3_Rec)),
 	handle_call_async(L4L3_Rec#l4_to_l3.msgtype, Result, From, State).
 %% send to port
-handle_call_async(L4L3_Rec, _From, L4L3_Bin, {Port, _StateData} = State) when is_binary(L4L3_Bin) ->
+handle_call_async(L4L3_Rec, _From, L4L3_Bin, {Port, _Board, _StateData} = State) when is_binary(L4L3_Bin) ->
 	erlang:port_command(Port, L4L3_Bin),
 	{reply, true, State};
 %% failed to encode record
@@ -199,12 +200,20 @@ handle_cast(_, State) ->
 
 
 %% an asynch task has completed
-handle_info({Port, {ref, Ref}, Result}, {Port, StateData} = State) when is_port(Port) ->
+handle_info({Port, {ref, Ref}, Result}, {Port, Board, StateData} = State) ->
 	case gb_trees:lookup({ref, Ref}, StateData) of
 		{value, {From, _Time}} ->
+			% a generic ioctl operation
 			NewStateData = gb_trees:delete({ref, Ref}, StateData),
 			gen_server:reply(From, Result),
-			{noreply, {Port, NewStateData}};
+			{noreply, {Port, Board, NewStateData}};
+		{value, {{Pid, _Tag} = From, Port, _Time}} ->
+			% a select ioctl for an open
+			NewStateData = gb_trees:delete({ref, Ref}, StateData),
+			port_connect(Port, Pid),
+			unlink(Port),
+			gen_server:reply(From, Port),
+			{noreply, {Port, Board, NewStateData}};
 		none ->
 			error_logger:error_report([{server, self()}, {ref, Ref},
 					{port, Port}, {result, Result},
@@ -212,7 +221,7 @@ handle_info({Port, {ref, Ref}, Result}, {Port, StateData} = State) when is_port(
 			{noreply, State}
 	end;
 % an L3L4 SMI message binary arrived from the board
-handle_info({Port, {'L3L4m', CtrlBin, DataBin}}, {Port, StateData} = State) 
+handle_info({Port, {'L3L4m', CtrlBin, DataBin}}, {Port, _Board, _StateData} = State) 
 			when is_binary(CtrlBin), size(CtrlBin) > 0 ->
 	case catch iisdn:l3_to_l4(CtrlBin) of
 		L3L4_rec when is_record(L3L4_rec, l3_to_l4) ->
@@ -223,7 +232,7 @@ handle_info({Port, {'L3L4m', CtrlBin, DataBin}}, {Port, StateData} = State)
 			{noreply, State}
 	end;
 % an L3L4mBOARD_ID message
-handle_info({Port, {'L3L4m', L3L4_rec, _DataBin} = Msg}, {Port, StateData} = State)
+handle_info({Port, {'L3L4m', L3L4_rec, _DataBin} = Msg}, {Port, Board, StateData} = State)
 		when is_record(L3L4_rec, l3_to_l4),
 		L3L4_rec#l3_to_l4.msgtype == ?L3L4mBOARD_ID ->
 	case gb_trees:lookup(?L4L3mREQ_BOARD_ID, StateData) of
@@ -232,11 +241,11 @@ handle_info({Port, {'L3L4m', L3L4_rec, _DataBin} = Msg}, {Port, StateData} = Sta
 			case catch iisdn:board_id(L3L4_rec#l3_to_l4.data) of
 				BoardId when is_record(BoardId, board_id) ->
 					gen_server:reply(From, BoardId),
-					{noreply, {Port, NewStateData}};
+					{noreply, {Port, Board, NewStateData}};
 				{'EXIT', Reason} -> 
 					error_logger:info_report(["Netaccess server received unhandled "
 							"L3L4mBOARD_ID", L3L4_rec]),
-					{noreply, {Port, NewStateData}}
+					{noreply, {Port, Board, NewStateData}}
 			end;
 		none ->
 			error_logger:info_report(["Netaccess server received unhandled "
@@ -244,7 +253,7 @@ handle_info({Port, {'L3L4m', L3L4_rec, _DataBin} = Msg}, {Port, StateData} = Sta
 			{noreply, State}
 	end;
 % an L3L4mHARDWARE_STATUS message
-handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = State)
+handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, Board, StateData} = State)
 		when is_record(L3L4_rec, l3_to_l4),
 		L3L4_rec#l3_to_l4.msgtype == ?L3L4mHARDWARE_STATUS ->
 	case gb_trees:lookup(?L4L3mREQ_HW_STATUS, StateData) of
@@ -252,14 +261,14 @@ handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = Stat
 			NewStateData = gb_trees:delete(?L4L3mREQ_HW_STATUS, StateData),
 			HardwareData = iisdn:hardware_data(L3L4_rec#l3_to_l4.data),
 			gen_server:reply(From, HardwareData),
-			{noreply, {Port, NewStateData}};
+			{noreply, {Port, Board, NewStateData}};
 		none ->
 			error_logger:info_report(["Netaccess server received unhandled "
 					"L3L4mHARDWARE_STATUS", L3L4_rec]),
 			{noreply, State}
 	end;
 % an L3L4mTSI_STATUS message 
-handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = State)
+handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, Board, StateData} = State)
 		when is_record(L3L4_rec, l3_to_l4),
 		L3L4_rec#l3_to_l4.msgtype == ?L3L4mTSI_STATUS ->
 	case gb_trees:lookup(?L4L3mREQ_TSI_STATUS, StateData) of
@@ -270,17 +279,17 @@ handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = Stat
 						TsiDataRec#tsi_data.last == 0 -> 
 					NewStateData = gb_trees:update(?L4L3mREQ_TSI_STATUS,
 							{From, _Time, Acc ++ [TsiDataRec]}, StateData),
-					{noreply, {Port, NewStateData}};
+					{noreply, {Port, Board, NewStateData}};
 				% this is the last one
 				TsiDataRec when is_record(TsiDataRec, tsi_data) ->
 					NewStateData = gb_trees:delete(?L4L3mREQ_TSI_STATUS, StateData),
 					gen_server:reply(From, {ok, Acc ++ [TsiDataRec]}),
-					{noreply, {Port, NewStateData}};
+					{noreply, {Port, Board, NewStateData}};
 				{'EXIT', Reason} ->
 					NewStateData = gb_trees:delete(?L4L3mREQ_TSI_STATUS, StateData),
 					error_logger:error_report(["Netaccess server received corrupt L3L4mTSI_STATUS",
 							Reason, {port, Port}, {control, L3L4_rec}, {data, DataBin}]),
-					{noreply, {Port, NewStateData}}
+					{noreply, {Port, Board, NewStateData}}
 			end;
 		none ->
 			error_logger:info_report(["Netaccess server received unhandled "
@@ -288,11 +297,11 @@ handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = Stat
 			{noreply, State}
 	end;
 % an L3L4 SMI message arrived from the board
-handle_info({Port, {'L3L4m', L3L4, DataBin} = Msg}, {Port, StateData} = State) ->
+handle_info({Port, {'L3L4m', L3L4, DataBin} = Msg}, {Port, Board, StateData} = State) ->
 	error_logger:info_report(["Netaccess server received unhandled L3L4m", L3L4]),
 	{noreply, State};
 % our management port has closed
-handle_info({'EXIT', Port, Reason}, {Port, _StateData} = State) ->
+handle_info({'EXIT', Port, Reason}, {Port, Board, _StateData} = State) ->
 	{stop, Reason, State};
 % a port we were opening closed before we transfered ownership
 handle_info({'EXIT', Port, Reason}, State) ->
@@ -322,16 +331,18 @@ code_change(OldVsn, State, Extra) ->
 %%  internal functions
 %%----------------------------------------------------------------------
 
-ioctl(Port, Operation) ->
-	ioctl(Port, Operation, 0).
-ioctl(Port, Operation, Data) ->
+blocking_ioctl(Port, Operation, Data) ->
 	case catch erlang:port_call(Port, Operation, Data) of
 		{ok, Ref} ->
 			receive
 				{Port, {ref, Ref}, Result} -> Result
-			after 2000 -> timeout
+			after 2000 ->
+				timeout
 			end;
-		{'EXIT', Reason} -> Reason
+		{'EXIT', Reason} ->
+			Reason;
+		{error, Reason} ->
+			Reason
 	end.
 
 

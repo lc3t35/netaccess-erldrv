@@ -147,19 +147,19 @@ stop(ServerRef) ->
 	do_call(ServerRef, stop).
 
 
-%% @spec (ServerRef) -> {ok, Channel}
+%% @spec (ServerRef) -> Channel
 %% 	ServerRef = Name | {Name, Node} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
 %%		Channel = port()
 %%
-%% @doc Open a channel on the netaccess board.
+%% @doc Open a channel on a netaccess board.
 %% 	<p><b>Note:</b>  It is not possible to open a channel on a remote node.</p>
 %%
 %% @see erlang:open_port/2
 %%
 open(ServerRef) ->
-	do_call(ServerRef, {open, "netaccess_drv"}).
+	do_call(ServerRef, open).
 
 %% @spec (Channel::port()) -> true
 %%
