@@ -1,0 +1,5 @@
+2002-9-13  Vance Shipley <vances@motivity.ca>
+
+        * created checks for Erlang headers
+        * created checks for Netaccess headers
+
