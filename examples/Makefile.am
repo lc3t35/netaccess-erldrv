@@ -3,12 +3,5 @@
 SUBDIRS = lapd_data
 
 examplesdir = $(datadir)/examples
-
 examples_DATA = 
-
-CLEANFILES = 
-
-if DEBUG
-	DEBUG_FLAGS = +debug_info
-endif
 

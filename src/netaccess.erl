@@ -57,9 +57,8 @@
 %%  The API functions
 %%----------------------------------------------------------------------
 
-%% @spec () -> {ok, Server} | {error, Reason}
+%% @spec () -> Server
 %%		Server = pid()
-%%		Reason = term()
 %%
 %% @doc Start the netacccess server.
 %% 	<p>Creates a <tt>netaccess_server</tt> process to handle requests
@@ -72,21 +71,23 @@
 %% 	<tt>netaccess_server</tt>.  Otherwise it returns 
 %% 	<tt>{error, Reason}</tt>.</p>
 %%
-%% 	<p>This function is suitable for use as a start function in a 
-%% 	supervisor child specification.</p>
 %% 	<p><b>Note:</b>  This is a convenience function which uses the default board
 %% 	name <tt>"/dev/pri0"</tt> and board number <tt>0</tt>.</p>
 %%
 %% @end
 %%
 start() ->
-	gen_server:start(netaccess_server, [?DEFAULT_BOARDNAME, 0], []).
+	case gen_server:start(netaccess_server, [?DEFAULT_BOARDNAME, 0], []) of
+		{ok, Server} ->
+			Server;
+		{error, Reason} ->
+			exit(Reason)
+	end.
 	
-%% @spec (BoardName, BoardNumber) -> {ok, Server} | {error, Reason}
+%% @spec (BoardName, BoardNumber) -> Server
 %% 	BoardName = string()
 %% 	BoardNumber = integer()
 %%		Server = pid()
-%%		Reason = term()
 %%
 %% @doc Start the netacccess server on a specific board.
 %% 	<p>Creates a <tt>netaccess_server</tt> process to handle 
@@ -100,16 +101,20 @@ start() ->
 %%
 %%
 start(BoardName, BoardNumber) ->
-	gen_server:start(netaccess_server, [BoardName, BoardNumber], []).
+	case gen_server:start(netaccess_server, [BoardName, BoardNumber], []) of
+		{ok, Server} ->
+			Server;
+		{error, Reason} ->
+			exit(Reason)
+	end.
 	
-%% @spec (ServerName, BoardName, BoardNumber) -> {ok, Server} | {error, Reason}
+%% @spec (ServerName, BoardName, BoardNumber) -> Server
 %% 	ServerName = {local,Name} | {global,Name}
 %% 	BoardName = string()
 %% 	BoardNumber = integer()
 %% 	Name = atom()
 %% 	Node = atom()
 %%		Server = pid()
-%%		Reason = term()
 %%
 %% @doc Start the netacccess server using a registered name.
 %% 	<p>If <tt>ServerName</tt> = <tt>{local,Name}</tt> the process
@@ -120,7 +125,12 @@ start(BoardName, BoardNumber) ->
 %% @end
 %%
 start(ServerName, BoardName, BoardNumber) ->
-	gen_server:start(ServerName, netaccess_server, [BoardName, BoardNumber], []).
+	case gen_server:start(ServerName, netaccess_server, [BoardName, BoardNumber], []) of
+		{ok, Server} ->
+			Server;
+		{error, Reason} ->
+			exit(Reason)
+	end.
 	
 %% @spec (BoardName, BoardNumber) -> {ok, Server} | {error, Reason}
 %% 	BoardName = string()

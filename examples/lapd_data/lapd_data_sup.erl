@@ -10,7 +10,7 @@ init([ServerName, DeviceName, BoardNumber, IframeInterval, ReportInterval, LapdI
 	FsmChildSpecs = init_fsms(ServerName, IframeInterval, ReportInterval, LapdIds, []),
 	{ok, {{one_for_one, 10, 60}, [BoardChildSpec] ++ FsmChildSpecs}}.
 
-init_fsms(ServerName, IframeInterval, ReportInterval, [], FsmChildSpecs) ->
+init_fsms(_ServerName, _IframeInterval, _ReportInterval, [], FsmChildSpecs) ->
 	FsmChildSpecs;
 init_fsms(ServerName, IframeInterval, ReportInterval, [LapdId|T], FsmChildSpecs) ->
    FsmStartArgs = [lapd_data_fsm, [ServerName, LapdId, IframeInterval, ReportInterval], []],
