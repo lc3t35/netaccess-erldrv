@@ -1,5 +1,5 @@
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2001-2004
+%%% @copyright Motivity Telecom Inc. 2001-2005
 %%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
@@ -45,6 +45,8 @@
 %%%
 
 -module(iisdn).
+-copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
+-author('vances@motivity.ca').
 
 -export([l3_to_l4/1, l4_to_l3/1]).
 -export([error_code/1]).
