@@ -348,6 +348,166 @@ AC_MSG_CHECKING([for defined value of IISDN_RELAY_MAX_INSERT])
 				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
 		AC_MSG_RESULT([$IISDN_RELAY_MAX_INSERT])
 		AC_SUBST(IISDN_RELAY_MAX_INSERT)
+AC_MSG_CHECKING([for defined value of IISDN_RELAYdestDCHAN])
+		_AC_COMPUTE_INT([IISDN_RELAYdestDCHAN], [IISDN_RELAYdestDCHAN],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_RELAYdestDCHAN])
+		AC_SUBST(IISDN_RELAYdestDCHAN)
+AC_MSG_CHECKING([for defined value of IISDN_RELAYdestLID])
+		_AC_COMPUTE_INT([IISDN_RELAYdestLID], [IISDN_RELAYdestLID],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_RELAYdestLID])
+		AC_SUBST(IISDN_RELAYdestLID)
+AC_MSG_CHECKING([for defined value of IISDN_RELAYdestLID_DEFERRED_PRIORITY])
+		_AC_COMPUTE_INT([IISDN_RELAYdestLID_DEFERRED_PRIORITY], [IISDN_RELAYdestLID_DEFERRED_PRIORITY],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_RELAYdestLID_DEFERRED_PRIORITY])
+		AC_SUBST(IISDN_RELAYdestLID_DEFERRED_PRIORITY)
+AC_MSG_CHECKING([for defined value of IISDN_RELAYdestDROP])
+		_AC_COMPUTE_INT([IISDN_RELAYdestDROP], [IISDN_RELAYdestDROP],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_RELAYdestDROP])
+		AC_SUBST(IISDN_RELAYdestDROP)
+AC_MSG_CHECKING([for defined value of IISDN_RELAYdestLIST])
+		_AC_COMPUTE_INT([IISDN_RELAYdestLIST], [IISDN_RELAYdestLIST],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_RELAYdestLIST])
+		AC_SUBST(IISDN_RELAYdestLIST)
+AC_MSG_CHECKING([for defined value of IISDN_RELAYdestBLOCK])
+		_AC_COMPUTE_INT([IISDN_RELAYdestBLOCK], [IISDN_RELAYdestBLOCK],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_RELAYdestBLOCK])
+		AC_SUBST(IISDN_RELAYdestBLOCK)
+AC_MSG_CHECKING([for defined value of IISDN_RELAYdestDCHAN_OF_LID])
+		_AC_COMPUTE_INT([IISDN_RELAYdestDCHAN_OF_LID], [IISDN_RELAYdestDCHAN_OF_LID],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_RELAYdestDCHAN_OF_LID])
+		AC_SUBST(IISDN_RELAYdestDCHAN_OF_LID)
+AC_MSG_CHECKING([for defined value of IISDNdevDEFAULT])
+		_AC_COMPUTE_INT([IISDNdevDEFAULT], [IISDNdevDEFAULT],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevDEFAULT])
+		AC_SUBST(IISDNdevDEFAULT)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_0])
+		_AC_COMPUTE_INT([IISDNdevHDLC_0], [IISDNdevHDLC_0],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_0])
+		AC_SUBST(IISDNdevHDLC_0)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_1])
+		_AC_COMPUTE_INT([IISDNdevHDLC_1], [IISDNdevHDLC_1],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_1])
+		AC_SUBST(IISDNdevHDLC_1)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_2])
+		_AC_COMPUTE_INT([IISDNdevHDLC_2], [IISDNdevHDLC_2],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_2])
+		AC_SUBST(IISDNdevHDLC_2)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_3])
+		_AC_COMPUTE_INT([IISDNdevHDLC_3], [IISDNdevHDLC_3],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_3])
+		AC_SUBST(IISDNdevHDLC_3)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_4])
+		_AC_COMPUTE_INT([IISDNdevHDLC_4], [IISDNdevHDLC_4],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_4])
+		AC_SUBST(IISDNdevHDLC_4)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_5])
+		_AC_COMPUTE_INT([IISDNdevHDLC_5], [IISDNdevHDLC_5],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_5])
+		AC_SUBST(IISDNdevHDLC_5)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_6])
+		_AC_COMPUTE_INT([IISDNdevHDLC_6], [IISDNdevHDLC_6],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_6])
+		AC_SUBST(IISDNdevHDLC_6)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_7])
+		_AC_COMPUTE_INT([IISDNdevHDLC_7], [IISDNdevHDLC_7],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_7])
+		AC_SUBST(IISDNdevHDLC_7)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_8])
+		_AC_COMPUTE_INT([IISDNdevHDLC_8], [IISDNdevHDLC_8],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_8])
+		AC_SUBST(IISDNdevHDLC_8)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_9])
+		_AC_COMPUTE_INT([IISDNdevHDLC_9], [IISDNdevHDLC_9],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_9])
+		AC_SUBST(IISDNdevHDLC_9)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_10])
+		_AC_COMPUTE_INT([IISDNdevHDLC_10], [IISDNdevHDLC_10],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_10])
+		AC_SUBST(IISDNdevHDLC_10)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_11])
+		_AC_COMPUTE_INT([IISDNdevHDLC_11], [IISDNdevHDLC_11],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_11])
+		AC_SUBST(IISDNdevHDLC_11)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_12])
+		_AC_COMPUTE_INT([IISDNdevHDLC_12], [IISDNdevHDLC_12],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_12])
+		AC_SUBST(IISDNdevHDLC_12)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_13])
+		_AC_COMPUTE_INT([IISDNdevHDLC_13], [IISDNdevHDLC_13],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_13])
+		AC_SUBST(IISDNdevHDLC_13)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_14])
+		_AC_COMPUTE_INT([IISDNdevHDLC_14], [IISDNdevHDLC_14],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_14])
+		AC_SUBST(IISDNdevHDLC_14)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_15])
+		_AC_COMPUTE_INT([IISDNdevHDLC_15], [IISDNdevHDLC_15],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_15])
+		AC_SUBST(IISDNdevHDLC_15)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_16])
+		_AC_COMPUTE_INT([IISDNdevHDLC_16], [IISDNdevHDLC_16],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_16])
+		AC_SUBST(IISDNdevHDLC_16)
+AC_MSG_CHECKING([for defined value of IISDNdevMODEM_0])
+		_AC_COMPUTE_INT([IISDNdevMODEM_0], [IISDNdevMODEM_0],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevMODEM_0])
+		AC_SUBST(IISDNdevMODEM_0)
+AC_MSG_CHECKING([for defined value of IISDNdevMODEM_1])
+		_AC_COMPUTE_INT([IISDNdevMODEM_1], [IISDNdevMODEM_1],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevMODEM_1])
+		AC_SUBST(IISDNdevMODEM_1)
+AC_MSG_CHECKING([for defined value of IISDNdevSYNC_0])
+		_AC_COMPUTE_INT([IISDNdevSYNC_0], [IISDNdevSYNC_0],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevSYNC_0])
+		AC_SUBST(IISDNdevSYNC_0)
+AC_MSG_CHECKING([for defined value of IISDNdevFDL])
+		_AC_COMPUTE_INT([IISDNdevFDL], [IISDNdevFDL],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevFDL])
+		AC_SUBST(IISDNdevFDL)
+AC_MSG_CHECKING([for defined value of IISDNdevHDLC_LINE])
+		_AC_COMPUTE_INT([IISDNdevHDLC_LINE], [IISDNdevHDLC_LINE],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevHDLC_LINE])
+		AC_SUBST(IISDNdevHDLC_LINE)
+AC_MSG_CHECKING([for defined value of IISDNdevSIGNALING])
+		_AC_COMPUTE_INT([IISDNdevSIGNALING], [IISDNdevSIGNALING],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevSIGNALING])
+		AC_SUBST(IISDNdevSIGNALING)
+AC_MSG_CHECKING([for defined value of IISDNdevETHERNET])
+		_AC_COMPUTE_INT([IISDNdevETHERNET], [IISDNdevETHERNET],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDNdevETHERNET])
+		AC_SUBST(IISDNdevETHERNET)
 
 
 ##
