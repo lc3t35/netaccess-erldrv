@@ -24,6 +24,19 @@ Requirements:
 	into our local m4 includes:
 		cp /usr/local/share/aclocal/libtool.m4 ./acinclude.m4
 
+	To build the documentation you will need the edoc package and
+	it's required applications syntax_tools and xmerl.  If these
+	are not installed in the regular code loading path you can  
+	supply the paths required with configure options:
+
+		--with-edoc=/tmp/edoc/ebin
+		--with-syntax_tools=/tmp/syntax_tools/ebin
+		--with-xmerl=/tmp/xmerl/ebin
+
+	To skip building documentation use:
+
+		--without-edoc
+
 
 Making changes:
 
@@ -45,7 +58,20 @@ Building:
 	run ./configure               (creates Makefile)
 	run make                      (builds entire package)
 
-Options:
+Options to configure:
 
-	./configure --enable-debug --enable-threads
+  --enable-debug          Turn on debugging
+  --enable-threads        build for a threaded emulator
+  --enable-select         use the select() system call
+  --with-edoc=PATH        load edoc from PATH
+  --with-syntax_tools=PATH  load syntax_tools from PATH
+  --with-xmerl=PATH       load xmerl from PATH
 
+Environment variables:
+  ERL_TOP     Erlang top level directory
+  ERLC        Erlang compiler command
+  ERL         Erlang emulator command
+  NETACC_TOP  Netaccess driver package top level directory
+
+
+Report bugs to <netaccess-bugs@motivity.ca>.

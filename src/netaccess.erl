@@ -10,8 +10,7 @@
 %%%
 %%% @author Vance Shipley <vances@motivity.ca>
 %%%
-%%% @doc Main <acronym title="Application Programming Interface>API
-%%%			</acronym> of the Netaccess application.
+%%% @doc Main API of the Netaccess application.
 %%%	<p>This module provides the main application programming interface
 %%%	for the Netaccess application.  The application includes a
 %%%	dynamically linked in device driver to the Netaccess series boards
