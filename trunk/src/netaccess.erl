@@ -171,7 +171,7 @@ stop(ServerRef) ->
 open(ServerRef) ->
 	do_call(ServerRef, open).
 
-%% @spec (Channel)) -> true
+%% @spec (Channel) -> true
 %% 	Channel = port()
 %%
 %% @doc Close a channel on a netaccess board.
