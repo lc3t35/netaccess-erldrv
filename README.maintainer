@@ -52,7 +52,7 @@ Building:
 	run `libtoolize --automake`   (creates config/ltmain.sh)
 	run `automake --add-missing`  (creates Makefile.in)
 
-	[Note:  you should be able to run autoreconf to do all 
+	[Note:  you should be able to run `autoreconf` to do all 
 	        the above afterwards when changes are made]
 
 	run ./configure               (creates Makefile)
