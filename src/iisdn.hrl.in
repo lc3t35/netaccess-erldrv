@@ -1,10 +1,10 @@
-%%% src/naii.hrl.  Generated from naii.hrl.in by configure.
+%%% @configure_input@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% naii.hrl   Erlang header file defining the structures in naii.h     %%%
+%%% iisdn.hrl   Erlang header file defining the structures in iisdn.h   %%%
 %%%                                                                     %%%
 %%%             This file defines the SMI interface.                    %%%
 %%%---------------------------------------------------------------------%%%
-%%% Copyright Motivity Telecom Inc. 2001, 2002, 2003                    %%%
+%%% Copyright Motivity Telecom Inc. 2001, 2002, 2003, 2004              %%%
 %%%                                                                     %%%
 %%% All rights reserved. No part of this computer program(s) may be     %%%
 %%% used, reproduced, stored in any retrieval system, or transmitted,   %%%
@@ -13,11 +13,11 @@
 %%% Motivity Telecom Inc.                                               %%%
 %%%---------------------------------------------------------------------%%%
 %%%                                                                     %%%
-%%%  The Netaccess driver API header file <naii.h> defines the format   %%%
+%%%  The Netaccess driver API header file <iisdn.h> defines the format  %%%
 %%%  of the binary interface to the embedded processor on the card.     %%%
 %%%  When we receive an incoming SMI control message from the driver    %%%
 %%%  we want to parse out all the elements of the message.  The         %%%
-%%%  <naii.h> header file defines how this is done.                     %%%
+%%%  <iisdn.h> header file defines how this is done.                    %%%
 %%%                                                                     %%%
 %%%  The full message received is matched against the L3L4 SMI Common   %%%
 %%%  message structure:                                                 %%%
@@ -35,43 +35,50 @@
 %%%  matching the MessageSpecificData.                                  %%%
 %%%                                                                     %%%
 %%%  The L3L4 Message Common Header is defined in the typedef for a     %%%
-%%%  structure in <naii.h> named L3_to_L4_struct.  In this file the     %%%
+%%%  structure in <iisdn.h> named L3_to_L4_struct.  In this file the    %%%
 %%%  function 'L3_to_L4_struct'/1 defines the unpacking of that         %%%
 %%%  structure into a record of the same name.  Similiarly a record     %%%
 %%%  of type #'L4_to_L3_struct'{} is passed to the function             %%%
 %%%  'L4_to_L3_struct'/1 to create a binary suitable to be sent to      %%%
 %%%  board.                                                             %%%
 %%%                                                                     %%%
-%%%  Most structures which appear in <naii.h> should have in this       %%%
+%%%  Most structures which appear in <iisdn.h> should have in this      %%%
 %%%  file both a corresponding record definition and a function with    %%%
 %%%  arity one which accepts a record or a binary and returns a         %%%
 %%%  record or a binary.                                                %%%
 %%%                                                                     %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+%% firmware version
+-define(IISDN_VERSION, @IISDN_VERSION@).
 
 %% basic types
--define(PRIu8bit,  1/native-unsigned-integer-unit:8).
--define(PRIs8bit,  1/native-signed-integer-unit:8).
--define(PRIu16bit, 2/native-unsigned-integer-unit:8).
--define(PRIs16bit, 2/native-signed-integer-unit:8).
--define(PRIu32bit, 4/native-unsigned-integer-unit:8).
--define(PRIs32bit, 4/native-signed-integer-unit:8).
--define(PRIp16bit, 4/native-signed-integer-unit:8).
--define(PRIp32bit, 4/native-signed-integer-unit:8).
+-define(IISDNu8bit,  @SIZEOF_IISDNU8BIT@/native-unsigned-integer-unit:8).
+-define(IISDNs8bit,  @SIZEOF_IISDNS8BIT@/native-signed-integer-unit:8).
+-define(IISDNu16bit, @SIZEOF_IISDNU16BIT@/native-unsigned-integer-unit:8).
+-define(IISDNs16bit, @SIZEOF_IISDNS16BIT@/native-signed-integer-unit:8).
+-define(IISDNu32bit, @SIZEOF_IISDNU32BIT@/native-unsigned-integer-unit:8).
+-define(IISDNs32bit, @SIZEOF_IISDNS32BIT@/native-signed-integer-unit:8).
+-define(IISDNp16bit, @SIZEOF_IISDNP16BIT@/native-signed-integer-unit:8).
+-define(IISDNp32bit, @SIZEOF_IISDNP32BIT@/native-signed-integer-unit:8).
 
 %% array sizes
--define(PRI_MAX_LINES, 8).
--define(PRI_NUM_DS1_INTERFACES, 20).
--define(PRI_MAX_SPID_LEN, 20).
--define(PRI_MAX_DN_LEN, 20).
--define(PRI_MAX_BOND_CHAN, 20).
+-define(IISDN_NUM_DS1_INTERFACES, @IISDN_NUM_DS1_INTERFACES@).
+-define(IISDN_MAX_SPID_LEN, @IISDN_MAX_SPID_LEN@).
+-define(IISDN_MAX_DN_LEN, @IISDN_MAX_DN_LEN@).
+-define(IISDN_MAX_HDLC_CHANNEL, @IISDN_MAX_HDLC_CHANNEL@).
+-define(IISDN_MAX_LINES, @IISDN_MAX_LINES@).
+
 
 %%
 %% L4L3 Common Headers 
 %%
 -record('L4_to_L3_struct',
 		{lapdid=0, msgtype=0, l4_ref=0, call_ref=0, lli=0, data=undefined}).
+-define(L4L3_Mask(LapdId, MsgType, L4Ref, CallRef, Lli),
+		<<0, LapdId:?IISDNu8bit, MsgType:?IISDNu8bit, L4Ref:?IISDNu16bit,
+		CallRef:?IISDNu16bit, Lli:?IISDNu16bit>>).
 
 %%
 %% L3L4 Common Headers 
@@ -79,27 +86,12 @@
 -record('L3_to_L4_struct',
 		{lapdid=0, msgtype=0, l4_ref=0, call_ref=0, bchanel=0,
 		iface=0, bchannel_mask=0, lli=0, data_channel=0, data=0}).
-
-%%% TODO:  deprecate these macros?
-%%
-%% defines for the L4L3 & L3L4 Common Headers 
-%%
--define(L4L3_Mask(LapdId, MsgType, L4Ref, CallRef, Lli),
-		<<0, LapdId:?PRIu8bit, MsgType:?PRIu8bit, L4Ref:?PRIu16bit,
-		CallRef:?PRIu16bit, Lli:?PRIu16bit>>).
 -define(L3L4_Mask(LapdId, MsgType, L4Ref, CallRef, BChan,
 		Iface, BChanMask, Lli, DataChan, Data),
-		<<LapdId:?PRIu8bit, MsgType:?PRIu8bit, L4Ref:?PRIu16bit,
-		CallRef:?PRIu16bit, BChan:?PRIu8bit, Iface:?PRIu8bit,
-		BChanMask:?PRIu32bit, Lli:?PRIu16bit, DataChan:?PRIu16bit,
+		<<LapdId:?IISDNu8bit, MsgType:?IISDNu8bit, L4Ref:?IISDNu16bit,
+		CallRef:?IISDNu16bit, BChan:?IISDNu8bit, Iface:?IISDNu8bit,
+		BChanMask:?IISDNu32bit, Lli:?IISDNu16bit, DataChan:?IISDNu16bit,
 		Data/binary>>).
-
-%%% TODO:  how to organize these macros/records/functions
--define(L3mENABLE_PROTOCOL,  16#B6).
-
--define(L4L3mENABLE_PROTOCOL,  16#B6).
--record('PRI_ENA_PROTO_DATA',
-	{command=0, command_parameter=0, level1, level2, level3}).
 
 
 %%
@@ -148,12 +140,12 @@
 %%
 %% defines for set_hardware/2 and req_hw_status/1
 %%
--record('PRI_LINE_DATA',
+-record('IISDN_LINE_DATA',
 		{framing=0, line_code=0, pm_mode=0, line_length=0, term=0,
 		line_type=0, integrate_alarms=0, filter_unsolicited=0,
 		filter_yellow=0, bri_l1mode=0, briL1_cmd=0, bri_loop=0, 
 		bril1_t3=0, bril1_t4=0}).
--record('PRI_HARDWARE_DATA',
+-record('IISDN_HARDWARE_DATA',
 		{clocking=0, clocking2=0, enable_clocking2=0, 
 		netref_clocking=0, netref_rate=0, ctbus_mode=0,
 		force_framer_init=0, tdm_rate=0,
@@ -162,16 +154,16 @@
 -define(L4L3mSET_HARDWARE, 16#A7). 
 -define(L4L3mREQ_HW_STATUS, 16#A8). 
 -define(L3L4mHARDWARE_STATUS, 16#24). 
--define(PRI_HARDWARE_DATA,
+-define(IISDN_HARDWARE_DATA,
 		<<HardwareBin:12/binary,
-		LineBins:(16*?PRI_MAX_LINES)/binary,
-		CsuBin:(?PRI_MAX_LINES)/binary, _/binary>>).
--define(HardwareMask, <<Clocking:?PRIu8bit, Clocking2:?PRIu8bit,
-		EnableClocking2:?PRIu8bit, NetRefClocking:?PRIu8bit,
-		NetRefRate:?PRIu8bit, CtBusMode:?PRIu8bit,
-		ForceFramerInit:?PRIu8bit, TdmRate:?PRIu8bit,
-		Enable8370RliuMonitor:?PRIu8bit, DbCount:?PRIu8bit,
-		EnableT810xSnapMode:?PRIu8bit, ClkStatus:?PRIu8bit>>).
+		LineBins:(16*?IISDN_MAX_LINES)/binary,
+		CsuBin:(?IISDN_MAX_LINES)/binary, _/binary>>).
+-define(HardwareMask, <<Clocking:?IISDNu8bit, Clocking2:?IISDNu8bit,
+		EnableClocking2:?IISDNu8bit, NetRefClocking:?IISDNu8bit,
+		NetRefRate:?IISDNu8bit, CtBusMode:?IISDNu8bit,
+		ForceFramerInit:?IISDNu8bit, TdmRate:?IISDNu8bit,
+		Enable8370RliuMonitor:?IISDNu8bit, DbCount:?IISDNu8bit,
+		EnableT810xSnapMode:?IISDNu8bit, ClkStatus:?IISDNu8bit>>).
 -define(HardwareTerms, [{clk_status,ClkStatus}, {clocking,Clocking},
 		{clocking2,Clocking2}, {ctbus_mode,CtBusMode},
 		{dbcount,DbCount}, {enable_8370_rliu_monitor,Enable8370RliuMonitor},
@@ -185,12 +177,12 @@
 		{dbcount,0}, {enable_8370_rliu_monitor,0}, {enable_clocking2,0},
 		{enable_t810x_snap_mode,0}, {force_framer_init,0},
 		{netref_clocking,0}, {netref_rate,0}, {tdm_rate,0}]).
--define(LineMask, <<Framing:?PRIu8bit, LineCode:?PRIu8bit, PmMode:?PRIu8bit,
-		LineLength:?PRIu8bit, Term:?PRIu8bit, LineType:?PRIu8bit,
-		IntegrateAlarms:?PRIu8bit, FilterUnsolicited:?PRIu8bit,
-		0:?PRIu8bit, FilterYellow:?PRIu8bit, BriL1Mode:?PRIu8bit,
-		BriL1Cmd:?PRIu8bit, BriLoop:?PRIu8bit, BriL1T3:?PRIu8bit,
-		BriL1T4:?PRIu16bit>>).
+-define(LineMask, <<Framing:?IISDNu8bit, LineCode:?IISDNu8bit, PmMode:?IISDNu8bit,
+		LineLength:?IISDNu8bit, Term:?IISDNu8bit, LineType:?IISDNu8bit,
+		IntegrateAlarms:?IISDNu8bit, FilterUnsolicited:?IISDNu8bit,
+		0:?IISDNu8bit, FilterYellow:?IISDNu8bit, BriL1Mode:?IISDNu8bit,
+		BriL1Cmd:?IISDNu8bit, BriLoop:?IISDNu8bit, BriL1T3:?IISDNu8bit,
+		BriL1T4:?IISDNu16bit>>).
 -define(LineTerms,
 		[{briL1_T3, BriL1T3}, {briL1_T4, BriL1T4}, {briL1_cmd, BriL1Cmd},
 		{bri_l1mode, BriL1Mode}, {bri_loop, BriLoop},
@@ -205,6 +197,9 @@
 		{framing,0}, {integrate_alarms,0}, {line_code,0},
 		{line_length,0}, {line_type,0}, {pm_mode,0}, {term,0}]).
 
+-define(L4L3mENABLE_PROTOCOL,  16#B6).
+-record('IISDN_ENA_PROTO_DATA',
+	{command=0, command_parameter=0, level1, level2, level3}).
 
 %%
 %% defines for set_tsi/2 and req_tsi/1
@@ -212,83 +207,82 @@
 -define(L4L3mSET_TSI, 16#A9). 
 -define(L4L3mREQ_TSI_STATUS, 16#D4). 
 -define(L3L4mTSI_STATUS, 16#4A). 
--define(PRI_MAX_SET_TSI, 120).
--define(PRItsiGRANULARITY_64K, 16#00).
--define(PRItsiGRANULARITY_32K, 16#01).
--define(PRItsiGRANULARITY_16K, 16#02).
--define(PRItsiGRANULARITY_8K, 16#03).
--define(PRItsiDSi0, 16#0000).
--define(PRItsiDSi1, 16#0100).
--define(PRItsiDSi2, 16#0200).
--define(PRItsiDSi3, 16#0300).
--define(PRItsiDSi4, 16#0400).
--define(PRItsiDSi5, 16#0500).
--define(PRItsiDSi6, 16#0600).
--define(PRItsiDSi7, 16#0700).
--define(PRItsiDSo0, 16#0800).
--define(PRItsiDSo1, 16#0900).
--define(PRItsiDSo2, 16#0a00).
--define(PRItsiDSo3, 16#0b00).
--define(PRItsiDSo4, 16#0c00).
--define(PRItsiDSo5, 16#0d00).
--define(PRItsiDSo6, 16#0e00).
--define(PRItsiDSo7, 16#0f00).
--define(PRItsiLINE_A, 16#1000).
--define(PRItsiLINE_B, 16#1100).
--define(PRItsiLINE_C, 16#1200).
--define(PRItsiLINE_D, 16#1300).
--define(PRItsiLINE_E, 16#1400).
--define(PRItsiLINE_F, 16#1500).
--define(PRItsiLINE_G, 16#1600).
--define(PRItsiLINE_H, 16#1700).
--define(PRItsiHDLC_0, 16#2000).
--define(PRItsiHDLC_1, 16#2100).
--define(PRItsiHDLC_2, 16#2200).
--define(PRItsiHDLC_3, 16#2300).
--define(PRItsiHDLC_4, 16#2400).
--define(PRItsiHDLC_5, 16#2500).
--define(PRItsiHDLC_6, 16#2600).
--define(PRItsiHDLC_7, 16#2700).
--define(PRItsiHDLC_8, 16#2800).
--define(PRItsiHDLC_9, 16#2900).
--define(PRItsiHDLC_10, 16#2a00).
--define(PRItsiHDLC_11, 16#2b00).
--define(PRItsiHDLC_12, 16#2c00).
--define(PRItsiHDLC_13, 16#2d00).
--define(PRItsiHDLC_14, 16#2e00).
--define(PRItsiHDLC_15, 16#2f00).
--define(PRItsiHDLC_16, 16#3000).
--define(PRItsiMODEM_0, 16#6000).
--define(PRItsiMODEM_1, 16#6100).
--define(PRItsiDISABLE, 16#4000).
--define(PRItsiPATTERN, 16#5000).
--define(PRItsiDSP_0, 16#7000).
--define(PRItsiDSP_1, 16#7100).
--define(PRItsiDSP_2, 16#7200).
--define(PRItsiDSP_3, 16#7300).
--define(PRItsiDSP_4, 16#7400).
--define(PRItsiDSP_5, 16#7500).
--define(PRItsiDSP_6, 16#7600).
--define(PRItsiDSP_7, 16#7700).
--define(PRItsiDSi(X), (X bsl 8)).
--define(PRItsiDSo(X), ((X + 8) bsl 8)).
--define(PRItsiLINE(X), 	(16#1000 bor (X bsl 8)).
--define(PRItsiHDLC(X), 	(16#2000 bor (X bsl 8)).
--define(PRItsiMODEM(X), (16#6000 bor (X bsl 8)).
--define(PRItsiDSP(X), 	(16#7000 bor (X bsl 8)).
--define(PRItsiCTd(X), 	(16#8000 bor (X bsl 10)).
--define(PRI_TSI_DATA,
-		<<NumMappings:?PRIu16bit, Granularity:?PRIu8bit, Last:?PRIu8bit,
+-define(IISDN_MAX_SET_TSI, 120).
+-define(IISDNtsiGRANULARITY_64K, 16#00).
+-define(IISDNtsiGRANULARITY_32K, 16#01).
+-define(IISDNtsiGRANULARITY_16K, 16#02).
+-define(IISDNtsiGRANULARITY_8K, 16#03).
+-define(IISDNtsiDSi0, 16#0000).
+-define(IISDNtsiDSi1, 16#0100).
+-define(IISDNtsiDSi2, 16#0200).
+-define(IISDNtsiDSi3, 16#0300).
+-define(IISDNtsiDSi4, 16#0400).
+-define(IISDNtsiDSi5, 16#0500).
+-define(IISDNtsiDSi6, 16#0600).
+-define(IISDNtsiDSi7, 16#0700).
+-define(IISDNtsiDSo0, 16#0800).
+-define(IISDNtsiDSo1, 16#0900).
+-define(IISDNtsiDSo2, 16#0a00).
+-define(IISDNtsiDSo3, 16#0b00).
+-define(IISDNtsiDSo4, 16#0c00).
+-define(IISDNtsiDSo5, 16#0d00).
+-define(IISDNtsiDSo6, 16#0e00).
+-define(IISDNtsiDSo7, 16#0f00).
+-define(IISDNtsiLINE_A, 16#1000).
+-define(IISDNtsiLINE_B, 16#1100).
+-define(IISDNtsiLINE_C, 16#1200).
+-define(IISDNtsiLINE_D, 16#1300).
+-define(IISDNtsiLINE_E, 16#1400).
+-define(IISDNtsiLINE_F, 16#1500).
+-define(IISDNtsiLINE_G, 16#1600).
+-define(IISDNtsiLINE_H, 16#1700).
+-define(IISDNtsiHDLC_0, 16#2000).
+-define(IISDNtsiHDLC_1, 16#2100).
+-define(IISDNtsiHDLC_2, 16#2200).
+-define(IISDNtsiHDLC_3, 16#2300).
+-define(IISDNtsiHDLC_4, 16#2400).
+-define(IISDNtsiHDLC_5, 16#2500).
+-define(IISDNtsiHDLC_6, 16#2600).
+-define(IISDNtsiHDLC_7, 16#2700).
+-define(IISDNtsiHDLC_8, 16#2800).
+-define(IISDNtsiHDLC_9, 16#2900).
+-define(IISDNtsiHDLC_10, 16#2a00).
+-define(IISDNtsiHDLC_11, 16#2b00).
+-define(IISDNtsiHDLC_12, 16#2c00).
+-define(IISDNtsiHDLC_13, 16#2d00).
+-define(IISDNtsiHDLC_14, 16#2e00).
+-define(IISDNtsiHDLC_15, 16#2f00).
+-define(IISDNtsiHDLC_16, 16#3000).
+-define(IISDNtsiMODEM_0, 16#6000).
+-define(IISDNtsiMODEM_1, 16#6100).
+-define(IISDNtsiDISABLE, 16#4000).
+-define(IISDNtsiPATTERN, 16#5000).
+-define(IISDNtsiDSP_0, 16#7000).
+-define(IISDNtsiDSP_1, 16#7100).
+-define(IISDNtsiDSP_2, 16#7200).
+-define(IISDNtsiDSP_3, 16#7300).
+-define(IISDNtsiDSP_4, 16#7400).
+-define(IISDNtsiDSP_5, 16#7500).
+-define(IISDNtsiDSP_6, 16#7600).
+-define(IISDNtsiDSP_7, 16#7700).
+-define(IISDNtsiDSi(X), (X bsl 8)).
+-define(IISDNtsiDSo(X), ((X + 8) bsl 8)).
+-define(IISDNtsiLINE(X), 	(16#1000 bor (X bsl 8)).
+-define(IISDNtsiHDLC(X), 	(16#2000 bor (X bsl 8)).
+-define(IISDNtsiMODEM(X), (16#6000 bor (X bsl 8)).
+-define(IISDNtsiDSP(X), 	(16#7000 bor (X bsl 8)).
+-define(IISDNtsiCTd(X), 	(16#8000 bor (X bsl 10)).
+-define(IISDN_TSI_DATA,
+		<<NumMappings:?IISDNu16bit, Granularity:?IISDNu8bit, Last:?IISDNu8bit,
 		TsiMapBins/binary>>).
--define(TsiMapMask, <<Destination:?PRIu16bit, Source:?PRIu16bit>>).
+-define(TsiMapMask, <<Destination:?IISDNu16bit, Source:?IISDNu16bit>>).
 -define(TsiMapTerms, [{destination, Destination}, {source, Source}]).
 
 
-
 %%
-%% PRI_LEVEL1_CNFG
+%% IISDN_LEVEL1_CNFG
 %%
--record('PRI_LEVEL1_CNFG',
+-record('IISDN_LEVEL1_CNFG',
       {l1_mode=0, invert_hdlc=0, num_txbuf=0, num_rxbuf=0,
       buffsz=0, chain=0, device=0, bit_reverse=0, vme_lock=0, 
       hdlc_channels=0, chan_kbit_rate=0, crc_bytes=0, 
@@ -308,111 +302,111 @@
 
 
 %%
-%% PRI_LEVEL2_CNFG
+%% IISDN_LEVEL2_CNFG
 %%
--define(PRIl2modLAP_D,       0).
--define(PRIl2modDISABLED,    1).
--define(PRIl2modLAP_B,       2).
--define(PRIl2modBONDING,     3).
--define(PRIl2modLAP_F,       4).
--define(PRIl2modDPNSS,       5).
--define(PRIl2modLAP_D_EFA,   6).
--define(PRIl2modPM,          7).
--define(PRIl2modSS7,         8).
--define(PRIl2modUDP_IP,      9).
--define(PRIl2modDASS,       10).
--define(PRIl2modV110,       11).
--define(PRIl2modV120,       12).
--define(PRIl2modLAP_F_CORE, 13).
--define(PRIl2modSS7_MON,    14).
--define(PRIdirUSER_SIDE,     0).
--define(PRIdirNETWORK_SIDE,  1).
--define(PRIdirSYMMETRIC,     2).
+-define(IISDNl2modLAP_D,       0).
+-define(IISDNl2modDISABLED,    1).
+-define(IISDNl2modLAP_B,       2).
+-define(IISDNl2modBONDING,     3).
+-define(IISDNl2modLAP_F,       4).
+-define(IISDNl2modDPNSS,       5).
+-define(IISDNl2modLAP_D_EFA,   6).
+-define(IISDNl2modPM,          7).
+-define(IISDNl2modSS7,         8).
+-define(IISDNl2modUDP_IP,      9).
+-define(IISDNl2modDASS,       10).
+-define(IISDNl2modV110,       11).
+-define(IISDNl2modV120,       12).
+-define(IISDNl2modLAP_F_CORE, 13).
+-define(IISDNl2modSS7_MON,    14).
+-define(IISDNdirUSER_SIDE,     0).
+-define(IISDNdirNETWORK_SIDE,  1).
+-define(IISDNdirSYMMETRIC,     2).
 
--record('PRI_LEVEL2_CNFG',
-		{par=#'PRI_L2_LAP_PARAMS'{},
-		data_interface=#'PRI_DATA_INTERFACE'{},
-		consts=#'PRI_L2_LAP_CONSTS'{}}).
--record('PRI_L2_LAP_PARAMS',
-		{mode=?PRIl2modLAP_D, dce_dte=0, tei_mode=0, no_sabme=0,
+-record('IISDN_LEVEL2_CNFG',
+		{par=#'IISDN_L2_LAP_PARAMS'{},
+		data_interface=#'IISDN_DATA_INTERFACE'{},
+		consts=#'IISDN_L2_LAP_CONSTS'{}}).
+-record('IISDN_L2_LAP_PARAMS',
+		{mode=?IISDNl2modLAP_D, dce_dte=0, tei_mode=0, no_sabme=0,
 		l2_detail=0, timestamp=0, ui_mode=0, priority=0, no_reestab=0,
 		mode_1tr6=0, mode_tei_1=0, no_piggyback=0}).
--record('PRI_L2_LAP_CONSTS',
+-record('IISDN_L2_LAP_CONSTS',
 		{t200=0, t201=0, t202=0, t203=0, n200=0, n201=0, n202=0, k=0}).
--record('PRI_L2_SS7_PARAMS',
-		{mode=?PRIl2modSS7, variant=0}).
--record('PRI_L2_SS7_CONSTS', 
+-record('IISDN_L2_SS7_PARAMS',
+		{mode=?IISDNl2modSS7, variant=0}).
+-record('IISDN_L2_SS7_CONSTS', 
 		{t1=0, t2=0, t3=0, t4n=0, t4e=0, t5=0, t6=0, t7=0}).
--record('PRI_L2_UDPIP_PARAMS',
-		{mode=?PRIl2modUDP_IP, dstport=0, dstipaddr=0}).
--record('PRI_L2_IP_CONSTS',
+-record('IISDN_L2_UDPIP_PARAMS',
+		{mode=?IISDNl2modUDP_IP, dstport=0, dstipaddr=0}).
+-record('IISDN_L2_IP_CONSTS',
 		{no_dhcp=0, ipaddr=0, gwaddr=0, subnet_mask=0}).
--record('PRI_L2_DPNSS_PARAMS',
-		{mode=?PRIl2modDPNSS, pbx_b=0, sabmr_as_ack=0, tie_line_mode=0}).
--record('PRI_L2_DPNSS_CONSTS',
+-record('IISDN_L2_DPNSS_PARAMS',
+		{mode=?IISDNl2modDPNSS, pbx_b=0, sabmr_as_ack=0, tie_line_mode=0}).
+-record('IISDN_L2_DPNSS_CONSTS',
 		{nl=0, nt1=0, nt2=0}).
--record('PRI_L2_V110_PARAMS',
-		{mode=?PRIl2modV110, ebits=0, flow_control=0, 
+-record('IISDN_L2_V110_PARAMS',
+		{mode=?IISDNl2modV110, ebits=0, flow_control=0, 
 		nine_byte_rx_frames=0, num_tx_idle_frames=0, max_rx_frame_size=0,
 		stale_rx_data_timer=0, filter_status_messages=0}).
--record('PRI_DATA_INTERFACE',
+-record('IISDN_DATA_INTERFACE',
 		{enable=0, data_channel=0, fillandspill=0, allow_buffer_preload=0}).
 
 %%
-%% PRI_LEVEL3_CNFG
+%% IISDN_LEVEL3_CNFG
 %%
--define(PRIl3modDISABLED,     0).
--define(PRIl3modQ931,         1).
--define(PRIl3modX25_PKT,      2).
--define(PRIl3modQ933,         3).
--define(PRIl3modBONDING,      4).
--define(PRIl3modPM,           5).
--define(PRIl3modRELAY,        6).
--define(PRIl3modDPNSS,        7).
--define(PRIl3modDASS,         8).
--define(PRIl3modQ933_ANNEX_A, 9).
+-define(IISDNl3modDISABLED,     0).
+-define(IISDNl3modQ931,         1).
+-define(IISDNl3modX25_PKT,      2).
+-define(IISDNl3modQ933,         3).
+-define(IISDNl3modBONDING,      4).
+-define(IISDNl3modPM,           5).
+-define(IISDNl3modRELAY,        6).
+-define(IISDNl3modDPNSS,        7).
+-define(IISDNl3modDASS,         8).
+-define(IISDNl3modQ933_ANNEX_A, 9).
 
 % switch_type
--define(PRIstATT_4ESS,        16#00).
--define(PRIstATT_5ESS,        16#01).
--define(PRIstNTI_DMS100,      16#02).
--define(PRIstNTI_DMS250,      16#03).
--define(PRIstMD110_T1,        16#04).
--define(PRIstMD110_E1,        16#05).
--define(PRIstSIEMENS,         16#06).
--define(PRIstNTT,             16#07).
--define(PRIstUNKNOWN,         16#08).
--define(PRIstMAX_SWITCH_TYP,  16#08).
+-define(IISDNstATT_4ESS,        16#00).
+-define(IISDNstATT_5ESS,        16#01).
+-define(IISDNstNTI_DMS100,      16#02).
+-define(IISDNstNTI_DMS250,      16#03).
+-define(IISDNstMD110_T1,        16#04).
+-define(IISDNstMD110_E1,        16#05).
+-define(IISDNstSIEMENS,         16#06).
+-define(IISDNstNTT,             16#07).
+-define(IISDNstUNKNOWN,         16#08).
+-define(IISDNstMAX_SWITCH_TYP,  16#08).
 
 % variant
--define(PRIvarATT_CUSTOM,     16#00).
--define(PRIvarNTI_CUSTOM,     16#01).
--define(PRIvarNATL_ISDN_1,    16#02).
--define(PRIvarNATL_ISDN_2,    16#03).
--define(PRIvarJATE,           16#04).
--define(PRIvarCTR3,           16#05).
--define(PRIvarNET3,           16#05).
--define(PRIvarCTR4,           16#06).
--define(PRIvarNET5,           16#06).
--define(PRIvar1TR6_BRI,       16#07).
--define(PRIvar1TR6_PRI,       16#08).
--define(PRIvarVN3,            16#09).
--define(PRIvarITU,            16#0A).
--define(PRIvarCCITT,          16#0A).
--define(PRIvarQ933,           16#0B).
--define(PRIvarQ933_T123,      16#0C).
--define(PRIvarTS014,          16#0D).
--define(PRIvarTS013,          16#0E).
--define(PRIvarARINC_746,      16#0F).
--define(PRIvarGR_303,         16#10).
--define(PRIvarGR_303_TMC,     16#11).
+-define(IISDNvarATT_CUSTOM,     16#00).
+-define(IISDNvarNTI_CUSTOM,     16#01).
+-define(IISDNvarNATL_ISDN_1,    16#02).
+-define(IISDNvarNATL_ISDN_2,    16#03).
+-define(IISDNvarJATE,           16#04).
+-define(IISDNvarCTR3,           16#05).
+-define(IISDNvarNET3,           16#05).
+-define(IISDNvarCTR4,           16#06).
+-define(IISDNvarNET5,           16#06).
+-define(IISDNvar1TR6_BRI,       16#07).
+-define(IISDNvar1TR6_IISDN,       16#08).
+-define(IISDNvarVN3,            16#09).
+-define(IISDNvarITU,            16#0A).
+-define(IISDNvarCCITT,          16#0A).
+-define(IISDNvarQ933,           16#0B).
+-define(IISDNvarQ933_T123,      16#0C).
+-define(IISDNvarTS014,          16#0D).
+-define(IISDNvarTS013,          16#0E).
+-define(IISDNvarARINC_746,      16#0F).
+-define(IISDNvarGR_303,         16#10).
+-define(IISDNvarGR_303_TMC,     16#11).
 
--record('PRI_LEVEL3_CNFG',
-		{l3_mode=0, cnfg=#'PRI_Q931_CNFG'{}}).
--record('PRI_Q931_CNFG',
+-record('IISDN_LEVEL3_CNFG',
+		{l3_mode=0, cnfg=#'IISDN_Q931_CNFG'{}}).
+-record('IISDN_Q931_CNFG',
 		{switch_type=0, variant=0, call_filtering=0,
-		q931_timers=#'PRI_Q931_TIMERS'{},
-		b_channel_service_state=lists:duplicate(?PRI_NUM_DS1_INTERFACES, 0),
+		q931_timers=#'IISDN_Q931_TIMERS'{},
+		b_channel_service_state=lists:duplicate(?IISDN_NUM_DS1_INTERFACES, 0),
 		nfas=0, e1_30_bchan=0, basic_rate=0, net_side_emul=0, 
 		b_chan_negot=0, proc_on_exclusv=0, chanid_slot_map=0,
 		sprs_chanid_callproc=0, no_chanid_callproc=0, append_raw_qmsg=0,
@@ -426,43 +420,48 @@
 		primary_lapdid=0, backup_lapdid=0, primary_ifnum=0,
 		backup_ifnum=0, backup_control=0, spid_len=0, spid_1_len=0,
 		dn_len=0, dn_1_len=0, 
-		spid=lists:duplicate(?PRI_MAX_SPID_LEN, 0),
-		spid_1=lists:duplicate(?PRI_MAX_SPID_LEN, 0),
-		dn=lists:duplicate(?PRI_MAX_DN_LEN, 0),
-		dn_1=lists:duplicate(?PRI_MAX_DN_LEN, 0),
+		spid=lists:duplicate(?IISDN_MAX_SPID_LEN, 0),
+		spid_1=lists:duplicate(?IISDN_MAX_SPID_LEN, 0),
+		dn=lists:duplicate(?IISDN_MAX_DN_LEN, 0),
+		dn_1=lists:duplicate(?IISDN_MAX_DN_LEN, 0),
 		chan_id_high_bit=0, att_cust_bri_ekts=0, subscribe_connack=0,
 		suppress_auto_spid=0, accept_all_bri_calls=0}).
--record('PRI_Q931_TIMERS',
+-record('IISDN_Q931_TIMERS',
 		{t302=0, t305=0, t308=0, t313=0, t314=0, t316=0, t318=0, t319=0,
 		t3m1=0, t321=0}).
--record('PRI_BONDING_DATA',
+
+%% Data structure for Enable_Bonding
+-define(IISDN_MAX_BOND_CHAN, @IISDN_MAX_BOND_CHAN@).
+-record('IISDN_BONDING_DATA',
 		{mode=0, destination=0, num_tx_buf=0, num_rx_buf=0,
 		data_channel=0, txinit=0, txadd01=0, txfa=0, txdisc=0,
 		txdeq=0, tcid=0, tanull=0, channels=0, 
-		directory=lists:duplicate(?PRI_MAX_BOND_CHAN, 0)}).
--record('PRI_X25_CONFIG',
+		directory=lists:duplicate(?IISDN_MAX_BOND_CHAN, 0)}).
+
+-record('IISDN_X25_CONFIG',
 		{cfg_msk=0, t10=0, t11=0, t12=0, t13=0, t28=0, p=0, w=0,
 		max_clr_retry=0, max_svcs=0, max_pvcs=0}).
--record('PRI_PM_CONFIG',
+-record('IISDN_PM_CONFIG',
 		{mode=0, carrier=0, fdl_alert=0, 
 		equipmentid=lists:duplicate(10, 0),
 		locationid=lists:duplicate(11, 0),
 		frameid=lists:duplicate(10, 0),
 		unitid=lists:duplicate(6, 0),
 		facilityid=lists:duplicate(38, 0)}).
--record('PRI_RELAY_CONFIG',
+-record('IISDN_RELAY_CONFIG',
 		{default_dest=0, default_dest_id=0, default_root_idx=0}).
--record('PRI_DPNSSCC_CONFIG',
+-record('IISDN_DPNSSCC_CONFIG',
 		{pbx_y=0, no_virtual_channels=0, dest_addr_len=0, 
 		b_channel_service_state=0, v_channel_service_state=0,
 		t_i_msg=0, t_guard=0}).
--record('PRI_DASSCC_CONFIG',
+-record('IISDN_DASSCC_CONFIG',
 		{b_channel_service_state=0, t_digit_racking=0, n_clear_retries=0}).
--record('PRI_Q933A_CONFIG',
+-record('IISDN_Q933A_CONFIG',
 		{network_side=0, n391=0, n392=0, n393=0, t391=0, t392=0}).
 
 
--record('PRI_DATA_INTERFACE_CONFIGURATION',
+-record('IISDN_DATA_INTERFACE_CONFIGURATION',
 		{dchan_descr_addr=0, num_dchan_descr=0,
 				dchan_event_queue_addr=0, num_l3l4_dchan_events=0,
 				num_l4l3_dchan_events=0}).
+
