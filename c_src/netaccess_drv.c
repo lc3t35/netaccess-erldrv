@@ -12,6 +12,7 @@
  *                   the Netaccess HDLC controllers (ISDN/MTP2/etc.)
  *
  * Jan 2001	Vance Shipley <vances@motivity.ca>
+ * August 2004 Vance Shipley <vances@motivity.ca>
  *
  * set tabstops=3 (in vi ':set ts=3')
  */
@@ -113,39 +114,6 @@
 #endif
 
 
-/**********************************************************************
- **********************************************************************
- *  internal functions                                                *
- **********************************************************************
- **********************************************************************/
-
-static void do_ioctl(void *t_data);
-static void free_tdata(void *t_data);
-static int message_to_board(int fd, SysIOVec *iov);
-static int message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl,
-		int ctrllen, ErlDrvBinary *data, int datalen);
-
-
-/**********************************************************************
- **********************************************************************
- *  Define the driver API with Erlang/OTP                             *
- **********************************************************************
- **********************************************************************/
-
-/*  our driver's exported callbacks  */
-static ErlDrvData start(ErlDrvPort port, char *command);
-static void stop(ErlDrvData handle);
-static void finish(void);
-static void timeout(ErlDrvData handle);
-static void outputv(ErlDrvData handle, ErlIOVec *ev);
-static void ready_async(ErlDrvData handle, ErlDrvThreadData t_data);
-static void flush(ErlDrvData handle);
-static int call(ErlDrvData handle, unsigned int command,
-		char *buf, int len, char **rbuf, int rlen, unsigned int *flags);
-static void event(ErlDrvData handle, ErlDrvEvent event,
-		ErlDrvEventData event_data);
-
-
 static ErlDrvEntry  driver_entry;
 
 /*  This is passed to most of the driver routines, it is our global data  */
@@ -193,11 +161,45 @@ typedef struct {
 
 extern int erts_async_max_threads;
 
+
 /**********************************************************************
  **********************************************************************
- *  Netaccess declarations                                            *
+ *  Define the driver API with Erlang/OTP                             *
  **********************************************************************
  **********************************************************************/
+
+/*  our driver's exported callbacks  */
+static ErlDrvData start(ErlDrvPort port, char *command);
+static void stop(ErlDrvData handle);
+static void finish(void);
+static void timeout(ErlDrvData handle);
+static void outputv(ErlDrvData handle, ErlIOVec *ev);
+static void ready_async(ErlDrvData handle, ErlDrvThreadData t_data);
+static void flush(ErlDrvData handle);
+static int call(ErlDrvData handle, unsigned int command,
+		char *buf, int len, char **rbuf, int rlen, unsigned int *flags);
+static void event(ErlDrvData handle, ErlDrvEvent event,
+		ErlDrvEventData event_data);
+
+
+/**********************************************************************
+ **********************************************************************
+ *  internal functions                                                *
+ **********************************************************************
+ **********************************************************************/
+
+static void do_ioctl(void *t_data);
+static void done_ioctl(DriverData *dd, ThreadData *td);
+static void free_ioctl(void *t_data);
+static void do_l4l3(void *t_data);
+static void done_l4l3(DriverData *dd, ThreadData *td);
+static void free_l4l3(void *t_data);
+static void do_iframe(void *t_data);
+static void done_iframe(DriverData *dd, ThreadData *td);
+static void free_iframe(void *t_data);
+static int message_to_board(int fd, SysIOVec *iov);
+static int message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl,
+		int ctrllen, ErlDrvBinary *data, int datalen);
 
 
 /**********************************************************************
@@ -438,122 +440,22 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 {
 	DriverData *dd = (DriverData *) handle;
 	ThreadData *td = (ThreadData *) t_data;
-	ErlDrvTermData *ret;
 
 	DBG("ready_async");
 
-	if (td->result < 0) {
-		/*  {Port, {ref, Ref}, {error, Reason}}  */
-		if (!(ret = driver_alloc(16 * sizeof(ErlDrvTermData)))) {
-			DBG("driver_alloc failed");
-			return;
-		}
-		ret[0] = ERL_DRV_PORT;
-		ret[1] = driver_mk_port(dd->port);
-		ret[2] = ERL_DRV_ATOM;
-		ret[3] = driver_mk_atom("ref");
-		ret[4] = ERL_DRV_INT;
-		ret[5] = td->ref;
-		ret[6] = ERL_DRV_TUPLE;
-		ret[7] = 2;
-		ret[8] = ERL_DRV_ATOM;
-		ret[9] = driver_mk_atom("error");
-		ret[10] = ERL_DRV_ATOM;
-		ret[11] = driver_mk_atom(erl_errno_id(td->terrno));
-		ret[12] = ERL_DRV_TUPLE;
-		ret[13] = 2;
-		ret[14] = ERL_DRV_TUPLE;
-		ret[15] = 3;
-		if (driver_output_term(dd->port, ret, 16) < 1)
-			DBG("driver_output_term failed");
-		driver_free(ret);
-		return;
-	} 
-		
-	else
-		switch(td->data.ioctl.command) {
-			case SELECT_BOARD:      
-			case BOOT_BOARD:      
-			case ENABLE_MANAGEMENT_CHAN:
-			case RESET_BOARD:
-				/*  {Port, {ref, Ref}, ok}  */
-				if (!(ret = driver_alloc(12 * sizeof(ErlDrvTermData)))) {
-					DBG("driver_alloc failed");
-					return;
-				}
-				ret[0] = ERL_DRV_PORT;
-				ret[1] = driver_mk_port(dd->port);
-				ret[2] = ERL_DRV_ATOM;
-				ret[3] = driver_mk_atom("ref");
-				ret[4] = ERL_DRV_INT;
-				ret[5] = td->ref;
-				ret[6] = ERL_DRV_TUPLE;
-				ret[7] = 2;
-				ret[8] = ERL_DRV_ATOM;
-				ret[9] = driver_mk_atom("ok");
-				ret[10] = ERL_DRV_TUPLE;
-				ret[11] = 3;
-				if (driver_output_term(dd->port, ret, 12) < 1)
-					DBG("driver_output_term failed");
-				driver_free(ret);
-				break;
-			case GET_VERSION:
-				/*  {Port, {ref, Ref}, {ok, Version}}  */
-				if (!(ret = driver_alloc(17 * sizeof(ErlDrvTermData)))) {
-					DBG("driver_alloc failed");
-					return;
-				}
-				ret[0] = ERL_DRV_PORT;
-				ret[1] = driver_mk_port(dd->port);
-				ret[2] = ERL_DRV_ATOM;
-				ret[3] = driver_mk_atom("ref");
-				ret[4] = ERL_DRV_INT;
-				ret[5] = td->ref;
-				ret[6] = ERL_DRV_TUPLE;
-				ret[7] = 2;
-				ret[8] = ERL_DRV_ATOM;
-				ret[9] = driver_mk_atom("ok");
-				ret[10] = ERL_DRV_STRING;
-				ret[11] = (ErlDrvTermData) td->data.ioctl.ctlp->ic_dp;
-				ret[12] = strlen(td->data.ioctl.ctlp->ic_dp);
-				ret[13] = ERL_DRV_TUPLE;
-				ret[14] = 2;
-				ret[15] = ERL_DRV_TUPLE;
-				ret[16] = 3;
-				if (driver_output_term(dd->port, ret, 17) < 1)
-					DBG("driver_output_term failed");
-				driver_free(ret);
-				break;
-			case GET_DRIVER_INFO:
-				/*  {Port, {ref, Ref}, {ok, Binary}}  */
-				if (!(ret = driver_alloc(18 * sizeof(ErlDrvTermData)))) {
-					DBG("driver_alloc failed");
-					return;
-				}
-				ret[0] = ERL_DRV_PORT;
-				ret[1] = driver_mk_port(dd->port);
-				ret[2] = ERL_DRV_ATOM;
-				ret[3] = driver_mk_atom("ref");
-				ret[4] = ERL_DRV_INT;
-				ret[5] = td->ref;
-				ret[6] = ERL_DRV_TUPLE;
-				ret[7] = 2;
-				ret[8] = ERL_DRV_ATOM;
-				ret[9] = driver_mk_atom("ok");
-				ret[10] = ERL_DRV_BINARY;
-				ret[11] = (ErlDrvTermData) td->data.ioctl.bin;
-				ret[12] = td->data.ioctl.ctlp->ic_len;
-				ret[13] = 0;
-				ret[14] = ERL_DRV_TUPLE;
-				ret[15] = 2;
-				ret[16] = ERL_DRV_TUPLE;
-				ret[17] = 3;
-				if (driver_output_term(dd->port, ret, 18) < 1)
-					DBG("driver_output_term failed");
-				driver_free(ret);
-				break;
-		}
-	free_tdata(td);
+	switch (td->type) {
+		case TD_IOCTL:
+			done_ioctl(dd, td);
+			break;
+		case TD_L4L3:
+			done_l4l3(dd, td);
+			break;
+		case TD_IFRAME:
+			done_iframe(dd, td);
+			break;
+		default:
+			DBG("unknown thread data type");
+	}
 }
 
 
@@ -632,6 +534,7 @@ call(ErlDrvData handle, unsigned int command,
 		/*  initialize thread data  */
 		td = (ThreadData *) driver_alloc(sizeof(ThreadData));
 		memset(td, 0, sizeof(ThreadData));
+		td->type = TD_IOCTL;
 		td->fd = dd->fd;				
 		td->data.ioctl.command = command;
 		cntl_ptr = (struct strioctl *) driver_alloc(sizeof(struct strioctl));
@@ -667,7 +570,7 @@ call(ErlDrvData handle, unsigned int command,
 				if (ei_get_type(buf, &index, &type, &size)
 						|| (type != ERL_BINARY_EXT)
 						|| !(td->data.ioctl.bp->outptr = (char *) driver_alloc(count))) {
-					free_tdata(td);
+					free_ioctl(td);
 					return((int) ERL_DRV_ERROR_ERRNO);
 				} else {
 					if (ei_decode_binary(buf, &index, td->data.ioctl.bp->outptr, 
@@ -695,18 +598,17 @@ call(ErlDrvData handle, unsigned int command,
 				cntl_ptr->ic_cmd = PRIDRViocGET_DRIVER_INFO;
 				cntl_ptr->ic_len = sizeof(driver_info_t);
 				if (!(td->data.ioctl.bin = driver_alloc_binary(sizeof(driver_info_t)))) {
-					free_tdata(td);
+					free_ioctl(td);
 					return((int) ERL_DRV_ERROR_ERRNO);
 				}
 				cntl_ptr->ic_dp = (char *) td->data.ioctl.bin->orig_bytes;
 				break;
 			default:
 				DBG("unknown command");
-				free_tdata(td);
+				free_ioctl(td);
 				return((int) ERL_DRV_ERROR_BADARG);
 		}
-		td->ref = driver_async(dd->port, QKEY,
-				do_ioctl, td, free_tdata);
+		td->ref = driver_async(dd->port, QKEY, do_ioctl, td, free_ioctl);
 		/*  return the reference  */
 		if (ei_encode_version(*rbuf, &rindex)
 				|| ei_encode_tuple_header(*rbuf, &rindex, 2)
@@ -862,18 +764,147 @@ do_ioctl(void *t_data)
 
 
 /**********************************************************************
- *  free_tdata                                                        *
+ *  done_ioctl                                                        *
  *                                                                    *
- *  Erlang/OTP runs this callback when a previously scheduled async   *
- *  operation, called with driver_async, must be canceled.  This      *
- *  should free the data buffer passed to driver_async.               *
+ *  Called when a previously scheduled do_ioctl has completed.        *
  **********************************************************************/
 static void
-free_tdata(void *t_data)
+done_ioctl(DriverData *dd, ThreadData *td)
+{
+	ErlDrvTermData *ret;
+
+	DBG("done_ioctl");
+
+	if (td->result < 0) {
+		/*  {Port, {ref, Ref}, {error, Reason}}  */
+		if (!(ret = driver_alloc(16 * sizeof(ErlDrvTermData)))) {
+			DBG("driver_alloc failed");
+			return;
+		}
+		ret[0] = ERL_DRV_PORT;
+		ret[1] = driver_mk_port(dd->port);
+		ret[2] = ERL_DRV_ATOM;
+		ret[3] = driver_mk_atom("ref");
+		ret[4] = ERL_DRV_INT;
+		ret[5] = td->ref;
+		ret[6] = ERL_DRV_TUPLE;
+		ret[7] = 2;
+		ret[8] = ERL_DRV_ATOM;
+		ret[9] = driver_mk_atom("error");
+		ret[10] = ERL_DRV_ATOM;
+		ret[11] = driver_mk_atom(erl_errno_id(td->terrno));
+		ret[12] = ERL_DRV_TUPLE;
+		ret[13] = 2;
+		ret[14] = ERL_DRV_TUPLE;
+		ret[15] = 3;
+		if (driver_output_term(dd->port, ret, 16) < 1)
+			DBG("driver_output_term failed");
+		driver_free(ret);
+		return;
+	} 
+		
+	else
+		switch(td->data.ioctl.command) {
+			case SELECT_BOARD:      
+			case BOOT_BOARD:      
+			case ENABLE_MANAGEMENT_CHAN:
+			case RESET_BOARD:
+				/*  {Port, {ref, Ref}, ok}  */
+				if (!(ret = driver_alloc(12 * sizeof(ErlDrvTermData)))) {
+					DBG("driver_alloc failed");
+					return;
+				}
+				ret[0] = ERL_DRV_PORT;
+				ret[1] = driver_mk_port(dd->port);
+				ret[2] = ERL_DRV_ATOM;
+				ret[3] = driver_mk_atom("ref");
+				ret[4] = ERL_DRV_INT;
+				ret[5] = td->ref;
+				ret[6] = ERL_DRV_TUPLE;
+				ret[7] = 2;
+				ret[8] = ERL_DRV_ATOM;
+				ret[9] = driver_mk_atom("ok");
+				ret[10] = ERL_DRV_TUPLE;
+				ret[11] = 3;
+				if (driver_output_term(dd->port, ret, 12) < 1)
+					DBG("driver_output_term failed");
+				driver_free(ret);
+				break;
+			case GET_VERSION:
+				/*  {Port, {ref, Ref}, {ok, Version}}  */
+				if (!(ret = driver_alloc(17 * sizeof(ErlDrvTermData)))) {
+					DBG("driver_alloc failed");
+					return;
+				}
+				ret[0] = ERL_DRV_PORT;
+				ret[1] = driver_mk_port(dd->port);
+				ret[2] = ERL_DRV_ATOM;
+				ret[3] = driver_mk_atom("ref");
+				ret[4] = ERL_DRV_INT;
+				ret[5] = td->ref;
+				ret[6] = ERL_DRV_TUPLE;
+				ret[7] = 2;
+				ret[8] = ERL_DRV_ATOM;
+				ret[9] = driver_mk_atom("ok");
+				ret[10] = ERL_DRV_STRING;
+				ret[11] = (ErlDrvTermData) td->data.ioctl.ctlp->ic_dp;
+				ret[12] = strlen(td->data.ioctl.ctlp->ic_dp);
+				ret[13] = ERL_DRV_TUPLE;
+				ret[14] = 2;
+				ret[15] = ERL_DRV_TUPLE;
+				ret[16] = 3;
+				if (driver_output_term(dd->port, ret, 17) < 1)
+					DBG("driver_output_term failed");
+				driver_free(ret);
+				break;
+			case GET_DRIVER_INFO:
+				/*  {Port, {ref, Ref}, {ok, Binary}}  */
+				if (!(ret = driver_alloc(18 * sizeof(ErlDrvTermData)))) {
+					DBG("driver_alloc failed");
+					return;
+				}
+				ret[0] = ERL_DRV_PORT;
+				ret[1] = driver_mk_port(dd->port);
+				ret[2] = ERL_DRV_ATOM;
+				ret[3] = driver_mk_atom("ref");
+				ret[4] = ERL_DRV_INT;
+				ret[5] = td->ref;
+				ret[6] = ERL_DRV_TUPLE;
+				ret[7] = 2;
+				ret[8] = ERL_DRV_ATOM;
+				ret[9] = driver_mk_atom("ok");
+				ret[10] = ERL_DRV_BINARY;
+				ret[11] = (ErlDrvTermData) td->data.ioctl.bin;
+				ret[12] = td->data.ioctl.ctlp->ic_len;
+				ret[13] = 0;
+				ret[14] = ERL_DRV_TUPLE;
+				ret[15] = 2;
+				ret[16] = ERL_DRV_TUPLE;
+				ret[17] = 3;
+				if (driver_output_term(dd->port, ret, 18) < 1)
+					DBG("driver_output_term failed");
+				driver_free(ret);
+				break;
+		}
+	free_ioctl(td);
+}
+
+
+/**********************************************************************
+ *  free_ioctl                                                        *
+ *                                                                    *
+ *  When we specify do_ioctl in a driver_async() call we also specify *
+ *  this function to free our thread specific data if it is cancelled *
+ *  by the emulator (possibly because we called driver_async_cancel). *
+ *                                                                    *
+ *  This function should free all of our thread specific data.        *
+ **********************************************************************/
+static void
+free_ioctl(void *t_data)
 {
 	ThreadData *td = (ThreadData *) t_data;
 
-	DBG("free_tdata");
+	DBG("free_ioctl");
 	if (td->data.ioctl.bin != NULL)
 		driver_free_binary(td->data.ioctl.bin);
 	if (td->data.ioctl.bp != NULL) {
@@ -888,6 +919,101 @@ free_tdata(void *t_data)
 	}
 	if (t_data != NULL)
 		driver_free(t_data);
+}
+
+
+/**********************************************************************
+ *  do_l4l3                                                           *
+ *                                                                    *
+ *  Called to send an L4L3 SMI control message.  This function is run *
+ *  in a thread by driver_async.                                      *
+ **********************************************************************/
+static void
+do_l4l3(void *t_data)
+{
+	ThreadData *td = (ThreadData *) t_data;
+
+	DBG("do_l4l3");
+}
+
+
+/**********************************************************************
+ *  done_l4l3                                                         *
+ *                                                                    *
+ *  Called when a previously scheduled do_l4l3 has completed.         *
+ **********************************************************************/
+static void
+done_l4l3(DriverData *dd, ThreadData *td)
+{
+	DBG("done_l4l3");
+
+	free_l4l3(td);
+}
+
+
+/**********************************************************************
+ *  free_l4l3                                                         *
+ *                                                                    *
+ *  When we specify do_l4l3 in a driver_async() call we also specify  *
+ *  this function to free our thread specific data if it is cancelled *
+ *  by the emulator (possibly because we called driver_async_cancel). *
+ *                                                                    *
+ *  This function should free all of our thread specific data.        *
+ **********************************************************************/
+static void
+free_l4l3(void *t_data)
+{
+	ThreadData *td = (ThreadData *) t_data;
+
+	DBG("free_l4l3");
+}
+
+
+/**********************************************************************
+ *  do_iframe                                                         *
+ *                                                                    *
+ *  Called to send an IFRAME data message.  This function is run in a *
+ *  thread by driver_async.                                           *
+ **********************************************************************/
+static void
+do_iframe(void *t_data)
+{
+	ThreadData *td = (ThreadData *) t_data;
+
+	DBG("do_iframe");
+}
+
+
+/**********************************************************************
+ *  done_iframe                                                       *
+ *                                                                    *
+ *  Called when a previously scheduled do_iframe has completed.       *
+ **********************************************************************/
+static void
+done_iframe(DriverData *dd, ThreadData *td)
+{
+	DBG("done_iframe");
+
+	free_iframe(td);
+}
+
+
+/**********************************************************************
+ *  free_iframe                                                       *
+ *                                                                    *
+ *  When we specify do_iframe in a driver_async() call we also        *
+ *  specify this function to free our thread specific data if it is   *
+ *  cancelled by the emulator (possibly because we called             *
+ *  driver_async_cancel).                                             *
+ *                                                                    *
+ *  This function should free all of our thread specific data.        *
+ **********************************************************************/
+static void
+free_iframe(void *t_data)
+{
+	ThreadData *td = (ThreadData *) t_data;
+
+	DBG("free_iframe");
 }
 
 
