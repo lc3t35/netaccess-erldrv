@@ -42,37 +42,48 @@
 %% initialize the netaccess server
 init([])  ->
 	init([?DEFAULT_BOARDNAME]);
-init([Board]) when is_list(Board) ->
+init([BoardName]) ->
+	init([BoardName, 0]);
+init([BoardName, BoardNumber]) when is_list(BoardName),
+		is_integer(BoardNumber) ->
 	process_flag(trap_exit, true),
 	erl_ddll:start(),
-	% load the dynamicly linked device driver
+	% load the dynamically linked device driver
 	PrivDir = code:priv_dir(netaccess),
 	LibDir = filename:join([PrivDir, "lib"]),
-	case erl_ddll:load_driver(LibDir, netaccess_drv) of
-		{error, ErrorDescriptor} ->
-			{stop, erl_ddll:format_error(ErrorDescriptor)};
-		ok ->
-			Command = list_to_atom("netaccess_drv " ++ Board),
-			case catch erlang:open_port({spawn, Command}, [binary]) of
-				Port when is_port(Port) -> 
-					case catch begin
-							ok = ioctl(Port, ?SELECT_BOARD),
-							ok = ioctl(Port, ?ENABLE_MANAGEMENT_CHAN) 
-							end of
-						ok ->
-							NewState = {Port, gb_trees:empty()},
-							{ok, NewState};
-						{'EXIT', {Reason, _Stack}} ->
-							{stop, Reason};
-						{error, Reason} ->
-							{stop, Reason}
-					end;
-				Error ->
-					{stop, enodev}
-			end
-	end.
+	init_driver(erl_ddll:load_driver(LibDir, netaccess_drv),
+			BoardName, BoardNumber).
 
+init_driver({error, ErrorDescriptor}, BoardName, BoardNumber) ->
+	ErrorString = erl_ddll:format_error(ErrorDescriptor),
+	error_logger:error_msg(ErrorString),
+	{stop, ErrorDescriptor};
+init_driver(ok, BoardName, BoardNumber) ->
+	Command = list_to_atom("netaccess_drv " ++ BoardName),
+	Result = (catch erlang:open_port({spawn, Command}, [binary])),
+	init_port(Result, BoardNumber).
 
+init_port(Port, BoardNumber) when is_port(Port) ->
+	Result = ioctl(Port, ?SELECT_BOARD, BoardNumber),
+	init_select(Result, Port);
+init_port(Error, BoardNumber) ->
+	{stop, Error}.
+
+init_select(ok, Port) ->
+	Result = ioctl(Port, ?ENABLE_MANAGEMENT_CHAN),
+	init_enable(Result, Port);
+init_select(Error, Port) ->
+	erlang:port_close(Port),
+	{stop, Error}.
+
+init_enable(ok, Port) ->
+	NewState = {Port, gb_trees:empty()},
+	{ok, NewState};
+init_enable(Error, Port) ->
+	erlang:port_close(Port),
+	{stop, Error}.
+
+	
 %% shutdown the netaccess server
 handle_call(stop, _From, State) ->
 	{stop, shutdown, ok, State};
@@ -157,7 +168,7 @@ handle_call_sync(MsgType, L4L3_Bin, From, {'EXIT', _Reason}, {Port, StateData} =
 %% insertion succeeded, send to port
 handle_call_sync(MsgType, L4L3_Bin, From, NewStateData, {Port, _StateData} = State) ->
 	erlang:port_command(Port, L4L3_Bin),
-	{noreply, State}.
+	{noreply, {Port, NewStateData}}.
 	
 %% Asynchronous requests
 %%
@@ -262,8 +273,7 @@ handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = Stat
 				% this is the last one
 				TsiDataRec when is_record(TsiDataRec, tsi_data) ->
 					NewStateData = gb_trees:delete(?L4L3mREQ_TSI_STATUS, StateData),
-					Result = [iisdn:tsi_data(TS) || TS <- Acc ++ [TsiDataRec]],
-					gen_server:reply(From, {ok, Result}),
+					gen_server:reply(From, {ok, Acc ++ [TsiDataRec]}),
 					{noreply, {Port, NewStateData}};
 				{'EXIT', Reason} ->
 					NewStateData = gb_trees:delete(?L4L3mREQ_TSI_STATUS, StateData),

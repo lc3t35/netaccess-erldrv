@@ -25,7 +25,9 @@
 -author('vances@motivity.ca').
 
 %% our published API functions
--export([start/0, start/1, start/2, start_link/1, start_link/2, stop/1]).
+-export([start/0, start/1, start/2, start/3]).
+-export([start_link/1, start_link/2, start_link/3]).
+-export([stop/1]).
 -export([open/1, close/1]).
 -export([reset_board/1, boot/2]).
 -export([get_version/1, get_driver_info/1]).
@@ -49,7 +51,7 @@
 %% @see gen_server:start/4
 %%
 start() ->
-	gen_server:start(netaccess_server, [?DEFAULT_BOARDNAME], []).
+	gen_server:start(netaccess_server, [?DEFAULT_BOARDNAME, 0], []).
 	
 %% @spec (BoardName::string()) -> {ok, Server::pid()} | {error, Reason::term()}
 %%
@@ -60,9 +62,20 @@ start() ->
 %% @see gen_server:start/4
 %%
 start(BoardName) ->
-	gen_server:start(netaccess_server, [BoardName], []).
+	gen_server:start(netaccess_server, [BoardName, 0], []).
 	
-%% @spec (ServerName, BoardName::string()) -> {ok, Server::pid()} | {error, Reason::term()}
+%% @spec (BoardName::string(), BoardNumber::integer()) -> {ok, Server::pid()} | {error, Reason::term()}
+%%
+%% @doc Start the netacccess server.
+%% 	<p>e.g. <code>netaccess:start("/dev/pri0", 0)</code></p>
+%% @end
+%%
+%% @see gen_server:start/4
+%%
+start(BoardName, BoardNumber) ->
+	gen_server:start(netaccess_server, [BoardName, BoardNumber], []).
+	
+%% @spec (ServerName, BoardName::string(), BoardNumber::integer()) -> {ok, Server::pid()} | {error, Reason::term()}
 %% 	ServerName = {local,Name} | {global,Name}
 %% 	Name = Node = atom()
 %%
@@ -70,8 +83,8 @@ start(BoardName) ->
 %%
 %% @see gen_server:start/4
 %%
-start(ServerName, BoardName) ->
-	gen_server:start(ServerName, netaccess_server, [BoardName], []).
+start(ServerName, BoardName, BoardNumber) ->
+	gen_server:start(ServerName, netaccess_server, [BoardName, BoardNumber], []).
 	
 %% @spec (BoardName::string()) -> {ok, Server::pid()} | {error, Reason::term()}
 %%
@@ -80,8 +93,19 @@ start(ServerName, BoardName) ->
 %% @see gen_server:start_link/4
 %%
 start_link(BoardName) ->
-	gen_server:start_link(netaccess_server, [BoardName], []).
+	gen_server:start_link(netaccess_server, [BoardName, 0], []).
 
+%% @spec (BoardName::string(), BoardNumber::integer()) -> {ok, Server::pid()} | {error, Reason::term()}
+%%
+%% @doc Start the netacccess server and link to the calling process.
+%% 	<p>e.g. <code>netaccess:start_link("/dev/pri0", 0)</code></p>
+%% @end
+%%
+%% @see gen_server:start/4
+%%
+start_link(BoardName, BoardNumber) ->
+	gen_server:start_link(netaccess_server, [BoardName, BoardNumber], []).
+	
 %% @spec (ServerName, BoardName::string()) -> {ok, Server::pid()} | {error, Reason::term()}
 %% 	ServerName = {local,Name} | {global,Name}
 %% 	Name = Node = atom()
@@ -90,8 +114,8 @@ start_link(BoardName) ->
 %%
 %% @see gen_server:start_link/4
 %%
-start_link(ServerName, BoardName) ->
-	gen_server:start_link(ServerName, netaccess_server, [BoardName], []).
+start_link(ServerName, BoardName, BoardNumber) ->
+	gen_server:start_link(ServerName, netaccess_server, [BoardName, BoardNumber], []).
 
 
 %% @spec (ServerRef) -> ok
