@@ -367,7 +367,14 @@ get_version(Port) ->
 %%
 %% get driver information from an open netaccess board
 %%
-%% returns {ok, [} or {error, Reason}
+%% returns {ok, DriverInfo} or {error, Reason}
+%%
+%%   DriverInfo = [{item, Value}, ...]
+%%   item       = hangup_on_red_alarm | flow_control_board |
+%%                   flow_control_wsrv | flow_control_rsrv |
+%%                   hdrops | sdrops | tx_msg_size | rx_msg_size |
+%%                   tx_num_bufs | rx_num_bufs | max_data_channels
+%%   Value      = int()
 %%
 get_driver_info(Port) ->
 	case do_ioctl({ioctl, ?GET_DRIVER_INFO, [], Port}) of
@@ -579,7 +586,7 @@ io:format("port shutdown:  {'EXIT', ~p, normal}~n",[Port]),
 
 % a port has closed abnormally
 handle_info({'EXIT', Port, Reason}, State) ->
-	error_logger:error_report([{'Port', Port}, {'Reason', Reason},
+	error_logger:error_report([{port, Port}, {reason, Reason},
 			"Port closed unexpectedly"]),
 	NewState = clean_port(Port, State),
 	{noreply, NewState};
