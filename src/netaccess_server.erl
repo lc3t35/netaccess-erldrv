@@ -90,7 +90,7 @@ handle_call(stop, _From, State) ->
 	{stop, shutdown, ok, State};
 
 %% open a port to the netaccess board
-handle_call({open, Board}, {Pid, _Tag}, State) ->
+handle_call({open, Board}, {Pid, _Tag}, State) when node(Pid) == node() ->
 	case catch erlang:open_port({spawn, Board}, [binary]) of
 		Port when is_port(Port) -> 
 			case ioctl(Port, ?SELECT_BOARD) of
@@ -104,6 +104,10 @@ handle_call({open, Board}, {Pid, _Tag}, State) ->
 		Error ->
 			{reply, Error, State}
 	end;
+%% since the port gets linked to the owner it must be local
+handle_call({open, Board}, {Pid, _Tag}, State) when node(Pid) /= node() ->
+	catch exit(Pid, badarg),
+	{noreply, State};
 
 %% perform an ioctl on an open channel to a netaccess board
 handle_call({ioctl, Operation, Data}, From, {Port, StateData} = State) ->
