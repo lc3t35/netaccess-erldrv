@@ -23,9 +23,9 @@
 -define(SELECT_BOARD, 5).
 -define(CANCEL_ASYNC, 10).
 
--define(SIZEOF_INT, @SIZEOF_INT@).
--define(SIZEOF_USHORT, @SIZEOF_USHORT@).
--define(SIZEOF_UINT, @SIZEOF_UINT@).
+-define(SIZEOF_int, @SIZEOF_int@).
+-define(SIZEOF_ushort, @SIZEOF_ushort@).
+-define(SIZEOF_uint, @SIZEOF_uint@).
 
 -record(driver_info, {board_type, hangup_on_red_alarm, flow_control_board,
 		flow_control_wsrv, flow_control_rsrv, hdrops, sdrops,

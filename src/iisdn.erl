@@ -32,7 +32,7 @@
 -export([q931_timers/1]).
 -export([level1/1, level2/1, level3/1]).
 -export([l2_lap_params/1, l2_ss7_params/1, l2_udpip_params/1,
-		l2_dpnss_params/1, l2_v110_params/1]).
+		l2_tcpip_params/1, l2_dpnss_params/1, l2_v110_params/1]).
 -export([data_interface/1]).
 -export([q931/1, bonding_data/1, x25_config/1, pm_config/1,
 		relay_config/1, dpnsscc_config/1, dasscc_config/1,
@@ -127,17 +127,21 @@ level2(L2) when is_record(L2, level2),
 	level2(L2#level2{
 			par = l2_lap_params(L2#level2.par)});
 level2(L2) when is_record(L2, level2),
-		is_record(L2#level2.par, l2_ss7_params) ->
-	level2(L2#level2{
-			par = l2_ss7_params(L2#level2.par)});
-level2(L2) when is_record(L2, level2),
 		is_record(L2#level2.par, l2_udpip_params) ->
 	level2(L2#level2{
 			par = l2_udpip_params(L2#level2.par)});
 level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.par, l2_tcpip_params) ->
+	level2(L2#level2{
+			par = l2_tcpip_params(L2#level2.par)});
+level2(L2) when is_record(L2, level2),
 		is_record(L2#level2.par, l2_dpnss_params) ->
 	level2(L2#level2{
 			par = l2_dpnss_params(L2#level2.par)});
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.par, l2_ss7_params) ->
+	level2(L2#level2{
+			par = l2_ss7_params(L2#level2.par)});
 level2(L2) when is_record(L2, level2),
 		is_record(L2#level2.par, l2_v110_params) ->
 	level2(L2#level2{
@@ -152,10 +156,6 @@ level2(L2) when is_record(L2, level2),
 	level2(L2#level2{
 			consts = l2_lap_consts(L2#level2.consts)});
 level2(L2) when is_record(L2, level2),
-		is_record(L2#level2.consts, l2_ss7_consts) ->
-	level2(L2#level2{
-			consts = l2_ss7_consts(L2#level2.consts)});
-level2(L2) when is_record(L2, level2),
 		is_record(L2#level2.consts, l2_ip_consts) ->
 	level2(L2#level2{
 			consts = l2_ip_consts(L2#level2.consts)});
@@ -164,10 +164,14 @@ level2(L2) when is_record(L2, level2),
 	level2(L2#level2{
 			consts = l2_dpnss_consts(L2#level2.consts)});
 level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.consts, l2_ss7_consts) ->
+	level2(L2#level2{
+			consts = l2_ss7_consts(L2#level2.consts)});
+level2(L2) when is_record(L2, level2),
 		is_binary(L2#level2.par);
 		is_binary(L2#level2.data_interface);
 		is_binary(L2#level2.consts) ->
-	<<(L2#level2.par)/binary, 
+	<<(L2#level2.par)/binary,
 			(L2#level2.data_interface)/binary,
 			(L2#level2.consts)/binary>>.
 
@@ -179,6 +183,12 @@ data_interface(DataIf) when is_record(DataIf, data_interface) ->
 			(DataIf#data_interface.allow_buffer_preload):?IISDNu8bit>>.
 
 l2_lap_params(Lap) when is_record(Lap, l2_lap_params) ->
+	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
+			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
+			?SIZEOF_IISDN_L2_TCPIP_PARAMS,
+			?SIZEOF_IISDN_L2_DPNSS_PARAMS,
+			?SIZEOF_IISDN_L2_SS7_PARAMS,
+			?SIZEOF_IISDN_L2_V110_PARAMS]) - ?SIZEOF_IISDN_L2_LAP_PARAMS,
 	<<(Lap#l2_lap_params.mode):?IISDNu8bit,
 			(Lap#l2_lap_params.dce_dte):?IISDNu8bit,
 			(Lap#l2_lap_params.tei_mode):?IISDNu8bit,
@@ -190,29 +200,71 @@ l2_lap_params(Lap) when is_record(Lap, l2_lap_params) ->
 			(Lap#l2_lap_params.no_reestab):?IISDNu8bit,
 			(Lap#l2_lap_params.mode_1tr6):?IISDNu8bit,
 			(Lap#l2_lap_params.mode_tei_1):?IISDNu8bit,
-			(Lap#l2_lap_params.no_piggyback):?IISDNu8bit>>.
-
-l2_ss7_params(Mtp2) when is_record(Mtp2, l2_ss7_params) ->
-	<<(Mtp2#l2_ss7_params.mode):?IISDNu8bit,
-			(Mtp2#l2_ss7_params.variant):?IISDNu8bit,
-			0:?IISDNu16bit,
-			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
-			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit>>.
+			(Lap#l2_lap_params.no_piggyback):?IISDNu8bit,
+			0:Pad/integer-unit:8>>.
 
 l2_udpip_params(Udpip) when is_record(Udpip, l2_udpip_params) ->
+	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
+			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
+			?SIZEOF_IISDN_L2_TCPIP_PARAMS,
+			?SIZEOF_IISDN_L2_DPNSS_PARAMS,
+			?SIZEOF_IISDN_L2_SS7_PARAMS,
+			?SIZEOF_IISDN_L2_V110_PARAMS]) - ?SIZEOF_IISDN_L2_UDPIP_PARAMS,
 	<<(Udpip#l2_udpip_params.mode):?IISDNu8bit,
 			0:?IISDNu8bit,
 			(Udpip#l2_udpip_params.dstport):?IISDNu16bit,
 			(Udpip#l2_udpip_params.dstipaddr):?IISDNu32bit,
-			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit>>.
+			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
+			0:Pad/integer-unit:8>>.
+
+l2_tcpip_params(Tcpip) when is_record(Tcpip, l2_tcpip_params) ->
+	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
+			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
+			?SIZEOF_IISDN_L2_TCPIP_PARAMS,
+			?SIZEOF_IISDN_L2_DPNSS_PARAMS,
+			?SIZEOF_IISDN_L2_SS7_PARAMS,
+			?SIZEOF_IISDN_L2_V110_PARAMS]) - ?SIZEOF_IISDN_L2_TCPIP_PARAMS,
+	<<(Tcpip#l2_tcpip_params.mode):?IISDNu8bit,
+			0:?IISDNu8bit,
+			(Tcpip#l2_tcpip_params.dstport):?IISDNu16bit,
+			(Tcpip#l2_tcpip_params.dstipaddr):?IISDNu32bit,
+			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
+			0:Pad/integer-unit:8>>.
 
 l2_dpnss_params(Dpnss) when is_record(Dpnss, l2_dpnss_params) ->
+	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
+			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
+			?SIZEOF_IISDN_L2_TCPIP_PARAMS,
+			?SIZEOF_IISDN_L2_DPNSS_PARAMS,
+			?SIZEOF_IISDN_L2_SS7_PARAMS,
+			?SIZEOF_IISDN_L2_V110_PARAMS]) - ?SIZEOF_IISDN_L2_DPNSS_PARAMS,
 	<<(Dpnss#l2_dpnss_params.mode):?IISDNu8bit,
 			(Dpnss#l2_dpnss_params.pbx_b):?IISDNu8bit,
 			(Dpnss#l2_dpnss_params.sabmr_as_ack):?IISDNu8bit,
-			(Dpnss#l2_dpnss_params.tie_line_mode):?IISDNu8bit>>.
+			(Dpnss#l2_dpnss_params.tie_line_mode):?IISDNu8bit,
+			0:Pad/integer-unit:8>>.
+
+l2_ss7_params(Mtp2) when is_record(Mtp2, l2_ss7_params) ->
+	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
+			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
+			?SIZEOF_IISDN_L2_TCPIP_PARAMS,
+			?SIZEOF_IISDN_L2_DPNSS_PARAMS,
+			?SIZEOF_IISDN_L2_SS7_PARAMS,
+			?SIZEOF_IISDN_L2_V110_PARAMS]) - ?SIZEOF_IISDN_L2_SS7_PARAMS,
+	<<(Mtp2#l2_ss7_params.mode):?IISDNu8bit,
+			(Mtp2#l2_ss7_params.variant):?IISDNu8bit,
+			0:?IISDNu16bit,
+			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
+			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
+			0:Pad/integer-unit:8>>.
 
 l2_v110_params(V110) when is_record(V110, l2_v110_params) ->
+	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_PARAMS,
+			?SIZEOF_IISDN_L2_UDPIP_PARAMS,
+			?SIZEOF_IISDN_L2_TCPIP_PARAMS,
+			?SIZEOF_IISDN_L2_DPNSS_PARAMS,
+			?SIZEOF_IISDN_L2_SS7_PARAMS,
+			?SIZEOF_IISDN_L2_V110_PARAMS]) - ?SIZEOF_IISDN_L2_V110_PARAMS,
 	<<(V110#l2_v110_params.mode):?IISDNu8bit,
 			(V110#l2_v110_params.ebits):?IISDNu8bit,
 			(V110#l2_v110_params.flow_control):?IISDNu8bit,
@@ -221,9 +273,13 @@ l2_v110_params(V110) when is_record(V110, l2_v110_params) ->
 			(V110#l2_v110_params.max_rx_frame_size):?IISDNu16bit,
 			(V110#l2_v110_params.stale_rx_data_timer):?IISDNu16bit,
 			(V110#l2_v110_params.filter_status_messages):?IISDNu8bit,
-			0:?IISDNu8bit>>.
+			0:?IISDNu8bit, 0:Pad/integer-unit:8>>.
 	
 l2_lap_consts(L2) when is_record(L2, l2_lap_consts) ->
+	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
+			?SIZEOF_IISDN_L2_IP_CONSTS,
+			?SIZEOF_IISDN_L2_DPNSS_CONSTS,
+			?SIZEOF_IISDN_L2_SS7_CONSTS]) - ?SIZEOF_IISDN_L2_LAP_CONSTS,
 	<<(L2#l2_lap_consts.t200):?IISDNu16bit,
 			(L2#l2_lap_consts.t201):?IISDNu16bit,
 			(L2#l2_lap_consts.t202):?IISDNu16bit,
@@ -231,9 +287,37 @@ l2_lap_consts(L2) when is_record(L2, l2_lap_consts) ->
 			(L2#l2_lap_consts.n200):?IISDNu16bit,
 			(L2#l2_lap_consts.n201):?IISDNu16bit,
 			(L2#l2_lap_consts.n202):?IISDNu16bit,
-			(L2#l2_lap_consts.k):?IISDNu16bit>>.
+			(L2#l2_lap_consts.k):?IISDNu16bit,
+			0:Pad/integer-unit:8>>.
+
+l2_ip_consts(Ip) when is_record(Ip, l2_ip_consts) ->
+	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
+			?SIZEOF_IISDN_L2_IP_CONSTS,
+			?SIZEOF_IISDN_L2_DPNSS_CONSTS,
+			?SIZEOF_IISDN_L2_SS7_CONSTS]) - ?SIZEOF_IISDN_L2_IP_CONSTS,
+	<<(Ip#l2_ip_consts.no_dhcp):?IISDNu8bit,
+			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
+			(Ip#l2_ip_consts.ipaddr):?IISDNu32bit,
+			(Ip#l2_ip_consts.gwaddr):?IISDNu32bit,
+			(Ip#l2_ip_consts.subnet_mask):?IISDNu32bit,
+			0:Pad/integer-unit:8>>.
+
+l2_dpnss_consts(Dpnss) when is_record(Dpnss, l2_dpnss_consts) ->
+	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
+			?SIZEOF_IISDN_L2_IP_CONSTS,
+			?SIZEOF_IISDN_L2_DPNSS_CONSTS,
+			?SIZEOF_IISDN_L2_SS7_CONSTS]) - ?SIZEOF_IISDN_L2_DPNSS_CONSTS,
+	<<(Dpnss#l2_dpnss_consts.nl):?IISDNu16bit,
+			0:?IISDNu16bit,
+			(Dpnss#l2_dpnss_consts.nt1):?IISDNu32bit,
+			(Dpnss#l2_dpnss_consts.nt2):?IISDNu32bit,
+			0:Pad/integer-unit:8>>.
 
 l2_ss7_consts(Mtp2) when is_record(Mtp2, l2_ss7_consts) ->
+	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
+			?SIZEOF_IISDN_L2_IP_CONSTS,
+			?SIZEOF_IISDN_L2_DPNSS_CONSTS,
+			?SIZEOF_IISDN_L2_SS7_CONSTS]) - ?SIZEOF_IISDN_L2_SS7_CONSTS,
 	<<(Mtp2#l2_ss7_consts.t1):?IISDNu16bit,
 			(Mtp2#l2_ss7_consts.t2):?IISDNu16bit,
 			(Mtp2#l2_ss7_consts.t3):?IISDNu16bit,
@@ -241,20 +325,8 @@ l2_ss7_consts(Mtp2) when is_record(Mtp2, l2_ss7_consts) ->
 			(Mtp2#l2_ss7_consts.t4e):?IISDNu16bit,
 			(Mtp2#l2_ss7_consts.t5):?IISDNu16bit,
 			(Mtp2#l2_ss7_consts.t6):?IISDNu16bit,
-			(Mtp2#l2_ss7_consts.t7):?IISDNu16bit>>.
-
-l2_ip_consts(Ip) when is_record(Ip, l2_ip_consts) ->
-	<<(Ip#l2_ip_consts.no_dhcp):?IISDNu8bit,
-			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
-			(Ip#l2_ip_consts.ipaddr):?IISDNu32bit,
-			(Ip#l2_ip_consts.gwaddr):?IISDNu32bit,
-			(Ip#l2_ip_consts.subnet_mask):?IISDNu32bit>>.
-
-l2_dpnss_consts(Dpnss) when is_record(Dpnss, l2_dpnss_consts) ->
-	<<(Dpnss#l2_dpnss_consts.nl):?IISDNu16bit,
-			0:?IISDNu16bit,
-			(Dpnss#l2_dpnss_consts.nt1):?IISDNu32bit,
-			(Dpnss#l2_dpnss_consts.nt2):?IISDNu32bit>>.
+			(Mtp2#l2_ss7_consts.t7):?IISDNu16bit,
+			0:Pad/integer-unit:8>>.
 
 
 level3(L3) when is_record(L3, level3),
@@ -305,6 +377,14 @@ q931(Q931) when is_record(Q931, q931) ->
 	Spid_1 = lists:foldl(Digit8, <<>>, Q931#q931.spid_1),
 	Dn = lists:foldl(Digit8, <<>>, Q931#q931.dn),
 	Dn_1 = lists:foldl(Digit8, <<>>, Q931#q931.dn_1),
+	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
+			?SIZEOF_IISDN_BONDING_DATA,
+			?SIZEOF_IISDN_X25_CONFIG,
+			?SIZEOF_IISDN_PM_CONFIG,
+			?SIZEOF_IISDN_RELAY_CONFIG,
+			?SIZEOF_IISDN_DPNSSCC_CONFIG,
+			?SIZEOF_IISDN_DASSCC_CONFIG,
+			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_Q931_CNFG,
 	<<(Q931#q931.switch_type):?IISDNu16bit,
 			(Q931#q931.variant):?IISDNu16bit,
 			(Q931#q931.call_filtering):?IISDNu32bit,
@@ -356,12 +436,19 @@ q931(Q931) when is_record(Q931, q931) ->
 			(Q931#q931.subscribe_connack):?IISDNu8bit,
 			(Q931#q931.suppress_auto_spid):?IISDNu8bit,
 			(Q931#q931.accept_all_bri_calls):?IISDNu8bit,
-			0:?IISDNu16bit>>.
+			0:?IISDNu16bit, 0:Pad/integer-unit:8>>.
 
 bonding_data(Bond) when is_record(Bond, bonding_data) ->
 	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
-	Directory = lists:foldl(Digit32, <<>>, 
-			Bond#bonding_data.directory),
+	Directory = lists:foldl(Digit32, <<>>, Bond#bonding_data.directory),
+	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
+			?SIZEOF_IISDN_BONDING_DATA,
+			?SIZEOF_IISDN_X25_CONFIG,
+			?SIZEOF_IISDN_PM_CONFIG,
+			?SIZEOF_IISDN_RELAY_CONFIG,
+			?SIZEOF_IISDN_DPNSSCC_CONFIG,
+			?SIZEOF_IISDN_DASSCC_CONFIG,
+			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_BONDING_DATA,
 	<<(Bond#bonding_data.mode):?IISDNu16bit,
 			(Bond#bonding_data.destination):?IISDNu8bit,
 			(Bond#bonding_data.num_tx_buf):?IISDNu8bit,
@@ -375,9 +462,17 @@ bonding_data(Bond) when is_record(Bond, bonding_data) ->
 			(Bond#bonding_data.tcid):?IISDNu16bit,
 			(Bond#bonding_data.tanull):?IISDNu16bit,
 			(Bond#bonding_data.channels):?IISDNu16bit,
-			Directory/binary>>.
+			Directory/binary, 0:Pad/integer-unit:8>>.
 	
 x25_config(X25) when is_record(X25, x25_config) ->
+	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
+			?SIZEOF_IISDN_BONDING_DATA,
+			?SIZEOF_IISDN_X25_CONFIG,
+			?SIZEOF_IISDN_PM_CONFIG,
+			?SIZEOF_IISDN_RELAY_CONFIG,
+			?SIZEOF_IISDN_DPNSSCC_CONFIG,
+			?SIZEOF_IISDN_DASSCC_CONFIG,
+			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_X25_CONFIG,
 	<<(X25#x25_config.cfg_msk):?IISDNu32bit,
 			(X25#x25_config.t10):?IISDNu16bit,
 			(X25#x25_config.t11):?IISDNu16bit,
@@ -388,7 +483,8 @@ x25_config(X25) when is_record(X25, x25_config) ->
 			(X25#x25_config.w):?IISDNu8bit,
 			(X25#x25_config.max_clr_retry):?IISDNu8bit,
 			(X25#x25_config.max_svcs):?IISDNu8bit,
-			(X25#x25_config.max_pvcs):?IISDNu8bit>>.
+			(X25#x25_config.max_pvcs):?IISDNu8bit,
+			0:Pad/integer-unit:8>>.
 
 pm_config(PM) when is_record(PM, pm_config) ->
 	Digit8 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu8bit>> end,
@@ -397,20 +493,46 @@ pm_config(PM) when is_record(PM, pm_config) ->
 	Frameid = lists:foldl(Digit8, <<>>, PM#pm_config.frameid),
 	Unitid = lists:foldl(Digit8, <<>>, PM#pm_config.unitid),
 	Facilityid = lists:foldl(Digit8, <<>>, PM#pm_config.facilityid),
+	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
+			?SIZEOF_IISDN_BONDING_DATA,
+			?SIZEOF_IISDN_X25_CONFIG,
+			?SIZEOF_IISDN_PM_CONFIG,
+			?SIZEOF_IISDN_RELAY_CONFIG,
+			?SIZEOF_IISDN_DPNSSCC_CONFIG,
+			?SIZEOF_IISDN_DASSCC_CONFIG,
+			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_PM_CONFIG,
 	<<(PM#pm_config.mode):?IISDNu8bit, 
 			(PM#pm_config.carrier):?IISDNu8bit,
 			(PM#pm_config.fdl_alert):?IISDNu8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit,
 			Equipmentid/binary, Locationid/binary, Frameid/binary,
-			Unitid/binary, Facilityid/binary>>.
+			Unitid/binary, Facilityid/binary,
+			0:Pad/integer-unit:8>>.
 
 relay_config(Relay) when is_record(Relay, relay_config) ->
+	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
+			?SIZEOF_IISDN_BONDING_DATA,
+			?SIZEOF_IISDN_X25_CONFIG,
+			?SIZEOF_IISDN_PM_CONFIG,
+			?SIZEOF_IISDN_RELAY_CONFIG,
+			?SIZEOF_IISDN_DPNSSCC_CONFIG,
+			?SIZEOF_IISDN_DASSCC_CONFIG,
+			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_RELAY_CONFIG,
 	<<(Relay#relay_config.default_dest):?IISDNu8bit,
 			(Relay#relay_config.default_dest_id):?IISDNu8bit,
 			(Relay#relay_config.default_root_idx):?IISDNu8bit,
-			0:?IISDNu8bit, 0:?IISDNu8bit>>.
+			0:?IISDNu8bit, 0:?IISDNu8bit,
+			0:Pad/integer-unit:8>>.
 
 dpnsscc_config(Dpnss) when is_record(Dpnss, dpnsscc_config) ->
+	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
+			?SIZEOF_IISDN_BONDING_DATA,
+			?SIZEOF_IISDN_X25_CONFIG,
+			?SIZEOF_IISDN_PM_CONFIG,
+			?SIZEOF_IISDN_RELAY_CONFIG,
+			?SIZEOF_IISDN_DPNSSCC_CONFIG,
+			?SIZEOF_IISDN_DASSCC_CONFIG,
+			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_DPNSSCC_CONFIG,
 	<<(Dpnss#dpnsscc_config.pbx_y):?IISDNs8bit,
 			(Dpnss#dpnsscc_config.no_virtual_channels):?IISDNs8bit,
 			(Dpnss#dpnsscc_config.dest_addr_len):?IISDNs8bit,
@@ -418,21 +540,40 @@ dpnsscc_config(Dpnss) when is_record(Dpnss, dpnsscc_config) ->
 			(Dpnss#dpnsscc_config.b_channel_service_state):?IISDNu32bit,
 			(Dpnss#dpnsscc_config.v_channel_service_state):?IISDNu32bit,
 			(Dpnss#dpnsscc_config.t_i_msg):?IISDNs32bit,
-			(Dpnss#dpnsscc_config.t_guard):?IISDNs32bit>>.
+			(Dpnss#dpnsscc_config.t_guard):?IISDNs32bit,
+			0:Pad/integer-unit:8>>.
 
 dasscc_config(Dass) when is_record(Dass, dasscc_config) ->
+	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
+			?SIZEOF_IISDN_BONDING_DATA,
+			?SIZEOF_IISDN_X25_CONFIG,
+			?SIZEOF_IISDN_PM_CONFIG,
+			?SIZEOF_IISDN_RELAY_CONFIG,
+			?SIZEOF_IISDN_DPNSSCC_CONFIG,
+			?SIZEOF_IISDN_DASSCC_CONFIG,
+			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_DASSCC_CONFIG,
 	<<(Dass#dasscc_config.b_channel_service_state):?IISDNu32bit,
 			(Dass#dasscc_config.t_digit_racking):?IISDNs32bit,
 			(Dass#dasscc_config.n_clear_retries):?IISDNs8bit,
-			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit>>.
+			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
+			0:Pad/integer-unit:8>>.
 
 q933a_config(Q933a) when is_record(Q933a, q933a_config) ->
+	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
+			?SIZEOF_IISDN_BONDING_DATA,
+			?SIZEOF_IISDN_X25_CONFIG,
+			?SIZEOF_IISDN_PM_CONFIG,
+			?SIZEOF_IISDN_RELAY_CONFIG,
+			?SIZEOF_IISDN_DPNSSCC_CONFIG,
+			?SIZEOF_IISDN_DASSCC_CONFIG,
+			?SIZEOF_IISDN_Q933A_CONFIG]) - ?SIZEOF_IISDN_Q933A_CONFIG,
 	<<(Q933a#q933a_config.network_side):?IISDNu8bit,
 			(Q933a#q933a_config.n391):?IISDNu8bit,
 			(Q933a#q933a_config.n392):?IISDNu8bit,
 			(Q933a#q933a_config.n393):?IISDNu8bit,
 			(Q933a#q933a_config.t391):?IISDNu16bit,
-			(Q933a#q933a_config.t392):?IISDNu16bit>>.
+			(Q933a#q933a_config.t392):?IISDNu16bit,
+			0:Pad/integer-unit:8>>.
 
 
 ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
@@ -480,8 +621,8 @@ hardware_data(HW) when is_record(HW, hardware_data),
 	NewHW = HW#hardware_data{line_data=LD},
 	hardware_data(NewHW);
 hardware_data(HW) when is_binary(HW) ->
-	Size_line = (?IISDN_MAX_LINES * size(line_data(#line_data{}))),
-	Size_csu = (?IISDN_MAX_LINES * size(<<0:?IISDNu8bit>>)),
+	Size_line = (?IISDN_MAX_LINES * ?SIZEOF_IISDN_LINE_DATA),
+	Size_csu = (?IISDN_MAX_LINES * ?SIZEOF_IISDNu8bit),
 	<<Clocking:?IISDNu8bit, Clocking2:?IISDNu8bit,
 			Enable_clocking2:?IISDNu8bit, Netref_clocking:?IISDNu8bit,
 			Netref_rate:?IISDNu8bit, Ctbus_mode:?IISDNu8bit,
