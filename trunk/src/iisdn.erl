@@ -1258,11 +1258,11 @@ hardware_data(HW) when is_binary(HW) ->
 			Enable_8370_rliu_monitor:?IISDNu8bit, Dbcount:?IISDNu8bit,
 			Enable_t810x_snap_mode:?IISDNu8bit, Clk_status:?IISDNu8bit,
 			LineData:Size_line/binary, Csu:Size_csu/binary, _Rest/binary>> = HW,
-	U8toL = fun (Iter, <<>>, List) -> List;
+	U8toL = fun (_Iter, <<>>, List) -> List;
 			(Iter, <<Digit:?IISDNu8bit, Rest/binary>>, Acc) ->
 				Iter(Iter, Rest, Acc ++ [Digit])
 			end,
-	LinetoL = fun (Iter, <<>>, List) -> List;
+	LinetoL = fun (_Iter, <<>>, List) -> List;
 			(Iter, <<LD:?SIZEOF_IISDN_LINE_DATA/binary, Rest/binary>>, Acc) ->
 				Iter(Iter, Rest, Acc ++ [line_data(LD)])
 			end,
@@ -1490,7 +1490,7 @@ protocol_stat(P) when is_binary(P) ->
 			ConnectBPS:?IISDNu32bit, ConnectTyp:?IISDNu32bit,
 			L2IpConsts:?SIZEOF_IISDN_L2_IP_CONSTS/binary,
 			Q933a:Size_q933a/binary, Amf:Size_amf/binary, _Rest/binary>> = P,
-	U32toL = fun (Iter, <<>>, List) -> List;
+	U32toL = fun (_Iter, <<>>, List) -> List;
 			(Iter, <<Digit:?IISDNu32bit, Rest/binary>>, Acc) ->
 				Iter(Iter, Rest, Acc ++ [Digit])
 			end,
@@ -1645,15 +1645,15 @@ line_status(LineStatusBin) when is_binary(LineStatusBin) ->
 	<<Alarm_status:Sizeof_AlarmStatus/binary, L1State:Sizeof_L1State/binary,
 			LineType:Sizeof_LineType/binary, MphMsg:Sizeof_MphMsg/binary,
 			ErrorPoint:?IISDNu8bit, _Rest/binary>> = LineStatusBin,
-	AlarmtoL = fun (Iter, <<>>, List) -> List;
+	AlarmtoL = fun (_Iter, <<>>, List) -> List;
 			(Iter, <<AS:?SIZEOF_IISDN_ALARM_STATUS/binary, Rest/binary>>, Acc) ->
 				Iter(Iter, Rest, Acc ++ [alarm_status(AS)])
 			end,
-	U8toL = fun (Iter, <<>>, List) -> List;
+	U8toL = fun (_Iter, <<>>, List) -> List;
 			(Iter, <<Digit:?IISDNu8bit, Rest/binary>>, Acc) ->
 				Iter(Iter, Rest, Acc ++ [Digit])
 			end,
-	S8toL = fun (Iter, <<>>, List) -> List;
+	S8toL = fun (_Iter, <<>>, List) -> List;
 			(Iter, <<Digit:?IISDNs8bit, Rest/binary>>, Acc) ->
 				Iter(Iter, Rest, Acc ++ [Digit])
 			end,
