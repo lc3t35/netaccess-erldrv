@@ -158,6 +158,7 @@ typedef struct {
 
 /*  This data is needed for a thread executing an ioctl request  */
 typedef struct {
+	int command;                    /* ioctl command               */
 	struct strioctl *ctlp;          /* streams control data        */
 	download_t *bp;                 /* structure to hold boot file */
 	ErlDrvBinary *bin;              /* driver binary for result    */
@@ -180,7 +181,6 @@ typedef struct {
 #define TD_IFRAME 2
 	int type;                       /* ioctl, l4l3 or iframe       */
 	int fd;                         /* File descriptor             */
-	int command;                    /* ioctl command               */
 	long ref;                       /* handle to async task        */
 	int result;                     /* return from async function  */
 	int terrno;                     /* errno from async function   */
@@ -471,7 +471,7 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 	} 
 		
 	else
-		switch(td->command) {
+		switch(td->data.ioctl.command) {
 			case SELECT_BOARD:      
 			case BOOT_BOARD:      
 			case ENABLE_MANAGEMENT_CHAN:
@@ -633,7 +633,7 @@ call(ErlDrvData handle, unsigned int command,
 		td = (ThreadData *) driver_alloc(sizeof(ThreadData));
 		memset(td, 0, sizeof(ThreadData));
 		td->fd = dd->fd;				
-		td->command = command;
+		td->data.ioctl.command = command;
 		cntl_ptr = (struct strioctl *) driver_alloc(sizeof(struct strioctl));
 		memset(cntl_ptr, 0, sizeof(struct strioctl));
 		td->data.ioctl.ctlp = cntl_ptr;
