@@ -34,7 +34,9 @@
 -export([set_hardware/2, req_hw_status/1]).
 -export([board_id/1]).
 -export([set_tsi/2, req_tsi_status/1]).
+-export([get_qsize/1, set_maxiframesize/2, set_lowwater/2, set_highwater/2]).
 -export([enable_protocol/3]).
+-export([req_l2_stats/2]).
 -export([send/2]).
 
 -include("pridrv.hrl").
@@ -155,7 +157,7 @@ start_link(ServerName, BoardName, BoardNumber) ->
 %% @doc Stop the netaccess server.
 %%
 stop(ServerRef) ->
-	do_call(ServerRef, stop).
+	gen_server:cast(ServerRef, stop).
 
 
 %% @spec (ServerRef) -> Channel
@@ -170,7 +172,7 @@ stop(ServerRef) ->
 %% @see erlang:open_port/2
 %%
 open(ServerRef) ->
-	do_call(ServerRef, open).
+	gen_server:call(ServerRef, open).
 
 %% @spec (Channel) -> true
 %% 	Channel = port()
@@ -207,7 +209,7 @@ close(Port) ->
 %% @see file:read_file/1
 %%
 boot(ServerRef, BootBin) when binary(BootBin) ->
-	do_ioctl(ServerRef, {ioctl, ?BOOT_BOARD, BootBin}, 62000);
+	gen_server:call(ServerRef, {ioctl, ?BOOT_BOARD, BootBin}, 62000);
 boot(ServerRef, Filename) when list(Filename) ->
 	case catch file:read_file(Filename) of
 		{ok, BootBin} ->
@@ -225,7 +227,7 @@ boot(ServerRef, Filename) when list(Filename) ->
 %% @doc Perform a reset on an open netaccess board.
 %%
 reset_board(ServerRef) ->
-	do_ioctl(ServerRef, {ioctl, ?RESET_BOARD, 0}).
+	gen_server:call(ServerRef, {ioctl, ?RESET_BOARD, 0}).
 
 
 %% @spec (ServerRef) -> {ok, Version} | {error, Reason}
@@ -238,7 +240,7 @@ reset_board(ServerRef) ->
 %% @doc Get software version string from an open netaccess board.
 %%
 get_version(ServerRef) ->
-	do_ioctl(ServerRef, {ioctl, ?GET_VERSION, 0}, 2000).
+	gen_server:call(ServerRef, {ioctl, ?GET_VERSION, 0}).
 
 
 %% @spec (ServerRef) -> {ok, DriverInfo} | {error, Reason}
@@ -253,13 +255,53 @@ get_version(ServerRef) ->
 %% @doc Get driver information from an open netaccess board.
 %%
 get_driver_info(ServerRef) ->
-	case do_ioctl(ServerRef, {ioctl, ?GET_DRIVER_INFO, 0}, 2000) of
+	case gen_server:call(ServerRef, {ioctl, ?GET_DRIVER_INFO, 0}) of
 		{ok, DriverInfo} ->
 			{ok, pridrv:driver_info(DriverInfo)};
 		Error ->
 			Error	
 	end.
 	
+
+%% @spec (Channel) -> QSize
+%% 	Channel = port()
+%% 	QSize = integer()
+%%
+%% @doc Get the current size of the queue of outbound IFRAMEs.
+%%
+get_qsize(Channel) ->
+	port:call(Channel, ?QSIZE, 0).
+
+%% @spec (Channel, NewValue) -> OldValue
+%% 	Channel = port()
+%% 	NewValue = integer()
+%% 	OldValue = integer()
+%%
+%% @doc Set the highwater mark for the queue of outgoing IFRAMEs.
+%%
+set_highwater(Channel, NewValue) ->
+	port:call(Channel, ?HIGHWATER, NewValue).
+
+%% @spec (Channel, NewValue) -> OldValue
+%% 	Channel = port()
+%% 	NewValue = integer()
+%% 	OldValue = integer()
+%%
+%% @doc Set the lowwater mark for the queue of outgoing IFRAMEs.
+%%
+set_lowwater(Channel, NewValue) ->
+	port:call(Channel, ?LOWWATER, NewValue).
+
+%% @spec (Channel, NewValue) -> OldValue
+%% 	Channel = port()
+%% 	NewValue = integer()
+%% 	OldValue = integer()
+%%
+%% @doc Set the lowwater mark for the queue of outgoing IFRAMEs.
+%%
+set_maxiframesize(Channel, NewValue) ->
+	port:call(Channel, ?MAXIFRAMESIZE, NewValue).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                       %%
@@ -278,7 +320,7 @@ get_driver_info(ServerRef) ->
 %%
 board_id(ServerRef) ->
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mREQ_BOARD_ID},
-	do_call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
+	gen_server:call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
 %% @spec (ServerRef, HardWareData) -> ok
@@ -291,7 +333,7 @@ board_id(ServerRef) ->
 %%
 set_hardware(ServerRef, Data) when is_record(Data, hardware_data) ->
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_HARDWARE, data = Data},
-	do_cast(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
+	gen_server:cast(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
 %% @spec (ServerRef) -> {ok, HardwareData} | {error, Reason}
@@ -305,7 +347,7 @@ set_hardware(ServerRef, Data) when is_record(Data, hardware_data) ->
 %%
 req_hw_status(ServerRef) ->
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mREQ_HW_STATUS},
-	do_call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
+	gen_server:call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 	
 	
 %% @spec (ServerRef, TsiData) -> ok
@@ -318,7 +360,7 @@ req_hw_status(ServerRef) ->
 %%
 set_tsi(ServerRef, Data) ->
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_TSI, data = Data},
-	do_cast(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
+	gen_server:cast(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
 %% @spec (ServerRef) -> {ok, TsiDataList} | {error, Reason}
@@ -332,7 +374,7 @@ set_tsi(ServerRef, Data) ->
 %%
 req_tsi_status(ServerRef) -> 
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mREQ_TSI_STATUS},
-	do_call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
+	gen_server:call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
 %% @spec (Channel, LapdId, EnaProtoData) -> true
@@ -342,14 +384,27 @@ req_tsi_status(ServerRef) ->
 %%
 %% @doc Specifies and enables layer 1, 2 &amp; 3 processing on an open channel.
 %%
-enable_protocol(Port, LapdId, EnaProtoData) ->
+enable_protocol(Channel, LapdId, EnaProtoData) ->
 	L4L3_rec = #l4_to_l3{lapdid = LapdId,
 			msgtype = ?L4L3mENABLE_PROTOCOL, data = EnaProtoData},
 	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
-	erlang:port_call(Port, ?L4L3m, L4L3_bin).
+	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
 	
 
-%% @spec (Channel, Iframe) -> true
+%% @spec (Channel, LapdId) -> L2Stats
+%% 	Channel = port()
+%% 	LapdId = integer()
+%% 	L2Stats = l2_stats() | mtp2_stats()
+%%
+%% @doc Gets level statistics for a channel.
+%%
+req_l2_stats(Channel, LapdId) ->
+	L4L3_rec = #l4_to_l3{lapdid = LapdId, msgtype = ?L4L3mREQ_L2_STATS},
+	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
+	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+	
+
+%l @spec (Channel, Iframe) -> true
 %% 	Channel = port()
 %% 	Iframe= binary() | iolist()
 %%
@@ -358,19 +413,4 @@ enable_protocol(Port, LapdId, EnaProtoData) ->
 send(Channel, Iframe) ->
 	port_command(Channel, Iframe).
 	
-
-%%----------------------------------------------------------------------
-%%  internal functions
-%%----------------------------------------------------------------------
-
-do_ioctl(ServerRef, Request) ->
-	do_ioctl(ServerRef, Request, 30000).
-do_ioctl(ServerRef, Request, Timeout) ->
-	gen_server:call(ServerRef, Request, Timeout).
-
-do_call(ServerRef, Request) ->
-	gen_server:call(ServerRef, Request).
-
-do_cast(ServerRef, Request) ->
-	gen_server:cast(ServerRef, Request).
 

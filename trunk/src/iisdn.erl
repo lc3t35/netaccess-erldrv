@@ -63,6 +63,7 @@
 	 	l2_dpnss_consts/1]).
 -export([protocol_stat/1, q933a_pvc_status/1]).
 -export([board_id/1]).
+-export([l2_stats/1, mtp2_stats/1, l2_mtp2_stats/1]).
 
 -include("iisdn.hrl").
 
@@ -1527,4 +1528,96 @@ q933a_pvc_status(<<>>, QList) -> QList;
 q933a_pvc_status(<<Q:?SIZEOF_IISDN_Q933A_PVC_STATUS/binary, Rest/binary>>, QList) ->
 	q933a_pvc_status(Rest, QList ++ [q933a_pvc_status(Q)]).
 	
+%% @type l2_stats().  Level 2 statitics counts for an LAP channel.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>iframe_tx</tt></dt><dd><tt>integer()</tt>  Count of IFRAME commands sent</dd>
+%% 		<dt><tt>rr_cmd_tx</tt></dt><dd><tt>integer()</tt>  Count of RR commands sent</dd>
+%% 		<dt><tt>rnr_cmd_tx</tt></dt><dd><tt>integer()</tt>  Count of RNR commands sent</dd>
+%% 		<dt><tt>rej_cmd_tx</tt></dt><dd><tt>integer()</tt>  Count of REJ commands sent</dd>
+%% 		<dt><tt>sabm_tx</tt></dt><dd><tt>integer()</tt>  Count of SABM commands sent</dd>
+%% 		<dt><tt>sabme_tx</tt></dt><dd><tt>integer()</tt>  Count of SABME commands sent</dd>
+%% 		<dt><tt>disc_tx</tt></dt><dd><tt>integer()</tt>  Count of DISC commands sent</dd>
+%% 		<dt><tt>rr_rsp_tx</tt></dt><dd><tt>integer()</tt>  Count of RR responses sent</dd>
+%% 		<dt><tt>rnr_rsp_tx</tt></dt><dd><tt>integer()</tt>  Count of RNR responses sent</dd>
+%% 		<dt><tt>rej_rsp_tx</tt></dt><dd><tt>integer()</tt>  Count of REJ responses sent</dd>
+%% 		<dt><tt>dm_tx</tt></dt><dd><tt>integer()</tt>  Count of DM responses sent</dd>
+%% 		<dt><tt>ua_tx</tt></dt><dd><tt>integer()</tt>  Count of UA responses sent</dd>
+%% 		<dt><tt>frmr_tx</tt></dt><dd><tt>integer()</tt>  Count of FRMR responses sent</dd>
+%% 		<dt><tt>iframe_rx</tt></dt><dd><tt>integer()</tt>  Count of IFRAME commands received</dd>
+%% 		<dt><tt>rr_cmd_rx</tt></dt><dd><tt>integer()</tt>  Count of RR commands received</dd>
+%% 		<dt><tt>rnr_cmd_rx</tt></dt><dd><tt>integer()</tt>  Count of RNR commands received</dd>
+%% 		<dt><tt>rej_cmd_rx</tt></dt><dd><tt>integer()</tt>  Count of REJ commands received</dd>
+%% 		<dt><tt>sabm_rx</tt></dt><dd><tt>integer()</tt>  Count of SABM commands received</dd>
+%% 		<dt><tt>sabme_rx</tt></dt><dd><tt>integer()</tt>  Count of SABME commands received</dd>
+%% 		<dt><tt>disc_rx</tt></dt><dd><tt>integer()</tt>  Count of DISC commands received</dd>
+%% 		<dt><tt>rr_rsp_rx</tt></dt><dd><tt>integer()</tt>  Count of RR responses received</dd>
+%% 		<dt><tt>rnr_rsp_rx</tt></dt><dd><tt>integer()</tt>  Count of RNR responses received</dd>
+%% 		<dt><tt>rej_rsp_rx</tt></dt><dd><tt>integer()</tt>  Count of REJ responses received</dd>
+%% 		<dt><tt>dm_rx</tt></dt><dd><tt>integer()</tt>  Count of DM responses received</dd>
+%% 		<dt><tt>ua_rx</tt></dt><dd><tt>integer()</tt>  Count of UA responses received</dd>
+%% 		<dt><tt>frmr_rx</tt></dt><dd><tt>integer()</tt>  Count of FRMR responses received</dd>
+%% 		<dt><tt>crc_errors</tt></dt><dd><tt>integer()</tt>  Count of CRC errors (RX)</dd>
+%% 		<dt><tt>rcv_errors</tt></dt><dd><tt>integer()</tt>  Count of non-CRC errors (RX)</dd>
+%% 		<dt><tt>retrans_cnt</tt></dt><dd><tt>integer()</tt>  Count of retransmitted IFRAMES</dd>
+%% 		<dt><tt>poll_errors</tt></dt><dd><tt>integer()</tt>  Count of polls not responded to</dd>
+%% 		<dt><tt>ui_tx</tt></dt><dd><tt>integer()</tt>  Count of UI frames transmitted</dd>
+%% 		<dt><tt>ui_rx</tt></dt><dd><tt>integer()</tt>  Count of UI frames received</dd>
+%% 	</dl>
+%% @spec (L2StatsBin) -> L2StatsRec
+%% 	L2StatsBin = binary()
+%% 	L2StatsRec = l2_stats()
+%%
+l2_stats(L2StatsBin) when is_binary(L2StatsBin) ->
+	<<IframeTx:?IISDNu16bit, RrCmdTx:?IISDNu16bit, RnrCmdTx:?IISDNu16bit, RejCmdTx:?IISDNu16bit, 
+			SabmTx:?IISDNu16bit, SabmeTx:?IISDNu16bit, DiscTx:?IISDNu16bit, RrRspTx:?IISDNu16bit, 
+			RnrRspTx:?IISDNu16bit, RejRspTx:?IISDNu16bit, DmTx:?IISDNu16bit, UaTx:?IISDNu16bit, 
+			FrmrTx:?IISDNu16bit, IframeTx:?IISDNu16bit, IframeRx:?IISDNu16bit, RrCmdRx:?IISDNu16bit,
+			RnrCmdRx:?IISDNu16bit, RejCmdRx:?IISDNu16bit, SabmRx:?IISDNu16bit, SabmeRx:?IISDNu16bit,
+			DiscRx:?IISDNu16bit, RrRspRx:?IISDNu16bit, RnrRspRx:?IISDNu16bit, RejRspRx:?IISDNu16bit,
+			DmRx:?IISDNu16bit, UaRx:?IISDNu16bit, FrmrRx:?IISDNu16bit, CrcErrors:?IISDNu16bit, 
+			RcvErrors:?IISDNu16bit, RetransCnt:?IISDNu16bit, PollErrors:?IISDNu16bit,
+			UiTx:?IISDNu16bit, UiRx:?IISDNu16bit, _Rest/binary>> = L2StatsBin,
+	#l2_stats{iframe_tx=IframeTx, rr_cmd_tx=RrCmdTx, rnr_cmd_tx=RnrCmdTx, rej_cmd_tx=RejCmdTx,
+			sabm_tx=SabmTx, sabme_tx=SabmeTx, disc_tx=DiscTx, rr_rsp_tx=RrRspTx, rnr_rsp_tx=RnrRspTx,
+			 rej_rsp_tx=RejRspTx, dm_tx=DmTx, ua_tx=UaTx, frmr_tx=FrmrTx, iframe_rx=IframeRx,
+			rr_cmd_rx=RrCmdRx, rnr_cmd_rx=RnrCmdRx, rej_cmd_rx=RejCmdRx, sabm_rx=SabmRx,
+			sabme_rx=SabmeRx, disc_rx=DiscRx, rr_rsp_rx=RrRspRx, rnr_rsp_rx=RnrRspRx,
+			rej_rsp_rx=RejRspRx, dm_rx=DmRx, ua_rx=UaRx, frmr_rx=FrmrRx, crc_errors=CrcErrors,
+			rcv_errors=RcvErrors, retrans_cnt=RetransCnt, poll_errors=PollErrors,
+			ui_tx=UiTx, ui_rx=UiRx}.
 
+%% @type mtp2_stats().  Level 2 statitics counts for an MTP2 channel.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>msu_rx</tt></dt><dd><tt>integer()</tt>  Count of MSU received</dd>
+%% 		<dt><tt>msu_tx</tt></dt><dd><tt>integer()</tt>  Count of MSU transmitted</dd>
+%% 		<dt><tt>msu_rx_err</tt></dt><dd><tt>integer()</tt>  Count of MSU receive errors</dd>
+%% 		<dt><tt>msu_re_tx</tt></dt><dd><tt>integer()</tt>  Count of MSU retransmitted</dd>
+%% 		<dt><tt>neg_ack</tt></dt><dd><tt>integer()</tt>  Count of negatove acknowledgement</dd>
+%% 		<dt><tt>octet_rx</tt></dt><dd><tt>integer()</tt>  Count of octets received</dd>
+%% 		<dt><tt>octet_tx</tt></dt><dd><tt>integer()</tt>  Count of octets transmitted</dd>
+%% 	</dl>
+%% @spec (MTP2StatsBin) -> MTP2StatsRec
+%% 	MTP2StatsBin = binary()
+%% 	MTP2StatsRec = mtp2_stats()
+%%
+mtp2_stats(MTP2StatsBin) when is_binary(MTP2StatsBin) ->
+	<<MsuRx:?IISDNu32bit, MsuTx:?IISDNu32bit, MsuRxErr:?IISDNu32bit, MsuReTx:?IISDNu32bit,
+			NegAck:?IISDNu32bit, OctetRx:?IISDNu32bit, OctetTx:?IISDNu32bit, 
+			_Rest/binary>> = MTP2StatsBin,
+	#mtp2_stats{msu_rx=MsuRx, msu_tx=MsuTx, msu_rx_err=MsuRxErr, msu_re_tx=MsuReTx,
+			neg_ack=NegAck, octet_rx=OctetRx, octet_tx=OctetTx}.
+
+%% @type l2_mtp2_stats().  Level 2 statistics for an HDLC channel.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>mode</tt></dt><dd><tt>integer()</tt>  LAP=0, MTP2=1</dd>
+%% 		<dt><tt>stats</tt></dt><dd><tt>integer()</tt>  l2_stats() or mtp2_stats()</dd>
+%% 	</dl>
+%% @spec (L2MTP2StatsBin) -> L2MTP2StatsRec
+%%
+l2_mtp2_stats(L2MTP2StatsBin) when is_binary(L2MTP2StatsBin) ->
+	<<Mode:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit,
+			Stats/binary>> = L2MTP2StatsBin,
+	#l2_mtp2_stats{mode = Mode, stats = Stats}.

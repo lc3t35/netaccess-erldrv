@@ -504,3 +504,18 @@
 		q933a_pvcs=lists:duplicate(?IISDN_MAX_VC_PER_CHAN - 1, #q933a_pvc_status{}),
 		amf_status=[0,0,0,0]}).
 -record(q933a_pvc_status, {lli=0, status=0}).
+
+-define(L4L3mREQ_L2_STATS,  16#AB).
+-define(L3L4mL2_STATS,      16#25).
+-define(IISDNstatL2,            0).
+-define(IISDNstatMTP2,          1).
+-record(l2_stats,
+		{iframe_tx=0, rr_cmd_tx=0, rnr_cmd_tx=0, rej_cmd_tx=0, sabm_tx=0, sabme_tx=0, 
+		disc_tx=0, rr_rsp_tx=0, rnr_rsp_tx=0, rej_rsp_tx=0, dm_tx=0, ua_tx=0, frmr_tx=0, 
+		iframe_rx=0, rr_cmd_rx=0, rnr_cmd_rx=0, rej_cmd_rx=0, sabm_rx=0, sabme_rx=0, 
+		disc_rx=0, rr_rsp_rx=0, rnr_rsp_rx=0, rej_rsp_rx=0, dm_rx=0, ua_rx=0, frmr_rx=0, 
+		crc_errors=0, rcv_errors=0, retrans_cnt=0, poll_errors=0, ui_tx=0, ui_rx=0}).
+-record(mtp2_stats,
+		{msu_rx=0, msu_tx=0, msu_rx_err=0, msu_re_tx=0, neg_ack=0, octet_rx=0, octet_tx=0}).
+-record(l2_mtp2_stats, {mode=0, stats=0}).
+

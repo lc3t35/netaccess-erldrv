@@ -93,10 +93,6 @@ init_enable(Reason, Port, _Board) ->
 	{stop, Reason}.
 
 	
-%% shutdown the netaccess server
-handle_call(stop, _From, State) ->
-	{stop, shutdown, ok, State};
-
 %% open a port to the netaccess board
 handle_call(open, {Pid, _Tag} = From, {ManagementPort, {BoardName, BoardNumber} = Board,
 		StateData} = State) when node(Pid) == node() ->
@@ -109,16 +105,16 @@ handle_call(open, {Pid, _Tag} = From, {ManagementPort, {BoardName, BoardNumber} 
 					{noreply, {ManagementPort, Board, NewStateData}};
 				{Error, Reason} when Error == 'EXIT'; Error == error ->
 					erlang:port_close(Channel),
-					catch exit(Pid, Reason),
+					exit(Pid, Reason),
 					{noreply, State}
 			end;
 		{'EXIT', Reason} ->
-			catch exit(Pid, Reason),
+			exit(Pid, Reason),
 			{noreply, State}
 	end;
 %% since the port gets linked to the owner it must be local
-handle_call({open, Board}, {Pid, _Tag}, State) when node(Pid) /= node() ->
-	catch exit(Pid, badarg),
+handle_call(open, {Pid, _Tag}, State) when node(Pid) /= node() ->
+	exit(Pid, badarg),
 	{noreply, State};
 
 %% perform an ioctl on an open channel to a netaccess board
@@ -130,7 +126,7 @@ handle_call({ioctl, Operation, Data}, From, {Port, Board, StateData} = State) ->
 			{noreply, {Port, Board, NewStateData}};
 		{Error, Reason} when Error == 'EXIT'; Error == error ->
 			{Pid, _Tag} = From,
-			catch exit(Pid, Reason),
+			exit(Pid, Reason),
 			{noreply, State}
 	end;
 
@@ -164,7 +160,7 @@ handle_call_sync(MsgType, L4L3_Bin, From, {Port, Board, StateData} = State) when
 	handle_call_sync(MsgType, L4L3_Bin, From, Result, State);
 %% failed to encode record
 handle_call_sync(_MsgType, {'EXIT', _Reason}, {Pid, _Tag}, State) ->
-	catch exit(Pid, badarg),
+	exit(Pid, badarg),
 	{noreply, State}.
 %% we're holding a request already, check if it's stale
 handle_call_sync(MsgType, L4L3_Bin, From, {'EXIT', _Reason}, {Port, Board, StateData} = State) ->
@@ -172,7 +168,7 @@ handle_call_sync(MsgType, L4L3_Bin, From, {'EXIT', _Reason}, {Port, Board, State
 	case gb_trees:lookup(MsgType, StateData) of
 		{value, {{Pid, _Tag}, Time, _Acc}} when Time < Now ->
 			% request in progress, raise exception
-			catch exit(Pid, ebusy),
+			exit(Pid, ebusy),
 			{noreply, State};
 		{value, {From, Time, _Acc}} when Time > Now ->
 			% overwrite stale request
@@ -200,9 +196,13 @@ handle_call_async(L4L3_Rec, _From, L4L3_Bin, {Port, _Board, _StateData} = State)
 	{reply, true, State};
 %% failed to encode record
 handle_call_async(_MsgType, {'EXIT', _Reason}, {Pid, _Tag}, State) ->
-	catch exit(Pid, badarg),
+	exit(Pid, badarg),
 	{noreply, State}.
 
+
+%% shutdown the netaccess server
+handle_cast(stop, State) ->
+	{stop, shutdown, ok, State};
 
 handle_cast({ioctl, Operation, Data, Port}, State) ->
 	catch erlang:port_call(Port, Operation, Data),
