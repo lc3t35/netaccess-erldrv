@@ -13,9 +13,9 @@
 %%%                                                                     %%%
 %%% For every structure definition in iisdn.h there should be here:     %%%
 %%%                                                                     %%%
-%%%        - a record definition (e.g. #'IISDN_Q931_CNFG'{})            %%%
+%%%        - a record definition (e.g. #q931_cnfg{})                    %%%
 %%%                                                                     %%%
-%%%        - a function (e.g. #'IISDN_Q931_CNFG'(Q931) -> binary())     %%%
+%%%        - a function (e.g. #q931_cnfg(Q931) -> binary())             %%%
 %%%                                                                     %%%
 %%% A received binary is decoded to a record, or a record is encoded    %%%
 %%% to a binary with the function of the same name as the structure     %%%
@@ -25,25 +25,21 @@
 
 -module(iisdn).
 
-%%% TODO:  how do we group these?
--export(['L3_to_L4_struct'/1, 'L4_to_L3_struct'/1]).
--export(['IISDN_ENA_PROTO_DATA'/1]).
+-export([l3_to_l4/1, l4_to_l3/1]).
+-export([ena_proto_data/1]).
 -export([hardware_data/1, line_data/1]).
 -export([tsi_data/1, tsi_map/1]).
--export(['IISDN_Q931_TIMERS'/1]).
--export(['IISDN_DATA_INTERFACE_CONFIGURATION'/1]).
--export(['IISDN_LEVEL1_CNFG'/1, 'IISDN_LEVEL2_CNFG'/1,
-		'IISDN_LEVEL3_CNFG'/1]).
--export(['IISDN_L2_LAP_PARAMS'/1, 'IISDN_L2_SS7_PARAMS'/1, 
-		'IISDN_L2_UDPIP_PARAMS'/1, 'IISDN_L2_DPNSS_PARAMS'/1,
-		'IISDN_L2_V110_PARAMS'/1]).
--export(['IISDN_DATA_INTERFACE'/1]).
--export(['IISDN_Q931_CNFG'/1, 'IISDN_BONDING_DATA'/1,
-		'IISDN_X25_CONFIG'/1, 'IISDN_PM_CONFIG'/1,
-		'IISDN_RELAY_CONFIG'/1, 'IISDN_DPNSSCC_CONFIG'/1,
-		'IISDN_DASSCC_CONFIG'/1, 'IISDN_Q933A_CONFIG'/1]).
--export(['IISDN_L2_LAP_CONSTS'/1, 'IISDN_L2_SS7_CONSTS'/1,
-		'IISDN_L2_IP_CONSTS'/1, 'IISDN_L2_DPNSS_CONSTS'/1]).
+-export([q931_timers/1]).
+-export([data_interface_configuration/1]).
+-export([level1_cnfg/1, level2_cnfg/1, level3_cnfg/1]).
+-export([l2_lap_params/1, l2_ss7_params/1, l2_udpip_params/1,
+		l2_dpnss_params/1, l2_v110_params/1]).
+-export([data_interface/1]).
+-export([q931_cnfg/1, bonding_data/1, x25_config/1, pm_config/1,
+		relay_config/1, dpnsscc_config/1, dasscc_config/1,
+		q933a_config/1]).
+-export([l2_lap_consts/1, l2_ss7_consts/1, l2_ip_consts/1,
+		l2_dpnss_consts/1]).
 
 -include("iisdn.hrl").
 
@@ -58,444 +54,426 @@
 %% with msgtype is used.  If data is a record of the appropriate type
 %% it will be used to build the binary.
 %%
-'L4_to_L3_struct'(R) when is_record(R, 'L4_to_L3_struct') ->
-	MessageType = R#'L4_to_L3_struct'.msgtype, 
-	CommonHeader = <<(R#'L4_to_L3_struct'.lapdid):?IISDNu8bit, 
-			(R#'L4_to_L3_struct'.msgtype):?IISDNu8bit,
-			(R#'L4_to_L3_struct'.l4_ref):?IISDNu16bit,
-			(R#'L4_to_L3_struct'.call_ref):?IISDNu16bit,
-			(R#'L4_to_L3_struct'.lli):?IISDNu16bit>>,
-	MessageSpecificData = R#'L4_to_L3_struct'.data,
-	'L4_to_L3_struct'(MessageType, CommonHeader, MessageSpecificData).
-'L4_to_L3_struct'(_, Header, Data) when is_binary(Data) ->
+l4_to_l3(R) when is_record(R, l4_to_l3) ->
+	MessageType = R#l4_to_l3.msgtype, 
+	CommonHeader = <<(R#l4_to_l3.lapdid):?IISDNu8bit, 
+			(R#l4_to_l3.msgtype):?IISDNu8bit,
+			(R#l4_to_l3.l4_ref):?IISDNu16bit,
+			(R#l4_to_l3.call_ref):?IISDNu16bit,
+			(R#l4_to_l3.lli):?IISDNu16bit>>,
+	MessageSpecificData = R#l4_to_l3.data,
+	l4_to_l3(MessageType, CommonHeader, MessageSpecificData).
+l4_to_l3(_, Header, Data) when is_binary(Data) ->
 	<<0, Header/binary, Data/binary>>;
-'L4_to_L3_struct'(?L4L3mSET_HARDWARE, Header, Data) ->
+l4_to_l3(?L4L3mSET_HARDWARE, Header, Data) ->
 	<<0, Header/binary, (hardware_data(Data))/binary>>;
-'L4_to_L3_struct'(?L4L3mSET_TSI, Header, Data) ->
+l4_to_l3(?L4L3mSET_TSI, Header, Data) ->
 	<<0, Header/binary, (tsi_data(Data))/binary>>;
-'L4_to_L3_struct'(?L4L3mENABLE_PROTOCOL, Header, Data) ->
-	<<0, Header/binary, ('IISDN_ENA_PROTO_DATA'(Data))/binary>>;
-'L4_to_L3_struct'(?L4L3mREQ_HW_STATUS, Header, Data) ->
+l4_to_l3(?L4L3mENABLE_PROTOCOL, Header, Data) ->
+	<<0, Header/binary, (ena_proto_data(Data))/binary>>;
+l4_to_l3(?L4L3mREQ_HW_STATUS, Header, Data) ->
 	<<0, Header/binary>>;
-'L4_to_L3_struct'(?L4L3mREQ_TSI_STATUS, Header, Data) ->
+l4_to_l3(?L4L3mREQ_TSI_STATUS, Header, Data) ->
 	<<0, Header/binary>>.
 
-'L3_to_L4_struct'(Bin) when is_binary(Bin) ->
+l3_to_l4(Bin) when is_binary(Bin) ->
 	<<Lapdid:?IISDNu8bit, Msgtype:?IISDNu8bit, L4_ref:?IISDNu16bit,
 		Call_ref:?IISDNu16bit, Bchanel:?IISDNu8bit, Iface:?IISDNu8bit,
 		Bchannel_mask:?IISDNu32bit, Lli:?IISDNu16bit, Data_channel:?IISDNu16bit,
 		Data/binary>> = Bin,
-	#'L3_to_L4_struct'{lapdid=Lapdid, msgtype=Msgtype, l4_ref=L4_ref,
+	#l3_to_l4{lapdid=Lapdid, msgtype=Msgtype, l4_ref=L4_ref,
 			call_ref=Call_ref, bchanel=Bchanel, iface=Iface,
 			bchannel_mask=Bchannel_mask, lli=Lli, 
 			data_channel=Data_channel, data=Data}.
 
-
-
-'IISDN_LEVEL1_CNFG'(L1) when is_record(L1, 'IISDN_LEVEL1_CNFG') ->
-	<<(L1#'IISDN_LEVEL1_CNFG'.l1_mode):?IISDNu8bit,
-			(L1#'IISDN_LEVEL1_CNFG'.invert_hdlc):?IISDNu8bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.num_txbuf):?IISDNu16bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.num_rxbuf):?IISDNu16bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.buffsz):?IISDNu16bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.chain):?IISDNu8bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.device):?IISDNu8bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.bit_reverse):?IISDNu8bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.vme_lock):?IISDNu8bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.hdlc_channels):?IISDNu32bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.chan_kbit_rate):?IISDNu16bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.crc_bytes):?IISDNu8bit,
-	      (L1#'IISDN_LEVEL1_CNFG'.crc_ignore_errs):?IISDNu8bit,
-			((L1#'IISDN_LEVEL1_CNFG'.rate_adapt)#rate_adapt.enable):?IISDNu8bit,
-			((L1#'IISDN_LEVEL1_CNFG'.rate_adapt)#rate_adapt.rate_adapt_value):?IISDNu8bit,
+level1_cnfg(L1) when is_record(L1, level1_cnfg) ->
+	<<(L1#level1_cnfg.l1_mode):?IISDNu8bit,
+			(L1#level1_cnfg.invert_hdlc):?IISDNu8bit,
+	      (L1#level1_cnfg.num_txbuf):?IISDNu16bit,
+	      (L1#level1_cnfg.num_rxbuf):?IISDNu16bit,
+	      (L1#level1_cnfg.buffsz):?IISDNu16bit,
+	      (L1#level1_cnfg.chain):?IISDNu8bit,
+	      (L1#level1_cnfg.device):?IISDNu8bit,
+	      (L1#level1_cnfg.bit_reverse):?IISDNu8bit,
+	      (L1#level1_cnfg.vme_lock):?IISDNu8bit,
+	      (L1#level1_cnfg.hdlc_channels):?IISDNu32bit,
+	      (L1#level1_cnfg.chan_kbit_rate):?IISDNu16bit,
+	      (L1#level1_cnfg.crc_bytes):?IISDNu8bit,
+	      (L1#level1_cnfg.crc_ignore_errs):?IISDNu8bit,
+			((L1#level1_cnfg.rate_adapt)#rate_adapt.enable):?IISDNu8bit,
+			((L1#level1_cnfg.rate_adapt)#rate_adapt.rate_adapt_value):?IISDNu8bit,
 			0:?IISDNu16bit,
-			((L1#'IISDN_LEVEL1_CNFG'.raw_fillchar)#raw_fillchar.enable):?IISDNu8bit,
-			((L1#'IISDN_LEVEL1_CNFG'.raw_fillchar)#raw_fillchar.fill_value):?IISDNu8bit,
+			((L1#level1_cnfg.raw_fillchar)#raw_fillchar.enable):?IISDNu8bit,
+			((L1#level1_cnfg.raw_fillchar)#raw_fillchar.fill_value):?IISDNu8bit,
 			0:?IISDNu16bit,
-			((L1#'IISDN_LEVEL1_CNFG'.hdlc_flag_fill)#hdlc_flag_fill.enable):?IISDNu8bit,
-			((L1#'IISDN_LEVEL1_CNFG'.hdlc_flag_fill)#hdlc_flag_fill.mode):?IISDNu8bit,
-			((L1#'IISDN_LEVEL1_CNFG'.hdlc_flag_fill)#hdlc_flag_fill.value):?IISDNu16bit,
-			((L1#'IISDN_LEVEL1_CNFG'.modem)#modem.originate):?IISDNu8bit,
-			((L1#'IISDN_LEVEL1_CNFG'.modem)#modem.faxClass):?IISDNu8bit,
-			((L1#'IISDN_LEVEL1_CNFG'.modem)#modem.encoding):?IISDNu8bit,
-			((L1#'IISDN_LEVEL1_CNFG'.modem)#modem.amf):?IISDNu8bit,
-			(((L1#'IISDN_LEVEL1_CNFG'.modem)#modem.amf_params)#amf_params.'0'):?IISDNu32bit,
-			(((L1#'IISDN_LEVEL1_CNFG'.modem)#modem.amf_params)#amf_params.'1'):?IISDNu32bit,
-			(((L1#'IISDN_LEVEL1_CNFG'.modem)#modem.amf_params)#amf_params.'2'):?IISDNu32bit,
-			(((L1#'IISDN_LEVEL1_CNFG'.modem)#modem.amf_params)#amf_params.'3'):?IISDNu32bit,
-			((L1#'IISDN_LEVEL1_CNFG'.modem)#modem.minBPS):?IISDNu32bit,
-			((L1#'IISDN_LEVEL1_CNFG'.modem)#modem.maxBPS):?IISDNu32bit,
-			((L1#'IISDN_LEVEL1_CNFG'.v110)#v110.bit_rate):?IISDNu32bit,
-			((L1#'IISDN_LEVEL1_CNFG'.v110)#v110.auto_detect):?IISDNu8bit,
+			((L1#level1_cnfg.hdlc_flag_fill)#hdlc_flag_fill.enable):?IISDNu8bit,
+			((L1#level1_cnfg.hdlc_flag_fill)#hdlc_flag_fill.mode):?IISDNu8bit,
+			((L1#level1_cnfg.hdlc_flag_fill)#hdlc_flag_fill.value):?IISDNu16bit,
+			((L1#level1_cnfg.modem)#modem.originate):?IISDNu8bit,
+			((L1#level1_cnfg.modem)#modem.faxClass):?IISDNu8bit,
+			((L1#level1_cnfg.modem)#modem.encoding):?IISDNu8bit,
+			((L1#level1_cnfg.modem)#modem.amf):?IISDNu8bit,
+			(((L1#level1_cnfg.modem)#modem.amf_params)#amf_params.'0'):?IISDNu32bit,
+			(((L1#level1_cnfg.modem)#modem.amf_params)#amf_params.'1'):?IISDNu32bit,
+			(((L1#level1_cnfg.modem)#modem.amf_params)#amf_params.'2'):?IISDNu32bit,
+			(((L1#level1_cnfg.modem)#modem.amf_params)#amf_params.'3'):?IISDNu32bit,
+			((L1#level1_cnfg.modem)#modem.minBPS):?IISDNu32bit,
+			((L1#level1_cnfg.modem)#modem.maxBPS):?IISDNu32bit,
+			((L1#level1_cnfg.v110)#v110.bit_rate):?IISDNu32bit,
+			((L1#level1_cnfg.v110)#v110.auto_detect):?IISDNu8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit>>.
 			
 
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_record(L2#'IISDN_LEVEL2_CNFG'.par, 'IISDN_L2_LAP_PARAMS') ->
-	'IISDN_LEVEL2_CNFG'(L2#'IISDN_LEVEL2_CNFG'{
-			par = 'IISDN_L2_LAP_PARAMS'(L2#'IISDN_LEVEL2_CNFG'.par)});
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_record(L2#'IISDN_LEVEL2_CNFG'.par, 'IISDN_L2_SS7_PARAMS') ->
-	'IISDN_LEVEL2_CNFG'(L2#'IISDN_LEVEL2_CNFG'{
-			par = 'IISDN_L2_SS7_PARAMS'(L2#'IISDN_LEVEL2_CNFG'.par)});
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_record(L2#'IISDN_LEVEL2_CNFG'.par, 'IISDN_L2_UDPIP_PARAMS') ->
-	'IISDN_LEVEL2_CNFG'(L2#'IISDN_LEVEL2_CNFG'{
-			par = 'IISDN_L2_UDPIP_PARAMS'(L2#'IISDN_LEVEL2_CNFG'.par)});
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_record(L2#'IISDN_LEVEL2_CNFG'.par, 'IISDN_L2_DPNSS_PARAMS') ->
-	'IISDN_LEVEL2_CNFG'(L2#'IISDN_LEVEL2_CNFG'{
-			par = 'IISDN_L2_DPNSS_PARAMS'(L2#'IISDN_LEVEL2_CNFG'.par)});
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_record(L2#'IISDN_LEVEL2_CNFG'.par, 'IISDN_L2_V110_PARAMS') ->
-	'IISDN_LEVEL2_CNFG'(L2#'IISDN_LEVEL2_CNFG'{
-			par = 'IISDN_L2_V110_PARAMS'(L2#'IISDN_LEVEL2_CNFG'.par)});
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_record(L2#'IISDN_LEVEL2_CNFG'.data_interface, 'IISDN_DATA_INTERFACE') ->
-	'IISDN_LEVEL2_CNFG'(L2#'IISDN_LEVEL2_CNFG'{
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_record(L2#level2_cnfg.par, l2_lap_params) ->
+	level2_cnfg(L2#level2_cnfg{
+			par = l2_lap_params(L2#level2_cnfg.par)});
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_record(L2#level2_cnfg.par, l2_ss7_params) ->
+	level2_cnfg(L2#level2_cnfg{
+			par = l2_ss7_params(L2#level2_cnfg.par)});
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_record(L2#level2_cnfg.par, l2_udpip_params) ->
+	level2_cnfg(L2#level2_cnfg{
+			par = l2_udpip_params(L2#level2_cnfg.par)});
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_record(L2#level2_cnfg.par, l2_dpnss_params) ->
+	level2_cnfg(L2#level2_cnfg{
+			par = l2_dpnss_params(L2#level2_cnfg.par)});
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_record(L2#level2_cnfg.par, l2_v110_params) ->
+	level2_cnfg(L2#level2_cnfg{
+			par = l2_v110_params(L2#level2_cnfg.par)});
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_record(L2#level2_cnfg.data_interface, data_interface) ->
+	level2_cnfg(L2#level2_cnfg{
 			data_interface = 
-					'IISDN_DATA_INTERFACE'(L2#'IISDN_LEVEL2_CNFG'.data_interface)});
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_record(L2#'IISDN_LEVEL2_CNFG'.consts, 'IISDN_L2_LAP_CONSTS') ->
-	'IISDN_LEVEL2_CNFG'(L2#'IISDN_LEVEL2_CNFG'{
-			consts = 'IISDN_L2_LAP_CONSTS'(L2#'IISDN_LEVEL2_CNFG'.consts)});
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_record(L2#'IISDN_LEVEL2_CNFG'.consts, 'IISDN_L2_SS7_CONSTS') ->
-	'IISDN_LEVEL2_CNFG'(L2#'IISDN_LEVEL2_CNFG'{
-			consts = 'IISDN_L2_SS7_CONSTS'(L2#'IISDN_LEVEL2_CNFG'.consts)});
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_record(L2#'IISDN_LEVEL2_CNFG'.consts, 'IISDN_L2_IP_CONSTS') ->
-	'IISDN_LEVEL2_CNFG'(L2#'IISDN_LEVEL2_CNFG'{
-			consts = 'IISDN_L2_IP_CONSTS'(L2#'IISDN_LEVEL2_CNFG'.consts)});
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_record(L2#'IISDN_LEVEL2_CNFG'.consts, 'IISDN_L2_DPNSS_CONSTS') ->
-	'IISDN_LEVEL2_CNFG'(L2#'IISDN_LEVEL2_CNFG'{
-			consts = 'IISDN_L2_DPNSS_CONSTS'(L2#'IISDN_LEVEL2_CNFG'.consts)});
-'IISDN_LEVEL2_CNFG'(L2) when is_record(L2, 'IISDN_LEVEL2_CNFG'),
-		is_binary(L2#'IISDN_LEVEL2_CNFG'.par);
-		is_binary(L2#'IISDN_LEVEL2_CNFG'.data_interface);
-		is_binary(L2#'IISDN_LEVEL2_CNFG'.consts) ->
-	<<(L2#'IISDN_LEVEL2_CNFG'.par)/binary, 
-			(L2#'IISDN_LEVEL2_CNFG'.data_interface)/binary,
-			(L2#'IISDN_LEVEL2_CNFG'.consts)/binary>>.
+					data_interface(L2#level2_cnfg.data_interface)});
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_record(L2#level2_cnfg.consts, l2_lap_consts) ->
+	level2_cnfg(L2#level2_cnfg{
+			consts = l2_lap_consts(L2#level2_cnfg.consts)});
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_record(L2#level2_cnfg.consts, l2_ss7_consts) ->
+	level2_cnfg(L2#level2_cnfg{
+			consts = l2_ss7_consts(L2#level2_cnfg.consts)});
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_record(L2#level2_cnfg.consts, l2_ip_consts) ->
+	level2_cnfg(L2#level2_cnfg{
+			consts = l2_ip_consts(L2#level2_cnfg.consts)});
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_record(L2#level2_cnfg.consts, l2_dpnss_consts) ->
+	level2_cnfg(L2#level2_cnfg{
+			consts = l2_dpnss_consts(L2#level2_cnfg.consts)});
+level2_cnfg(L2) when is_record(L2, level2_cnfg),
+		is_binary(L2#level2_cnfg.par);
+		is_binary(L2#level2_cnfg.data_interface);
+		is_binary(L2#level2_cnfg.consts) ->
+	<<(L2#level2_cnfg.par)/binary, 
+			(L2#level2_cnfg.data_interface)/binary,
+			(L2#level2_cnfg.consts)/binary>>.
 
 
-'IISDN_DATA_INTERFACE'(DataIf) when is_record(DataIf, 'IISDN_DATA_INTERFACE') ->
-	<<(DataIf#'IISDN_DATA_INTERFACE'.enable):?IISDNu8bit,
-			(DataIf#'IISDN_DATA_INTERFACE'.data_channel):?IISDNu8bit,
-			(DataIf#'IISDN_DATA_INTERFACE'.fillandspill):?IISDNu8bit,
-			(DataIf#'IISDN_DATA_INTERFACE'.allow_buffer_preload):?IISDNu8bit>>.
+data_interface(DataIf) when is_record(DataIf, data_interface) ->
+	<<(DataIf#data_interface.enable):?IISDNu8bit,
+			(DataIf#data_interface.data_channel):?IISDNu8bit,
+			(DataIf#data_interface.fillandspill):?IISDNu8bit,
+			(DataIf#data_interface.allow_buffer_preload):?IISDNu8bit>>.
 
-'IISDN_L2_LAP_PARAMS'(Lap) when is_record(Lap, 'IISDN_L2_LAP_PARAMS') ->
-	<<(Lap#'IISDN_L2_LAP_PARAMS'.mode):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.dce_dte):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.tei_mode):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.no_sabme):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.l2_detail):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.timestamp):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.ui_mode):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.priority):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.no_reestab):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.mode_1tr6):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.mode_tei_1):?IISDNu8bit,
-			(Lap#'IISDN_L2_LAP_PARAMS'.no_piggyback):?IISDNu8bit>>.
+l2_lap_params(Lap) when is_record(Lap, l2_lap_params) ->
+	<<(Lap#l2_lap_params.mode):?IISDNu8bit,
+			(Lap#l2_lap_params.dce_dte):?IISDNu8bit,
+			(Lap#l2_lap_params.tei_mode):?IISDNu8bit,
+			(Lap#l2_lap_params.no_sabme):?IISDNu8bit,
+			(Lap#l2_lap_params.l2_detail):?IISDNu8bit,
+			(Lap#l2_lap_params.timestamp):?IISDNu8bit,
+			(Lap#l2_lap_params.ui_mode):?IISDNu8bit,
+			(Lap#l2_lap_params.priority):?IISDNu8bit,
+			(Lap#l2_lap_params.no_reestab):?IISDNu8bit,
+			(Lap#l2_lap_params.mode_1tr6):?IISDNu8bit,
+			(Lap#l2_lap_params.mode_tei_1):?IISDNu8bit,
+			(Lap#l2_lap_params.no_piggyback):?IISDNu8bit>>.
 
-'IISDN_L2_SS7_PARAMS'(Mtp2) when is_record(Mtp2, 'IISDN_L2_SS7_PARAMS') ->
-	<<(Mtp2#'IISDN_L2_SS7_PARAMS'.mode):?IISDNu8bit,
-			(Mtp2#'IISDN_L2_SS7_PARAMS'.variant):?IISDNu8bit,
+l2_ss7_params(Mtp2) when is_record(Mtp2, l2_ss7_params) ->
+	<<(Mtp2#l2_ss7_params.mode):?IISDNu8bit,
+			(Mtp2#l2_ss7_params.variant):?IISDNu8bit,
 			0:?IISDNu16bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit>>.
 
-'IISDN_L2_UDPIP_PARAMS'(Udpip) when is_record(Udpip, 'IISDN_L2_UDPIP_PARAMS') ->
-	<<(Udpip#'IISDN_L2_UDPIP_PARAMS'.mode):?IISDNu8bit,
+l2_udpip_params(Udpip) when is_record(Udpip, l2_udpip_params) ->
+	<<(Udpip#l2_udpip_params.mode):?IISDNu8bit,
 			0:?IISDNu8bit,
-			(Udpip#'IISDN_L2_UDPIP_PARAMS'.dstport):?IISDNu16bit,
-			(Udpip#'IISDN_L2_UDPIP_PARAMS'.dstipaddr):?IISDNu32bit,
+			(Udpip#l2_udpip_params.dstport):?IISDNu16bit,
+			(Udpip#l2_udpip_params.dstipaddr):?IISDNu32bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit>>.
 
-'IISDN_L2_DPNSS_PARAMS'(Dpnss) when is_record(Dpnss, 'IISDN_L2_DPNSS_PARAMS') ->
-	<<(Dpnss#'IISDN_L2_DPNSS_PARAMS'.mode):?IISDNu8bit,
-			(Dpnss#'IISDN_L2_DPNSS_PARAMS'.pbx_b):?IISDNu8bit,
-			(Dpnss#'IISDN_L2_DPNSS_PARAMS'.sabmr_as_ack):?IISDNu8bit,
-			(Dpnss#'IISDN_L2_DPNSS_PARAMS'.tie_line_mode):?IISDNu8bit>>.
+l2_dpnss_params(Dpnss) when is_record(Dpnss, l2_dpnss_params) ->
+	<<(Dpnss#l2_dpnss_params.mode):?IISDNu8bit,
+			(Dpnss#l2_dpnss_params.pbx_b):?IISDNu8bit,
+			(Dpnss#l2_dpnss_params.sabmr_as_ack):?IISDNu8bit,
+			(Dpnss#l2_dpnss_params.tie_line_mode):?IISDNu8bit>>.
 
-'IISDN_L2_V110_PARAMS'(V110) when is_record(V110, 'IISDN_L2_V110_PARAMS') ->
-	<<(V110#'IISDN_L2_V110_PARAMS'.mode):?IISDNu8bit,
-			(V110#'IISDN_L2_V110_PARAMS'.ebits):?IISDNu8bit,
-			(V110#'IISDN_L2_V110_PARAMS'.flow_control):?IISDNu8bit,
-			(V110#'IISDN_L2_V110_PARAMS'.nine_byte_rx_frames):?IISDNu8bit,
-			(V110#'IISDN_L2_V110_PARAMS'.num_tx_idle_frames):?IISDNu16bit,
-			(V110#'IISDN_L2_V110_PARAMS'.max_rx_frame_size):?IISDNu16bit,
-			(V110#'IISDN_L2_V110_PARAMS'.stale_rx_data_timer):?IISDNu16bit,
-			(V110#'IISDN_L2_V110_PARAMS'.filter_status_messages):?IISDNu8bit,
+l2_v110_params(V110) when is_record(V110, l2_v110_params) ->
+	<<(V110#l2_v110_params.mode):?IISDNu8bit,
+			(V110#l2_v110_params.ebits):?IISDNu8bit,
+			(V110#l2_v110_params.flow_control):?IISDNu8bit,
+			(V110#l2_v110_params.nine_byte_rx_frames):?IISDNu8bit,
+			(V110#l2_v110_params.num_tx_idle_frames):?IISDNu16bit,
+			(V110#l2_v110_params.max_rx_frame_size):?IISDNu16bit,
+			(V110#l2_v110_params.stale_rx_data_timer):?IISDNu16bit,
+			(V110#l2_v110_params.filter_status_messages):?IISDNu8bit,
 			0:?IISDNu8bit>>.
 	
-'IISDN_L2_LAP_CONSTS'(L2) when is_record(L2, 'IISDN_L2_LAP_CONSTS') ->
-	<<(L2#'IISDN_L2_LAP_CONSTS'.t200):?IISDNu16bit,
-			(L2#'IISDN_L2_LAP_CONSTS'.t201):?IISDNu16bit,
-			(L2#'IISDN_L2_LAP_CONSTS'.t202):?IISDNu16bit,
-			(L2#'IISDN_L2_LAP_CONSTS'.t203):?IISDNu16bit,
-			(L2#'IISDN_L2_LAP_CONSTS'.n200):?IISDNu16bit,
-			(L2#'IISDN_L2_LAP_CONSTS'.n201):?IISDNu16bit,
-			(L2#'IISDN_L2_LAP_CONSTS'.n202):?IISDNu16bit,
-			(L2#'IISDN_L2_LAP_CONSTS'.k):?IISDNu16bit>>.
+l2_lap_consts(L2) when is_record(L2, l2_lap_consts) ->
+	<<(L2#l2_lap_consts.t200):?IISDNu16bit,
+			(L2#l2_lap_consts.t201):?IISDNu16bit,
+			(L2#l2_lap_consts.t202):?IISDNu16bit,
+			(L2#l2_lap_consts.t203):?IISDNu16bit,
+			(L2#l2_lap_consts.n200):?IISDNu16bit,
+			(L2#l2_lap_consts.n201):?IISDNu16bit,
+			(L2#l2_lap_consts.n202):?IISDNu16bit,
+			(L2#l2_lap_consts.k):?IISDNu16bit>>.
 
-'IISDN_L2_SS7_CONSTS'(Mtp2) when is_record(Mtp2, 'IISDN_L2_SS7_CONSTS') ->
-	<<(Mtp2#'IISDN_L2_SS7_CONSTS'.t1):?IISDNu16bit,
-			(Mtp2#'IISDN_L2_SS7_CONSTS'.t2):?IISDNu16bit,
-			(Mtp2#'IISDN_L2_SS7_CONSTS'.t3):?IISDNu16bit,
-			(Mtp2#'IISDN_L2_SS7_CONSTS'.t4n):?IISDNu16bit,
-			(Mtp2#'IISDN_L2_SS7_CONSTS'.t4e):?IISDNu16bit,
-			(Mtp2#'IISDN_L2_SS7_CONSTS'.t5):?IISDNu16bit,
-			(Mtp2#'IISDN_L2_SS7_CONSTS'.t6):?IISDNu16bit,
-			(Mtp2#'IISDN_L2_SS7_CONSTS'.t7):?IISDNu16bit>>.
+l2_ss7_consts(Mtp2) when is_record(Mtp2, l2_ss7_consts) ->
+	<<(Mtp2#l2_ss7_consts.t1):?IISDNu16bit,
+			(Mtp2#l2_ss7_consts.t2):?IISDNu16bit,
+			(Mtp2#l2_ss7_consts.t3):?IISDNu16bit,
+			(Mtp2#l2_ss7_consts.t4n):?IISDNu16bit,
+			(Mtp2#l2_ss7_consts.t4e):?IISDNu16bit,
+			(Mtp2#l2_ss7_consts.t5):?IISDNu16bit,
+			(Mtp2#l2_ss7_consts.t6):?IISDNu16bit,
+			(Mtp2#l2_ss7_consts.t7):?IISDNu16bit>>.
 
-'IISDN_L2_IP_CONSTS'(Ip) when is_record(Ip, 'IISDN_L2_IP_CONSTS') ->
-	<<(Ip#'IISDN_L2_IP_CONSTS'.no_dhcp):?IISDNu8bit,
+l2_ip_consts(Ip) when is_record(Ip, l2_ip_consts) ->
+	<<(Ip#l2_ip_consts.no_dhcp):?IISDNu8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit,
-			(Ip#'IISDN_L2_IP_CONSTS'.ipaddr):?IISDNu32bit,
-			(Ip#'IISDN_L2_IP_CONSTS'.gwaddr):?IISDNu32bit,
-			(Ip#'IISDN_L2_IP_CONSTS'.subnet_mask):?IISDNu32bit>>.
+			(Ip#l2_ip_consts.ipaddr):?IISDNu32bit,
+			(Ip#l2_ip_consts.gwaddr):?IISDNu32bit,
+			(Ip#l2_ip_consts.subnet_mask):?IISDNu32bit>>.
 
-'IISDN_L2_DPNSS_CONSTS'(Dpnss) when is_record(Dpnss, 'IISDN_L2_DPNSS_CONSTS') ->
-	<<(Dpnss#'IISDN_L2_DPNSS_CONSTS'.nl):?IISDNu16bit,
+l2_dpnss_consts(Dpnss) when is_record(Dpnss, l2_dpnss_consts) ->
+	<<(Dpnss#l2_dpnss_consts.nl):?IISDNu16bit,
 			0:?IISDNu16bit,
-			(Dpnss#'IISDN_L2_DPNSS_CONSTS'.nt1):?IISDNu32bit,
-			(Dpnss#'IISDN_L2_DPNSS_CONSTS'.nt2):?IISDNu32bit>>.
+			(Dpnss#l2_dpnss_consts.nt1):?IISDNu32bit,
+			(Dpnss#l2_dpnss_consts.nt2):?IISDNu32bit>>.
 
 
+level3_cnfg(L3) when is_record(L3, level3_cnfg),
+		is_record(L3#level3_cnfg.cnfg, q931_cnfg) ->
+	Bin = q931_cnfg(L3#level3_cnfg.cnfg),
+	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
+level3_cnfg(L3) when is_record(L3, level3_cnfg),
+		is_record(L3#level3_cnfg.cnfg, bonding_data) ->
+	Bin = bonding_data(L3#level3_cnfg.cnfg),
+	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
+level3_cnfg(L3) when is_record(L3, level3_cnfg),
+		is_record(L3#level3_cnfg.cnfg, x25_config) ->
+	Bin = x25_config(L3#level3_cnfg.cnfg),
+	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
+level3_cnfg(L3) when is_record(L3, level3_cnfg),
+		is_record(L3#level3_cnfg.cnfg, pm_config) ->
+	Bin = pm_config(L3#level3_cnfg.cnfg),
+	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
+level3_cnfg(L3) when is_record(L3, level3_cnfg),
+		is_record(L3#level3_cnfg.cnfg, relay_config) ->
+	Bin = relay_config(L3#level3_cnfg.cnfg),
+	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
+level3_cnfg(L3) when is_record(L3, level3_cnfg),
+		is_record(L3#level3_cnfg.cnfg, dpnsscc_config) ->
+	Bin = dpnsscc_config(L3#level3_cnfg.cnfg),
+	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
+level3_cnfg(L3) when is_record(L3, level3_cnfg),
+		is_record(L3#level3_cnfg.cnfg, dasscc_config) ->
+	Bin = dasscc_config(L3#level3_cnfg.cnfg),
+	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
+level3_cnfg(L3) when is_record(L3, level3_cnfg),
+		is_record(L3#level3_cnfg.cnfg, q933a_config) ->
+	Bin = q933a_config(L3#level3_cnfg.cnfg),
+	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
+level3_cnfg(L3) when is_record(L3, level3_cnfg),
+		is_binary(L3#level3_cnfg.cnfg) ->
+	<<(L3#level3_cnfg.l3_mode):?IISDNu8bit, 0:?IISDNu8bit,
+			0:?IISDNu16bit, (L3#level3_cnfg.cnfg)/binary>>.
 
-'IISDN_LEVEL3_CNFG'(L3) when is_record(L3, 'IISDN_LEVEL3_CNFG') ->
-	Mode = L3#'IISDN_LEVEL3_CNFG'.l3_mode,
-	if
-		Mode == ?IISDNl3modQ931 ->
-			Cnfg = 'IISDN_Q931_CNFG'(L3#'IISDN_LEVEL3_CNFG'.cnfg);
-		Mode == ?IISDNl3modBONDING ->
-			Cnfg = 'IISDN_BONDING_DATA'(L3#'IISDN_LEVEL3_CNFG'.cnfg);
-		Mode == ?IISDNl3modX25_PKT ->
-			Cnfg = 'IISDN_X25_CONFIG'(L3#'IISDN_LEVEL3_CNFG'.cnfg);
-		Mode == ?IISDNl3modPM ->
-			Cnfg = 'IISDN_PM_CONFIG'(L3#'IISDN_LEVEL3_CNFG'.cnfg);
-		Mode == ?IISDNl3modRELAY ->
-			Cnfg = 'IISDN_RELAY_CONFIG'(L3#'IISDN_LEVEL3_CNFG'.cnfg);
-		Mode == ?IISDNl3modDPNSS ->
-			Cnfg = 'IISDN_DPNSSCC_CONFIG'(L3#'IISDN_LEVEL3_CNFG'.cnfg);
-		Mode == ?IISDNl3modDASS ->
-			Cnfg = 'IISDN_DASSCC_CONFIG'(L3#'IISDN_LEVEL3_CNFG'.cnfg);
-		Mode == ?IISDNl3modQ933_ANNEX_A ->
-			Cnfg = 'IISDN_Q933A_CONFIG'(L3#'IISDN_LEVEL3_CNFG'.cnfg)
-	end,
-	<<Mode:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu16bit, Cnfg/binary>>.
 
-'IISDN_Q931_CNFG'(Q931) when is_record(Q931, 'IISDN_Q931_CNFG') ->
-	Q931_Timers = 'IISDN_Q931_TIMERS'(Q931#'IISDN_Q931_CNFG'.q931_timers),
+q931_cnfg(Q931) when is_record(Q931, q931_cnfg) ->
+	Q931_Timers = q931_timers(Q931#q931_cnfg.q931_timers),
 	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
 	B_channel_service_state = lists:foldl(Digit32, <<>>,
-			Q931#'IISDN_Q931_CNFG'.b_channel_service_state),
+			Q931#q931_cnfg.b_channel_service_state),
 	Digit8 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu8bit>> end,
-	Spid = lists:foldl(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.spid),
-	Spid_1 = lists:foldl(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.spid_1),
-	Dn = lists:foldl(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.dn),
-	Dn_1 = lists:foldl(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.dn_1),
-	<<(Q931#'IISDN_Q931_CNFG'.switch_type):?IISDNu16bit,
-			(Q931#'IISDN_Q931_CNFG'.variant):?IISDNu16bit,
-			(Q931#'IISDN_Q931_CNFG'.call_filtering):?IISDNu32bit,
+	Spid = lists:foldl(Digit8, <<>>, Q931#q931_cnfg.spid),
+	Spid_1 = lists:foldl(Digit8, <<>>, Q931#q931_cnfg.spid_1),
+	Dn = lists:foldl(Digit8, <<>>, Q931#q931_cnfg.dn),
+	Dn_1 = lists:foldl(Digit8, <<>>, Q931#q931_cnfg.dn_1),
+	<<(Q931#q931_cnfg.switch_type):?IISDNu16bit,
+			(Q931#q931_cnfg.variant):?IISDNu16bit,
+			(Q931#q931_cnfg.call_filtering):?IISDNu32bit,
 			B_channel_service_state/binary,
-			(Q931#'IISDN_Q931_CNFG'.nfas):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.e1_30_bchan):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.basic_rate):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.net_side_emul):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.b_chan_negot):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.proc_on_exclusv):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.chanid_slot_map):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.sprs_chanid_callproc):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.no_chanid_callproc):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.append_raw_qmsg):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.ccitt_mode):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.raw_qmsg):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.no_ie_errcheck):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.user_ie_encode):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.overlap_rcv):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.send_l3l4_callproc):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.sending_cmplt):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.require_send_complete):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.report_incoming_callproc):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.no_tx_conn_ack):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.no_rx_conn_ack):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.sprs_chanid_setupack):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.no_chanid_setupack):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.no_canned_spid_rej):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.call_reject_notify):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.advice_of_charge):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.message_segmentation):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.no_bc_user_info):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.incoming_call_slot_map):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.release_complete_control):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.primary_lapdid):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.backup_lapdid):?IISDNu8bit,
+			(Q931#q931_cnfg.nfas):?IISDNu8bit,
+			(Q931#q931_cnfg.e1_30_bchan):?IISDNu8bit,
+			(Q931#q931_cnfg.basic_rate):?IISDNu8bit,
+			(Q931#q931_cnfg.net_side_emul):?IISDNu8bit,
+			(Q931#q931_cnfg.b_chan_negot):?IISDNu8bit,
+			(Q931#q931_cnfg.proc_on_exclusv):?IISDNu8bit,
+			(Q931#q931_cnfg.chanid_slot_map):?IISDNu8bit,
+			(Q931#q931_cnfg.sprs_chanid_callproc):?IISDNu8bit,
+			(Q931#q931_cnfg.no_chanid_callproc):?IISDNu8bit,
+			(Q931#q931_cnfg.append_raw_qmsg):?IISDNu8bit,
+			(Q931#q931_cnfg.ccitt_mode):?IISDNu8bit,
+			(Q931#q931_cnfg.raw_qmsg):?IISDNu8bit,
+			(Q931#q931_cnfg.no_ie_errcheck):?IISDNu8bit,
+			(Q931#q931_cnfg.user_ie_encode):?IISDNu8bit,
+			(Q931#q931_cnfg.overlap_rcv):?IISDNu8bit,
+			(Q931#q931_cnfg.send_l3l4_callproc):?IISDNu8bit,
+			(Q931#q931_cnfg.sending_cmplt):?IISDNu8bit,
+			(Q931#q931_cnfg.require_send_complete):?IISDNu8bit,
+			(Q931#q931_cnfg.report_incoming_callproc):?IISDNu8bit,
+			(Q931#q931_cnfg.no_tx_conn_ack):?IISDNu8bit,
+			(Q931#q931_cnfg.no_rx_conn_ack):?IISDNu8bit,
+			(Q931#q931_cnfg.sprs_chanid_setupack):?IISDNu8bit,
+			(Q931#q931_cnfg.no_chanid_setupack):?IISDNu8bit,
+			(Q931#q931_cnfg.no_canned_spid_rej):?IISDNu8bit,
+			(Q931#q931_cnfg.call_reject_notify):?IISDNu8bit,
+			(Q931#q931_cnfg.advice_of_charge):?IISDNu8bit,
+			(Q931#q931_cnfg.message_segmentation):?IISDNu8bit,
+			(Q931#q931_cnfg.no_bc_user_info):?IISDNu8bit,
+			(Q931#q931_cnfg.incoming_call_slot_map):?IISDNu8bit,
+			(Q931#q931_cnfg.release_complete_control):?IISDNu8bit,
+			(Q931#q931_cnfg.primary_lapdid):?IISDNu8bit,
+			(Q931#q931_cnfg.backup_lapdid):?IISDNu8bit,
 			0:?IISDNu16bit,
-			(Q931#'IISDN_Q931_CNFG'.primary_ifnum):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.backup_ifnum):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.backup_control):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.spid_len):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.spid_1_len):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.dn_len):?IISDNu8bit,
+			(Q931#q931_cnfg.primary_ifnum):?IISDNu8bit,
+			(Q931#q931_cnfg.backup_ifnum):?IISDNu8bit,
+			(Q931#q931_cnfg.backup_control):?IISDNu8bit,
+			(Q931#q931_cnfg.spid_len):?IISDNu8bit,
+			(Q931#q931_cnfg.spid_1_len):?IISDNu8bit,
+			(Q931#q931_cnfg.dn_len):?IISDNu8bit,
 			Spid/binary, Spid_1/binary, Dn/binary, Dn_1/binary,
-			(Q931#'IISDN_Q931_CNFG'.chan_id_high_bit):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.att_cust_bri_ekts):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.subscribe_connack):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.suppress_auto_spid):?IISDNu8bit,
-			(Q931#'IISDN_Q931_CNFG'.accept_all_bri_calls):?IISDNu8bit,
+			(Q931#q931_cnfg.chan_id_high_bit):?IISDNu8bit,
+			(Q931#q931_cnfg.att_cust_bri_ekts):?IISDNu8bit,
+			(Q931#q931_cnfg.subscribe_connack):?IISDNu8bit,
+			(Q931#q931_cnfg.suppress_auto_spid):?IISDNu8bit,
+			(Q931#q931_cnfg.accept_all_bri_calls):?IISDNu8bit,
 			0:?IISDNu16bit>>.
 
-'IISDN_BONDING_DATA'(Bond) when is_record(Bond, 'IISDN_BONDING_DATA') ->
+bonding_data(Bond) when is_record(Bond, bonding_data) ->
 	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
 	Directory = lists:foldl(Digit32, <<>>, 
-			Bond#'IISDN_BONDING_DATA'.directory),
-	<<(Bond#'IISDN_BONDING_DATA'.mode):?IISDNu16bit,
-			(Bond#'IISDN_BONDING_DATA'.destination):?IISDNu8bit,
-			(Bond#'IISDN_BONDING_DATA'.num_tx_buf):?IISDNu8bit,
-			(Bond#'IISDN_BONDING_DATA'.num_rx_buf):?IISDNu8bit,
-			(Bond#'IISDN_BONDING_DATA'.data_channel):?IISDNu8bit,
-			(Bond#'IISDN_BONDING_DATA'.txinit):?IISDNu16bit,
-			(Bond#'IISDN_BONDING_DATA'.txadd01):?IISDNu16bit,
-			(Bond#'IISDN_BONDING_DATA'.txfa):?IISDNu16bit,
-			(Bond#'IISDN_BONDING_DATA'.txdisc):?IISDNu16bit,
-			(Bond#'IISDN_BONDING_DATA'.txdeq):?IISDNu16bit,
-			(Bond#'IISDN_BONDING_DATA'.tcid):?IISDNu16bit,
-			(Bond#'IISDN_BONDING_DATA'.tanull):?IISDNu16bit,
-			(Bond#'IISDN_BONDING_DATA'.channels):?IISDNu16bit,
+			Bond#bonding_data.directory),
+	<<(Bond#bonding_data.mode):?IISDNu16bit,
+			(Bond#bonding_data.destination):?IISDNu8bit,
+			(Bond#bonding_data.num_tx_buf):?IISDNu8bit,
+			(Bond#bonding_data.num_rx_buf):?IISDNu8bit,
+			(Bond#bonding_data.data_channel):?IISDNu8bit,
+			(Bond#bonding_data.txinit):?IISDNu16bit,
+			(Bond#bonding_data.txadd01):?IISDNu16bit,
+			(Bond#bonding_data.txfa):?IISDNu16bit,
+			(Bond#bonding_data.txdisc):?IISDNu16bit,
+			(Bond#bonding_data.txdeq):?IISDNu16bit,
+			(Bond#bonding_data.tcid):?IISDNu16bit,
+			(Bond#bonding_data.tanull):?IISDNu16bit,
+			(Bond#bonding_data.channels):?IISDNu16bit,
 			Directory/binary>>.
 	
-'IISDN_X25_CONFIG'(X25) when is_record(X25, 'IISDN_X25_CONFIG') ->
-	<<(X25#'IISDN_X25_CONFIG'.cfg_msk):?IISDNu32bit,
-			(X25#'IISDN_X25_CONFIG'.t10):?IISDNu16bit,
-			(X25#'IISDN_X25_CONFIG'.t11):?IISDNu16bit,
-			(X25#'IISDN_X25_CONFIG'.t12):?IISDNu16bit,
-			(X25#'IISDN_X25_CONFIG'.t13):?IISDNu16bit,
-			(X25#'IISDN_X25_CONFIG'.t28):?IISDNu16bit,
-			(X25#'IISDN_X25_CONFIG'.p):?IISDNu16bit,
-			(X25#'IISDN_X25_CONFIG'.w):?IISDNu8bit,
-			(X25#'IISDN_X25_CONFIG'.max_clr_retry):?IISDNu8bit,
-			(X25#'IISDN_X25_CONFIG'.max_svcs):?IISDNu8bit,
-			(X25#'IISDN_X25_CONFIG'.max_pvcs):?IISDNu8bit>>.
+x25_config(X25) when is_record(X25, x25_config) ->
+	<<(X25#x25_config.cfg_msk):?IISDNu32bit,
+			(X25#x25_config.t10):?IISDNu16bit,
+			(X25#x25_config.t11):?IISDNu16bit,
+			(X25#x25_config.t12):?IISDNu16bit,
+			(X25#x25_config.t13):?IISDNu16bit,
+			(X25#x25_config.t28):?IISDNu16bit,
+			(X25#x25_config.p):?IISDNu16bit,
+			(X25#x25_config.w):?IISDNu8bit,
+			(X25#x25_config.max_clr_retry):?IISDNu8bit,
+			(X25#x25_config.max_svcs):?IISDNu8bit,
+			(X25#x25_config.max_pvcs):?IISDNu8bit>>.
 
-'IISDN_PM_CONFIG'(PM) when is_record(PM, 'IISDN_PM_CONFIG') ->
+pm_config(PM) when is_record(PM, pm_config) ->
 	Digit8 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu8bit>> end,
-	Equipmentid = lists:foldl(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.equipmentid),
-	Locationid = lists:foldl(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.locationid),
-	Frameid = lists:foldl(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.frameid),
-	Unitid = lists:foldl(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.unitid),
-	Facilityid = lists:foldl(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.facilityid),
-	<<(PM#'IISDN_PM_CONFIG'.mode):?IISDNu8bit, 
-			(PM#'IISDN_PM_CONFIG'.carrier):?IISDNu8bit,
-			(PM#'IISDN_PM_CONFIG'.fdl_alert):?IISDNu8bit,
+	Equipmentid = lists:foldl(Digit8, <<>>, PM#pm_config.equipmentid),
+	Locationid = lists:foldl(Digit8, <<>>, PM#pm_config.locationid),
+	Frameid = lists:foldl(Digit8, <<>>, PM#pm_config.frameid),
+	Unitid = lists:foldl(Digit8, <<>>, PM#pm_config.unitid),
+	Facilityid = lists:foldl(Digit8, <<>>, PM#pm_config.facilityid),
+	<<(PM#pm_config.mode):?IISDNu8bit, 
+			(PM#pm_config.carrier):?IISDNu8bit,
+			(PM#pm_config.fdl_alert):?IISDNu8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit,
 			Equipmentid/binary, Locationid/binary, Frameid/binary,
 			Unitid/binary, Facilityid/binary>>.
 
-'IISDN_RELAY_CONFIG'(Relay) when is_record(Relay, 'IISDN_RELAY_CONFIG') ->
-	<<(Relay#'IISDN_RELAY_CONFIG'.default_dest):?IISDNu8bit,
-			(Relay#'IISDN_RELAY_CONFIG'.default_dest_id):?IISDNu8bit,
-			(Relay#'IISDN_RELAY_CONFIG'.default_root_idx):?IISDNu8bit,
+relay_config(Relay) when is_record(Relay, relay_config) ->
+	<<(Relay#relay_config.default_dest):?IISDNu8bit,
+			(Relay#relay_config.default_dest_id):?IISDNu8bit,
+			(Relay#relay_config.default_root_idx):?IISDNu8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit>>.
 
-'IISDN_DPNSSCC_CONFIG'(Dpnss) when is_record(Dpnss, 'IISDN_DPNSSCC_CONFIG') ->
-	<<(Dpnss#'IISDN_DPNSSCC_CONFIG'.pbx_y):?IISDNs8bit,
-			(Dpnss#'IISDN_DPNSSCC_CONFIG'.no_virtual_channels):?IISDNs8bit,
-			(Dpnss#'IISDN_DPNSSCC_CONFIG'.dest_addr_len):?IISDNs8bit,
+dpnsscc_config(Dpnss) when is_record(Dpnss, dpnsscc_config) ->
+	<<(Dpnss#dpnsscc_config.pbx_y):?IISDNs8bit,
+			(Dpnss#dpnsscc_config.no_virtual_channels):?IISDNs8bit,
+			(Dpnss#dpnsscc_config.dest_addr_len):?IISDNs8bit,
 			0:?IISDNu8bit,
-			(Dpnss#'IISDN_DPNSSCC_CONFIG'.b_channel_service_state):?IISDNu32bit,
-			(Dpnss#'IISDN_DPNSSCC_CONFIG'.v_channel_service_state):?IISDNu32bit,
-			(Dpnss#'IISDN_DPNSSCC_CONFIG'.t_i_msg):?IISDNs32bit,
-			(Dpnss#'IISDN_DPNSSCC_CONFIG'.t_guard):?IISDNs32bit>>.
+			(Dpnss#dpnsscc_config.b_channel_service_state):?IISDNu32bit,
+			(Dpnss#dpnsscc_config.v_channel_service_state):?IISDNu32bit,
+			(Dpnss#dpnsscc_config.t_i_msg):?IISDNs32bit,
+			(Dpnss#dpnsscc_config.t_guard):?IISDNs32bit>>.
 
-'IISDN_DASSCC_CONFIG'(Dass) when is_record(Dass, 'IISDN_DASSCC_CONFIG') ->
-	<<(Dass#'IISDN_DASSCC_CONFIG'.b_channel_service_state):?IISDNu32bit,
-			(Dass#'IISDN_DASSCC_CONFIG'.t_digit_racking):?IISDNs32bit,
-			(Dass#'IISDN_DASSCC_CONFIG'.n_clear_retries):?IISDNs8bit,
+dasscc_config(Dass) when is_record(Dass, dasscc_config) ->
+	<<(Dass#dasscc_config.b_channel_service_state):?IISDNu32bit,
+			(Dass#dasscc_config.t_digit_racking):?IISDNs32bit,
+			(Dass#dasscc_config.n_clear_retries):?IISDNs8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit>>.
 
-'IISDN_Q933A_CONFIG'(Q933a) when is_record(Q933a, 'IISDN_Q933A_CONFIG') ->
-	<<(Q933a#'IISDN_Q933A_CONFIG'.network_side):?IISDNu8bit,
-			(Q933a#'IISDN_Q933A_CONFIG'.n391):?IISDNu8bit,
-			(Q933a#'IISDN_Q933A_CONFIG'.n392):?IISDNu8bit,
-			(Q933a#'IISDN_Q933A_CONFIG'.n393):?IISDNu8bit,
-			(Q933a#'IISDN_Q933A_CONFIG'.t391):?IISDNu16bit,
-			(Q933a#'IISDN_Q933A_CONFIG'.t392):?IISDNu16bit>>.
+q933a_config(Q933a) when is_record(Q933a, q933a_config) ->
+	<<(Q933a#q933a_config.network_side):?IISDNu8bit,
+			(Q933a#q933a_config.n391):?IISDNu8bit,
+			(Q933a#q933a_config.n392):?IISDNu8bit,
+			(Q933a#q933a_config.n393):?IISDNu8bit,
+			(Q933a#q933a_config.t391):?IISDNu16bit,
+			(Q933a#q933a_config.t392):?IISDNu16bit>>.
 
 
-'IISDN_DATA_INTERFACE_CONFIGURATION'(D) 
-			when is_record(D, 'IISDN_DATA_INTERFACE_CONFIGURATION') ->
-	<<(D#'IISDN_DATA_INTERFACE_CONFIGURATION'.dchan_descr_addr):?IISDNp32bit,
-			(D#'IISDN_DATA_INTERFACE_CONFIGURATION'.num_dchan_descr):?IISDNu16bit,
+data_interface_configuration(D) 
+			when is_record(D, data_interface_configuration) ->
+	<<(D#data_interface_configuration.dchan_descr_addr):?IISDNp32bit,
+			(D#data_interface_configuration.num_dchan_descr):?IISDNu16bit,
 			0:?IISDNu16bit,
-			(D#'IISDN_DATA_INTERFACE_CONFIGURATION'.dchan_event_queue_addr):?IISDNp16bit,
-			(D#'IISDN_DATA_INTERFACE_CONFIGURATION'.num_l3l4_dchan_events):?IISDNu16bit,
-			(D#'IISDN_DATA_INTERFACE_CONFIGURATION'.num_l4l3_dchan_events):?IISDNu16bit>>;
-'IISDN_DATA_INTERFACE_CONFIGURATION'(DataIf) when is_binary(DataIf) ->
+			(D#data_interface_configuration.dchan_event_queue_addr):?IISDNp16bit,
+			(D#data_interface_configuration.num_l3l4_dchan_events):?IISDNu16bit,
+			(D#data_interface_configuration.num_l4l3_dchan_events):?IISDNu16bit>>;
+data_interface_configuration(DataIf) when is_binary(DataIf) ->
 	<<Dchan_descr_addr:?IISDNp32bit, Num_dchan_descr:?IISDNu16bit,
 			_:?IISDNu16bit,
 			Dchan_event_queue_addr:?IISDNp16bit,
 			Num_l3l4_dchan_events:?IISDNu16bit,
 			Num_l4l3_dchan_events:?IISDNu16bit>> = DataIf,
-	#'IISDN_DATA_INTERFACE_CONFIGURATION'{dchan_descr_addr=Dchan_descr_addr,
+	#data_interface_configuration{dchan_descr_addr=Dchan_descr_addr,
 			num_dchan_descr=Num_dchan_descr,
 			dchan_event_queue_addr=Dchan_event_queue_addr,
 			num_l3l4_dchan_events=Num_l3l4_dchan_events,
 			num_l4l3_dchan_events=Num_l4l3_dchan_events}.
 
-'IISDN_ENA_PROTO_DATA'(Proto) when is_record(Proto, 'IISDN_ENA_PROTO_DATA'),
-		is_record(Proto#'IISDN_ENA_PROTO_DATA'.level1, 'IISDN_LEVEL1_CNFG') ->
-	'IISDN_ENA_PROTO_DATA'(Proto#'IISDN_ENA_PROTO_DATA'{
-			level1 = 'IISDN_LEVEL1_CNFG'(Proto#'IISDN_ENA_PROTO_DATA'.level1)});
-'IISDN_ENA_PROTO_DATA'(Proto) when is_record(Proto, 'IISDN_ENA_PROTO_DATA'),
-		is_record(Proto#'IISDN_ENA_PROTO_DATA'.level2, 'IISDN_LEVEL2_CNFG') ->
-	'IISDN_ENA_PROTO_DATA'(Proto#'IISDN_ENA_PROTO_DATA'{
-			level2 = 'IISDN_LEVEL2_CNFG'(Proto#'IISDN_ENA_PROTO_DATA'.level2)});
-'IISDN_ENA_PROTO_DATA'(Proto) when is_record(Proto, 'IISDN_ENA_PROTO_DATA'),
-		is_record(Proto#'IISDN_ENA_PROTO_DATA'.level3, 'IISDN_LEVEL3_CNFG') ->
-	'IISDN_ENA_PROTO_DATA'(Proto#'IISDN_ENA_PROTO_DATA'{
-			level3 = 'IISDN_LEVEL3_CNFG'(Proto#'IISDN_ENA_PROTO_DATA'.level3)});
-'IISDN_ENA_PROTO_DATA'(Proto) when is_record(Proto, 'IISDN_ENA_PROTO_DATA'),
-		is_binary(Proto#'IISDN_ENA_PROTO_DATA'.level1);
-		is_binary(Proto#'IISDN_ENA_PROTO_DATA'.level2);
-		is_binary(Proto#'IISDN_ENA_PROTO_DATA'.level3) ->
-	<<(Proto#'IISDN_ENA_PROTO_DATA'.level1)/binary,
-			(Proto#'IISDN_ENA_PROTO_DATA'.level2)/binary,
-			(Proto#'IISDN_ENA_PROTO_DATA'.level3)/binary>>.
-
-line_data(LD) when is_record(LD, line_data) ->
-	<<(LD#line_data.framing):?IISDNu8bit,
-			(LD#line_data.line_code):?IISDNu8bit,
-			(LD#line_data.pm_mode):?IISDNu8bit,
-			(LD#line_data.line_length):?IISDNu8bit,
-			(LD#line_data.term):?IISDNu8bit,
-			(LD#line_data.line_type):?IISDNu8bit,
-			(LD#line_data.integrate_alarms):?IISDNu8bit,
-			(LD#line_data.filter_unsolicited):?IISDNu8bit,
-			0:?IISDNu8bit,
-			(LD#line_data.filter_yellow):?IISDNu8bit,
-			(LD#line_data.bri_l1mode):?IISDNu8bit,
-			(LD#line_data.briL1_cmd):?IISDNu8bit,
-			(LD#line_data.bri_loop):?IISDNu8bit,
-			(LD#line_data.bril1_t3):?IISDNu8bit,
-			(LD#line_data.bril1_t4):?IISDNu16bit>>;
-line_data(LD) when is_binary(LD) ->
-	<<Framing:?IISDNu8bit, Line_code:?IISDNu8bit, Pm_mode:?IISDNu8bit,
-			Line_length:?IISDNu8bit, Term:?IISDNu8bit, Line_type:?IISDNu8bit,
-			Integrate_alarms:?IISDNu8bit, Filter_unsolicited:?IISDNu8bit,
-			Filter_yellow:?IISDNu8bit, Bri_l1mode:?IISDNu8bit,
-			BriL1_cmd:?IISDNu8bit, Bri_loop:?IISDNu8bit, 
-			Bril1_t3:?IISDNu8bit, Bril1_t4:?IISDNu16bit>> = LD,
-	#line_data{framing=Framing, line_code=Line_code,
-			pm_mode=Pm_mode, line_length=Line_length, term=Term,
-			line_type=Line_type, integrate_alarms=Integrate_alarms,
-			filter_unsolicited=Filter_unsolicited, 
-			filter_yellow=Filter_yellow, bri_l1mode=Bri_l1mode,
-			briL1_cmd=BriL1_cmd, bri_loop=Bri_loop,
-			bril1_t3=Bril1_t3, bril1_t4=Bril1_t4}.
+ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
+		is_record(Proto#ena_proto_data.level1, level1_cnfg) ->
+	ena_proto_data(Proto#ena_proto_data{
+			level1 = level1_cnfg(Proto#ena_proto_data.level1)});
+ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
+		is_record(Proto#ena_proto_data.level2, level2_cnfg) ->
+	ena_proto_data(Proto#ena_proto_data{
+			level2 = level2_cnfg(Proto#ena_proto_data.level2)});
+ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
+		is_record(Proto#ena_proto_data.level3, level3_cnfg) ->
+	ena_proto_data(Proto#ena_proto_data{
+			level3 = level3_cnfg(Proto#ena_proto_data.level3)});
+ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
+		is_binary(Proto#ena_proto_data.level1);
+		is_binary(Proto#ena_proto_data.level2);
+		is_binary(Proto#ena_proto_data.level3) ->
+	<<(Proto#ena_proto_data.level1)/binary,
+			(Proto#ena_proto_data.level2)/binary,
+			(Proto#ena_proto_data.level3)/binary>>.
 
 hardware_data(HW) when is_record(HW, hardware_data),
 		is_binary(HW#hardware_data.line_data) ->
@@ -542,15 +520,46 @@ hardware_data(HW) when is_binary(HW) ->
 			clk_status=Clk_status, line_data=LineData, 
 			csu = U8toL(U8toL, Csu, [])}.
 
+line_data(LD) when is_record(LD, line_data) ->
+	<<(LD#line_data.framing):?IISDNu8bit,
+			(LD#line_data.line_code):?IISDNu8bit,
+			(LD#line_data.pm_mode):?IISDNu8bit,
+			(LD#line_data.line_length):?IISDNu8bit,
+			(LD#line_data.term):?IISDNu8bit,
+			(LD#line_data.line_type):?IISDNu8bit,
+			(LD#line_data.integrate_alarms):?IISDNu8bit,
+			(LD#line_data.filter_unsolicited):?IISDNu8bit,
+			0:?IISDNu8bit,
+			(LD#line_data.filter_yellow):?IISDNu8bit,
+			(LD#line_data.bri_l1mode):?IISDNu8bit,
+			(LD#line_data.briL1_cmd):?IISDNu8bit,
+			(LD#line_data.bri_loop):?IISDNu8bit,
+			(LD#line_data.bril1_t3):?IISDNu8bit,
+			(LD#line_data.bril1_t4):?IISDNu16bit>>;
+line_data(LD) when is_binary(LD) ->
+	<<Framing:?IISDNu8bit, Line_code:?IISDNu8bit, Pm_mode:?IISDNu8bit,
+			Line_length:?IISDNu8bit, Term:?IISDNu8bit, Line_type:?IISDNu8bit,
+			Integrate_alarms:?IISDNu8bit, Filter_unsolicited:?IISDNu8bit,
+			Filter_yellow:?IISDNu8bit, Bri_l1mode:?IISDNu8bit,
+			BriL1_cmd:?IISDNu8bit, Bri_loop:?IISDNu8bit, 
+			Bril1_t3:?IISDNu8bit, Bril1_t4:?IISDNu16bit>> = LD,
+	#line_data{framing=Framing, line_code=Line_code,
+			pm_mode=Pm_mode, line_length=Line_length, term=Term,
+			line_type=Line_type, integrate_alarms=Integrate_alarms,
+			filter_unsolicited=Filter_unsolicited, 
+			filter_yellow=Filter_yellow, bri_l1mode=Bri_l1mode,
+			briL1_cmd=BriL1_cmd, bri_loop=Bri_loop,
+			bril1_t3=Bril1_t3, bril1_t4=Bril1_t4}.
+
 tsi_data(TS) when is_record(TS, tsi_data),
 		is_binary(TS#tsi_data.tsi_map) ->
-	<<(TS#tsi_map.tsi_ack_enable):?IISDNu8bit,
-			(TS#tsi_map.num_mappings):?IISDNu8bit,
-			(TS#tsi_map.granularity):?IISDNu8bit,
-			(TS#tsi_map.last):?IISDNu8bit,
-			(TS#tsi_map.tsi_map)/binary>>;
+	<<(TS#tsi_data.tsi_ack_enable):?IISDNu8bit,
+			(TS#tsi_data.num_mappings):?IISDNu8bit,
+			(TS#tsi_data.granularity):?IISDNu8bit,
+			(TS#tsi_data.last):?IISDNu8bit,
+			(TS#tsi_data.tsi_map)/binary>>;
 tsi_data(TS) when is_record(TS, tsi_data) ->
-	FunMap = fun(M, Bin) -> <<Bin/binary, tsi_map(M))/binary>> end,
+	FunMap = fun(M, Bin) -> <<Bin/binary, (tsi_map(M))/binary>> end,
 	MAP = lists:foldl(FunMap, <<>>, TS#tsi_data.tsi_map),
 	tsi_data(TS#tsi_data{tsi_map = MAP}).
 
@@ -561,14 +570,14 @@ tsi_map(MAP) when is_binary(MAP) ->
 	<<Destination:?IISDNu16bit, Source:?IISDNu16bit>> = MAP,
 	#tsi_map{destination = Destination, source = Source}.
 
-'IISDN_Q931_TIMERS'(T) when is_record(T, 'IISDN_Q931_TIMERS') ->
-	<<(T#'IISDN_Q931_TIMERS'.t302):?IISDNu16bit,
-			(T#'IISDN_Q931_TIMERS'.t305):?IISDNu16bit,
-			(T#'IISDN_Q931_TIMERS'.t308):?IISDNu16bit,
-			(T#'IISDN_Q931_TIMERS'.t313):?IISDNu16bit,
-			(T#'IISDN_Q931_TIMERS'.t314):?IISDNu16bit,
-			(T#'IISDN_Q931_TIMERS'.t316):?IISDNu16bit,
-			(T#'IISDN_Q931_TIMERS'.t318):?IISDNu16bit,
-			(T#'IISDN_Q931_TIMERS'.t319):?IISDNu16bit,
-			(T#'IISDN_Q931_TIMERS'.t3m1):?IISDNu16bit,
-			(T#'IISDN_Q931_TIMERS'.t321):?IISDNu16bit>>.
+q931_timers(T) when is_record(T, q931_timers) ->
+	<<(T#q931_timers.t302):?IISDNu16bit,
+			(T#q931_timers.t305):?IISDNu16bit,
+			(T#q931_timers.t308):?IISDNu16bit,
+			(T#q931_timers.t313):?IISDNu16bit,
+			(T#q931_timers.t314):?IISDNu16bit,
+			(T#q931_timers.t316):?IISDNu16bit,
+			(T#q931_timers.t318):?IISDNu16bit,
+			(T#q931_timers.t319):?IISDNu16bit,
+			(T#q931_timers.t3m1):?IISDNu16bit,
+			(T#q931_timers.t321):?IISDNu16bit>>.

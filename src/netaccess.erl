@@ -35,9 +35,9 @@
 -export([open/0,open/1,close/1]).
 -export([select_board/2,boot/2,enable_management_chan/1,
 			reset_board/1,get_version/1, get_driver_info/1]).
--export([set_hardware/2, set_hardware/3, set_hardware/4, req_hw_status/1]).
+-export([set_hardware/2, req_hw_status/1]).
 -export([set_tsi/2, req_tsi_status/1]).
--export([enable_protocol/3, enable_protocol/4, enable_protocol/7]).
+-export([enable_protocol/2]).
 
 -include("pridrv.hrl").
 -include("iisdn.hrl").
@@ -168,7 +168,7 @@ get_version(Port) ->
 	do_ioctl({ioctl, ?GET_VERSION, [], Port}).
 
 
-%% @spec (Channel:port()) -> returns {ok, driver_info()} or {error, Reason::term()}
+%% @spec (Channel:port()) -> {ok, driver_info()} | {error, Reason::term()}
 %%
 %% @type driver_info(). A record which includes the following fields:
 %%		<dl>
@@ -198,51 +198,14 @@ get_driver_info(Port) ->
 	end.
 	
 
+%% @spec (Channel::port(), hardware_data()) -> 
 %%
-%% @doc Set hardware settings on board such as clocking, framing, etc.
+%% @doc Set hardware settings on a board.
 %%
-
-% may be called without line settings and CSU flags, we'll use defaults
-set_hardware(Port, HardwareSettings) ->
-	set_hardware(Port, HardwareSettings, [{framing, 0}], 0).
-
-% may be called without CSU flags in which case we'll use defaults
-set_hardware(Port, HardwareSettings, LineSettings) ->
-	set_hardware(Port, HardwareSettings, LineSettings, 0).
-
-% may be called with only one CSU flag in which case we will
-% use this setting for all spans
-set_hardware(Port, HardwareSettings, LineSettings, CsuFlag)
-		when integer(CsuFlag) ->
-	set_hardware(Port, HardwareSettings, LineSettings,
-			lists:duplicate(?IISDN_MAX_LINES, CsuFlag));
-
-% may be called with only one list of line settings in which
-% case we will use these settings for all spans
-set_hardware(Port, HardwareSettings, LineSettings, CsuFlags) 
-		when list(LineSettings), tuple(hd(LineSettings)) ->
-	set_hardware(Port, HardwareSettings,
-			lists:duplicate(?IISDN_MAX_LINES, LineSettings), CsuFlags);
-
-% may be called with an unordered subset of settings
-set_hardware(Port, HardwareSettings, LineSettings, CsuFlags) 
-		when list(LineSettings), length(LineSettings) == ?IISDN_MAX_LINES,
-		list(CsuFlags), length(CsuFlags) == ?IISDN_MAX_LINES ->
-	HardwareDefaults = ?HardwareDefaults,
-	LineDefaults = ?LineDefaults,
-	HardwareMerged = lists:keysort(1, mergeopts(HardwareSettings,
-			HardwareDefaults)),
-	?HardwareTerms = HardwareMerged,
-	HardwareBin = ?HardwareMask,
-	LineMerged = [lists:keysort(1, mergeopts(A, B)) ||
-			A <- LineSettings, B <- [LineDefaults]],
-	MakeLineBin = fun(?LineTerms) -> ?LineMask end,
-	LineBins = [MakeLineBin(A) || A <- LineMerged],
-	CsuBin = list_to_binary(CsuFlags),
-	L4_Ref = 16#FFFF,
-	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mSET_HARDWARE, L4_Ref, 0, 0),
-	L4_to_L3_struct = concat_binary([L4L3_Bin, HardwareBin, LineBins, CsuBin]),
-	do_call({'L4L3m', Port, L4_Ref, L4_to_L3_struct}).
+set_hardware(Port, Data) when is_record(Data, hardware_data) ->
+	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_HARDWARE, data = Data},
+	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
+	do_call({'L4L3m', Port, 0, L4L3_bin}).
 
 
 %% @spec (Channel::port()) -> {ok, hardware_data()}
@@ -286,8 +249,8 @@ set_hardware(Port, HardwareSettings, LineSettings, CsuFlags)
 %% @doc Query the hardware setup.
 %%
 req_hw_status(Port) ->
-	L4L3_Bin = iisdn:'L4_to_L3_struct'(#'L4_to_L3_struct'{msgtype = ?L4L3mREQ_HW_STATUS}),
-	port_command(Port, L4L3_Bin),
+	L4L3_bin = iisdn:l4_to_l3(#l4_to_l3{msgtype = ?L4L3mREQ_HW_STATUS}),
+	port_command(Port, L4L3_bin),
 	receive 
 		{Port, {'L3L4m', <<_LapdId:?IISDNu8bit, ?L3L4mHARDWARE_STATUS,
 				_L4Ref:?IISDNu16bit, _CallRef:?IISDNu16bit, _BChan:?IISDNu8bit,
@@ -296,13 +259,13 @@ req_hw_status(Port) ->
 			iisdn:hardware_data(HardwareData);
 		{Port, {error, Reason}} -> {error, Reason}
 	after
-		1000 -> {error, timeout}
+		2000 -> {error, timeout}
 	end.
 	
 	
 %% @spec (Channel:port(), tsi_data()) -> true
 %%
-%% @type tsi_data().  A record which contains the following fields:
+%% @type tsi_data().  A record which includes the following fields:
 %% 	<dl>
 %% 		<dt>tsi_ack_enable</dt> <dd><code>integer()</code></dd>
 %% 		<dt>num_mappings</dt> <dd><code>integer()</code></dd>
@@ -319,18 +282,18 @@ req_hw_status(Port) ->
 %%
 %% @doc Create timeslot mappings.
 %%
-set_tsi(Port, MAP) ->
-	L4_to_L3_struct = #'L4_to_L3_struct'{msgtype = ?L4L3mSET_TSI, data = MAP},
-	L4L3_Bin = iisdn:'L4_to_L3_struct'(L4_to_L3_struct),
-	port_command(Port, L4L3_Bin).
+set_tsi(Port, Data) ->
+	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_TSI, data = Data},
+	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
+	port_command(Port, L4L3_bin).
 
 
 %%
 %% query the timeslot mappings
 %%
 req_tsi_status(Port) -> ok.
-%	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mREQ_TSI_STATUS, 16#FFFF, 0, 0),
-%	port_command(Port, L4L3_Bin),
+%	L4L3_bin = ?L4L3_Mask(0, ?L4L3mREQ_TSI_STATUS, 16#FFFF, 0, 0),
+%	port_command(Port, L4L3_bin),
 %	receive 
 %		{Port, {'L3L4m', ?L3L4_Mask(_LapdId, ?L3L4mTSI_STATUS,
 %				_L4Ref, _CallRef, _BChan, _IFace, _BChanMask,
@@ -349,38 +312,19 @@ req_tsi_status(Port) -> ok.
 %	req_tsi_status(Rest, NumMaps - 1, TsiTerms ++ ?TsiMapTerms).
 	
 
+%% @spec (Channel::port(), ena_proto_data()) ->
 %%
-%% enable_protocol(Port, Lapdid, Command)
-%% enable_protocol(Port, Lapdid, Command, CommandParameter)
-%% enable_protocol(Port, Lapdid, Command, CommandParameter,
-%%                 Level1, Level2, Level3) ->
-%% 
-%%    Lapdid           = int()
-%%    Command          = int()
-%%    CommandParameter = int()
-%%    Level1           = record() of type pri_level1_config
-%%    Level2           = record() of type pri_level2_config
-%%    Level3           = record() of type pri_level3_config
+%% @type ena_proto_data().  A record which includes the following fields:
+%% 	<dl>
+%% 	</dl>
 %%
-%% Use the naii library to decode/encode these records and the
-%% binaries received/sent to the boards.
+%% @doc Specifies and enables layer 1, 2 & 3 processing on an open channel.
 %%
-enable_protocol(Port, Lapdid, Command) ->
-	enable_protocol(Port, Lapdid, Command, 0).
-enable_protocol(Port, Lapdid, Command, CommandParameter) ->
-	enable_protocol(Port, Lapdid, Command, CommandParameter,
-			<<>>, <<>>, <<>>).
-enable_protocol(Port, Lapdid, Command, CommandParameter,
-		Level1, Level2, Level3) ->
-	EP = #'IISDN_ENA_PROTO_DATA'{
-			command=Command, 
-			command_parameter=CommandParameter, 
-			level1=Level1, level2=Level2, level3=Level3},
-	L4L3m = #'L4_to_L3_struct'{
-			lapdid = Lapdid,
-			msgtype = ?L4L3mENABLE_PROTOCOL,
-			data = naii:'IISDN_ENA_PROTO_DATA'(EP)},
-	port_command(Port, naii:'L4_to_L3_struct'(L4L3m)).
+enable_protocol(Port, Data) ->
+	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mENABLE_PROTOCOL, data = Data},
+	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
+	port_command(Port, L4L3_bin).
+	
 	
 	
 
@@ -425,8 +369,11 @@ handle_call({ioctl, Operation, Data, Port}, From, State) ->
 			NewState = gb_trees:insert({ref, Ref},
 					{Port, From, now()}, State),
 			{noreply, NewState};
-		Error ->
-			{reply, Error, State}
+		{'EXIT', Reason} ->
+			catch exit(From, Reason),
+			{noreply, State};
+		Other ->
+			{reply, Other, State}
 	end;
 
 %% send an SMI message to the board
@@ -434,8 +381,9 @@ handle_call({'L4L3m', Port, L4_Ref, L4L3_Msg}, From, State) ->
 	case catch erlang:port_command(Port, L4L3_Msg) of
 		true ->
 			{reply, true, State};
-		Error ->
-			{reply, Error, State}
+		{'EXIT', Reason} ->
+			catch exit(From, Reason),
+			{noreply, State}
 	end;
 
 %% shutdown the netaccess server
@@ -460,15 +408,16 @@ handle_info({Port, {ref, Ref}, Result}, State) when is_port(Port) ->
 	{noreply, NewState};
 
 % an L3L4 SMI control message has arrived from the board
-handle_info({Port, {'L3L4m', ?L3L4_Mask(LapdId, MsgType, L4Ref,
-		CallRef, BChan, Iface, BChanMask, Lli, DataChan, Data) = CtrlBin,
-		DataBin}}, State) ->
-io:fwrite("Port=~w, MsgType=~.16x, L4Ref=~.16x, CallRef=~.16x, BChan=~w, Iface=~w, BChanMask=~.16x, Lli=~.16x, DataChan=~w~n", [Port, MsgType,"0x", L4Ref,"0x", CallRef,"0x", BChan, Iface, BChanMask,"0x", Lli,"0x", DataChan]),
+handle_info({Port, {'L3L4m', <<LapdId:?IISDNu8bit, MsgType:?IISDNu8bit,
+		L4Ref:?IISDNu16bit, CallRef:?IISDNu16bit, BChan:?IISDNu8bit,
+		Iface:?IISDNu8bit, BChanMask:?IISDNu32bit, Lli:?IISDNu16bit,
+		DataChan:?IISDNu16bit, Rest/binary>> = CtrlBin, DataBin}}, State) when is_port(Port) ->
+io:fwrite("Port=~w, MsgType=~.16x, L4Ref=~.16x, CallRef=~.16x, BChan=~w, Iface=~w, BChanMask=~.16x, Lli=~.16x, DataChan=~w, Rest=~w~n", [Port, MsgType,"0x", L4Ref,"0x", CallRef,"0x", BChan, Iface, BChanMask,"0x", Lli,"0x", DataChan, Rest]),
 	{Pid, _Time} = gb_trees:get({port, Port}, State),
 	Pid ! {Port, {'L3L4m', CtrlBin, DataBin}},
 	{noreply, State};
 
-% an L3L4 SMI control message has arrived from the board
+% an L3L4 SMI data message has arrived from the board
 handle_info({Port, {'L3L4m', <<>>, DataBin}}, State) ->
 	{Pid, _Time} = gb_trees:get({port, Port}, State),
 	Pid ! {Port, {data, DataBin}},
@@ -516,12 +465,6 @@ do_call(Request) ->
 
 do_cast(Request) ->
 	gen_server:cast(netaccess_server, Request).
-
-% merges a list of option settings with the list of default values
-mergeopts([], Merged) -> Merged;
-mergeopts([{Option, Value}|T], Defaults) ->
-	Merged = lists:keyreplace(Option, 1, Defaults, {Option, Value}),
-	mergeopts(T, Merged).
 
 clean_port(Port, State) when is_port(Port) ->
 	I = gb_trees:iterator(State),
