@@ -388,7 +388,7 @@ req_board_id(ServerRef) ->
 %%
 set_hardware(ServerRef, Data) when is_record(Data, hardware_data) ->
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_HARDWARE, data = Data},
-	gen_server:cast(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
+	gen_server:call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
 %% @spec (ServerRef) -> HardwareData
@@ -414,7 +414,7 @@ req_hw_status(ServerRef) ->
 %%
 set_tsi(ServerRef, Data) ->
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_TSI, data = Data},
-	gen_server:cast(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
+	gen_server:call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
 %% @spec (ServerRef) -> TsiDataList
