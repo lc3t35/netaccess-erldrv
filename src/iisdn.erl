@@ -1264,6 +1264,34 @@ relay_rule(RelayRuleRec) when is_record(RelayRuleRec, relay_rule),
 			(RelayRuleRec#relay_rule.insTimeStamp):?IISDNu8bit,
 			(RelayRuleRec#relay_rule.insTimeStampOffset):?IISDNu8bit>>.
 
+%% @type relay_stats().  On board packet relay and routing statistics.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>recv_cnt</tt></dt><dd><tt>integer()</tt>Number of packets received on lapdid.</dd>
+%%			<dt><tt>recv_bytes</tt></dt><dd><tt>integer()</tt>Number of bytes received on lapdid.</dd>
+%%			<dt><tt>drop_cnt</tt></dt><dd><tt>integer()</tt>Number of packets received and dropped.< dd>
+%%			<dt><tt>xmit_cnt</tt></dt><dd><tt>integer()</tt>Number of packets sent on lapdid.</dd>
+%%			<dt><tt>xmit_bytes</tt></dt><dd><tt>integer()</tt>Number of bytes sent on lapdid.</dd>
+%%			<dt><tt>xmit_deferred_cnt</tt></dt><dd><tt>integer()</tt>Number of packets sent from deferred queue.</dd>
+%%			<dt><tt>xmit_overflow_cnt</tt></dt><dd><tt>integer()</tt>Number of packets discarded because transmit queue full.</dd>
+%%			<dt><tt>current_deferred_queue_depth</tt></dt><dd><tt>integer()</tt>Number of packets in deferred queue.</dd>
+%% 	</dl>
+%%
+%% @spec(RelayStatsBin) -> RelayStatsRec
+%% 	RelayStatsBin = binary()
+%% 	RelayStatsRec = relay_stats()
+%%
+relay_stats(RS) when is_binary(RS) ->
+	<<RcvCnt:?IISDNs32bit, RcvBytes:?IISDNs32bit, DropCnt:?IISDNs32bit,
+			XmitCnt:?IISDNs32bit, XmitBytes:?IISDNs32bit,
+			XmitDeferredCnt:?IISDNs32bit, XmitOverflowCnt:?IISDNs32bit,
+			CurrentDeferredQueueDepth:?IISDNs32bit, _/binary>> = RS,
+	#relay_stats{recv_cnt = RcvCnt, recv_bytes = RcvBytes,
+			drop_cnt = DropCnt, xmit_cnt = XmitCnt, xmit_bytes = XmitBytes
+			xmit_deferred_cnt = XmitDeferredCnt, 
+			xmit_overflow_cnt = XmitOverflowCnt,
+			current_deferred_queue_depth = CurrentDeferredQueueDepth}.
+
 %% @type hardware_data().  A record which includes the following fields:
 %% 	<dl>
 %% 		<dt><tt>clocking</tt></dt> <dd><tt>integer()</tt></dd>
