@@ -429,7 +429,6 @@ set_hardware(Port, HardwareSettings, LineSettings, CsuFlags)
 	L4_Ref = 16#FFFF,
 	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mSET_HARDWARE, L4_Ref, 0, 0),
 	L4_to_L3_struct = concat_binary([L4L3_Bin, HardwareBin, LineBins, CsuBin]),
-	MakeLineBin = fun(?LineTerms) -> ?LineMask end,
 	do_call({smi, Port, L4_Ref, L4_to_L3_struct}).
 
 
