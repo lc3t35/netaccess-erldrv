@@ -54,6 +54,10 @@
 %% with msgtype is used.  If data is a record of the appropriate type
 %% it will be used to build the binary.
 %%
+%% The first octet is codes as a zero for all L4L3 messages so that the
+%% erlang netaccess driver knows to send them as control messages on the
+%% stream (data messages such as I-frames have a non-zero first octet).
+%%
 l4_to_l3(R) when is_record(R, l4_to_l3) ->
 	MessageType = R#l4_to_l3.msgtype, 
 	CommonHeader = <<(R#l4_to_l3.lapdid):?IISDNu8bit, 
@@ -70,11 +74,7 @@ l4_to_l3(?L4L3mSET_HARDWARE, Header, Data) ->
 l4_to_l3(?L4L3mSET_TSI, Header, Data) ->
 	<<0, Header/binary, (tsi_data(Data))/binary>>;
 l4_to_l3(?L4L3mENABLE_PROTOCOL, Header, Data) ->
-	<<0, Header/binary, (ena_proto_data(Data))/binary>>;
-l4_to_l3(?L4L3mREQ_HW_STATUS, Header, Data) ->
-	<<0, Header/binary>>;
-l4_to_l3(?L4L3mREQ_TSI_STATUS, Header, Data) ->
-	<<0, Header/binary>>.
+	<<0, Header/binary, (ena_proto_data(Data))/binary>>.
 
 l3_to_l4(Bin) when is_binary(Bin) ->
 	<<Lapdid:?IISDNu8bit, Msgtype:?IISDNu8bit, L4_ref:?IISDNu16bit,
