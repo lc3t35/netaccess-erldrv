@@ -65,16 +65,18 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		?IISDNdsESTABLISHED ->
 			report_status(P, element(2, StateData)),
 			{Delay, _} = random:uniform_s(element(3, StateData), now()),
-			gen_fsm:start_timer(Delay, timeout),
-			{next_state, established, StateData}
+			{next_state, established, StateData, Delay}
 	end;
 establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
+establishing(timeout, StateData) ->
+	{next_state, establishing, StateData};
 establishing(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
-			{lapdid, element(2, StateData)}, {state, establishing}, Other]).
+			{lapdid, element(2, StateData)}, {state, establishing}, Other]),
+	{next_state, establishing, StateData}.
 
 
 %% multiframe state established
@@ -100,18 +102,18 @@ established({Channel, <<Hash:8/unit:8, Data/binary>>}, StateData) ->
 		_ ->
 			{stop, bad_hash, StateData}
 	end;	
-established({timeout, Ref, timeout}, {Channel, LapdId, Timeout} = StateData) ->
+established(timeout, {Channel, LapdId, Timeout} = StateData) ->
 	% send an IFRAME
 	netaccess:send(Channel, iframe()),
-	gen_fsm:start_timer(Timeout, timeout),
-	{next_state, established, StateData};
+	{next_state, established, StateData, Timeout};
 established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
 established(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
-			{lapdid, element(2, StateData)}, {state, established}, Other]).
+			{lapdid, element(2, StateData)}, {state, established}, Other]),
+	{next_state, established, StateData}.
 
 %% multiframe not established
 not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
@@ -123,7 +125,8 @@ not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 			{next_state, establishing, StateData};
 		?IISDNdsESTABLISHED ->
 			report_status(P, element(2, StateData)),
-			{next_state, established, StateData};
+			{Delay, _} = random:uniform_s(element(3, StateData), now()),
+			{next_state, established, StateData, Delay};
 		?IISDNdsNOT_ESTABLISHED ->
 			report_status(P, element(2, StateData)),
 			{next_state, not_established, StateData}
@@ -132,9 +135,12 @@ not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
+not_established(timeout, StateData) ->
+	{next_state, not_established, StateData};
 not_established(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
-			{lapdid, element(2, StateData)}, {state, not_established}, Other]).
+			{lapdid, element(2, StateData)}, {state, not_established}, Other]),
+	{next_state, not_established, StateData}.
 
 handle_event(_Event, StateName, StateData) ->
 	{next_state, StateName, StateData}.
