@@ -86,7 +86,7 @@
 
 #define DEV_PATH "/dev/pri0"
 
-#define BUFSIZE 256             /* <= rx_bufsize */
+#define IFRAMESZ 256     /*  maximum size of a received IFRAME  */
 
 #define SET_NONBLOCKING(fd)     fcntl((fd), F_SETFL, \
                                       fcntl((fd), F_GETFL, 0) | O_NONBLOCK)
@@ -295,6 +295,8 @@ start(ErlDrvPort port, char *command)
 	driver_event(port, (ErlDrvEvent) dd->fd, (ErlDrvEventData) &pd);
 
 	dd->port = port;	
+	dd->low = (4 * IFRAMESZ);       /*  queue low water mark   */
+	dd->high = (10 * IFRAMESZ);     /*  queue high water mark  */
 
 	return((ErlDrvData) dd);
 }
@@ -346,9 +348,10 @@ outputv(ErlDrvData handle, ErlIOVec *ev)
 	/*  if there's a queue just add to it  */
 	if((sz = driver_sizeq(dd->port)) > 0) {
 			driver_enqv(dd->port, ev, 0);
-			if((sz + 1) >= dd->high)           /*  queue full, throttle  */
+			if((sz + 1) >= dd->high) {          /*  queue full, throttle  */
+				DBG("queue high water mark");
 				set_busy_port(dd->port, 1);
-			return;
+			} return;
 	}
 
 	/*  send the message to the board  */	
@@ -721,7 +724,7 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 		strctrl.buf = ctrlbin->orig_bytes;
 	
 		/*  construct a streams buffer for the data message  */
-		if (!(databin = driver_alloc_binary(BUFSIZE))) {
+		if (!(databin = driver_alloc_binary(IFRAMESZ))) {
 			driver_failure_posix(dd->port, errno);
 			driver_free_binary(ctrlbin);
 			return;
@@ -773,8 +776,10 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 				}
 			}
 			driver_deq(dd->port, iov[0].iov_len); /* dequeue this sent message */
-			if(qsize <= dd->low)                /*  queue emptying, unthrottle  */
+			if(qsize <= dd->low) {              /*  queue emptying, unthrottle  */
+				DBG("queue low water mark");
 				set_busy_port(dd->port, 0);
+			}
 		}
 		event_data->events = (event_data->events & ~POLLOUT);
 		driver_event(dd->port, event, event_data);
