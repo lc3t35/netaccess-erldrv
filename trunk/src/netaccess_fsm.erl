@@ -132,10 +132,8 @@ cancel_timer(Ref) ->
 init([Module, Args]) ->
 	case Module:init(Args) of
 		{ok, StateName, StateData} ->
-			process_flag(trap_exit, true),
 			{ok, statename, {Module, StateName, StateData}};
 		{ok, StateName, StateData, Timeout} ->
-			process_flag(trap_exit, true),
 			{ok, statename, {Module, StateName, StateData}, Timeout};
 		{stop, Reason} ->
 			{stop, Reason};
