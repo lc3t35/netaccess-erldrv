@@ -149,18 +149,18 @@ get_version(Port) ->
 %%
 get_driver_info(Port) ->
 	case do_ioctl({ioctl, ?GET_DRIVER_INFO, [], Port}) of
-		{ok, <<BoardType:32/?ENDIANESS-signed-integer,
-				HangUpOnRedAlarm:32/?ENDIANESS-signed-integer,
-				FlowControlBoard:32/?ENDIANESS-signed-integer,
-				FlowControlWsrv:32/?ENDIANESS-signed-integer,
-				FlowControlRsrv:32/?ENDIANESS-signed-integer,
-				HDrops:32/?ENDIANESS-signed-integer,
-				SDrops:32/?ENDIANESS-signed-integer,
-				TxMsgSize:32/?ENDIANESS-signed-integer,
-				RxMsgSize:32/?ENDIANESS-signed-integer,
-				TxNumBufs:16/?ENDIANESS-unsigned-integer,
-				RxNumBufs:16/?ENDIANESS-unsigned-integer,
-				MaxDataChannels:32/?ENDIANESS-unsigned-integer>>} ->
+		{ok, <<BoardType:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
+				HangUpOnRedAlarm:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
+				FlowControlBoard:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
+				FlowControlWsrv:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
+				FlowControlRsrv:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
+				HDrops:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
+				SDrops:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
+				TxMsgSize:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
+				RxMsgSize:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
+				TxNumBufs:?SIZEUSHORT/?ENDIANESS-unsigned-integer-unit:8,
+				RxNumBufs:?SIZEUSHORT/?ENDIANESS-unsigned-integer-unit:8,
+				MaxDataChannels:?SIZEUINT/?ENDIANESS-unsigned-integer-unit:8>>} ->
 			{ok, [{board_type, BoardType}, 
 					{hangup_on_red_alarm, HangUpOnRedAlarm},
 					{flow_control_board, FlowControlBoard},

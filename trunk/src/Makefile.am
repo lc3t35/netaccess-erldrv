@@ -4,7 +4,12 @@ data_DATA = netaccess.beam
 EXTRA_DIST = netaccess.erl
 CLEANFILES = $(beam_DATA)
 .erl.beam:
-	$(ERLC) -b beam -W -v -DENDIANESS=$(ENDIANESS) $<
+	$(ERLC) -b beam -W -v -DENDIANESS=$(ENDIANESS) \
+			-DSIZECHAR=$(SIZECHAR) -DSIZEUCHAR=$(SIZEUCHAR) \
+			-DSIZESHORT=$(SIZESHORT) -DSIZEUSHORT=$(SIZEUSHORT) \
+			-DSIZEINT=$(SIZEINT) -DSIZEUINT=$(SIZEUINT) \
+			-DSIZELONG=$(SIZELONG) -DSIZEULONG=$(SIZEULONG) \
+			-DSIZEPOINTER=$(SIZEPOINTER) $<
 
 netaccess.beam:	netaccess.erl
 
