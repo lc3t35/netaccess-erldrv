@@ -54,14 +54,24 @@
 -define(IISDN_VERSION, @IISDN_VERSION@).
 
 %% basic types
--define(IISDNu8bit,  @SIZEOF_IISDNU8BIT@/native-unsigned-integer-unit:8).
--define(IISDNs8bit,  @SIZEOF_IISDNS8BIT@/native-signed-integer-unit:8).
--define(IISDNu16bit, @SIZEOF_IISDNU16BIT@/native-unsigned-integer-unit:8).
--define(IISDNs16bit, @SIZEOF_IISDNS16BIT@/native-signed-integer-unit:8).
--define(IISDNu32bit, @SIZEOF_IISDNU32BIT@/native-unsigned-integer-unit:8).
--define(IISDNs32bit, @SIZEOF_IISDNS32BIT@/native-signed-integer-unit:8).
--define(IISDNp16bit, @SIZEOF_IISDNP16BIT@/native-signed-integer-unit:8).
--define(IISDNp32bit, @SIZEOF_IISDNP32BIT@/native-signed-integer-unit:8).
+-define(IISDNu8bit,  @SIZEOF_IISDNu8bit@/native-unsigned-integer-unit:8).
+-define(IISDNs8bit,  @SIZEOF_IISDNs8bit@/native-signed-integer-unit:8).
+-define(IISDNu16bit, @SIZEOF_IISDNu16bit@/native-unsigned-integer-unit:8).
+-define(IISDNs16bit, @SIZEOF_IISDNs16bit@/native-signed-integer-unit:8).
+-define(IISDNu32bit, @SIZEOF_IISDNu32bit@/native-unsigned-integer-unit:8).
+-define(IISDNs32bit, @SIZEOF_IISDNs32bit@/native-signed-integer-unit:8).
+-define(IISDNp16bit, @SIZEOF_IISDNp16bit@/native-signed-integer-unit:8).
+-define(IISDNp32bit, @SIZEOF_IISDNp32bit@/native-signed-integer-unit:8).
+
+%% type sizes
+-define(SIZEOF_IISDNu8bit,  @SIZEOF_IISDNu8bit@).
+-define(SIZEOF_IISDNs8bit,  @SIZEOF_IISDNs8bit@).
+-define(SIZEOF_IISDNu16bit, @SIZEOF_IISDNu16bit@).
+-define(SIZEOF_IISDNs16bit, @SIZEOF_IISDNs16bit@).
+-define(SIZEOF_IISDNu32bit, @SIZEOF_IISDNu32bit@).
+-define(SIZEOF_IISDNs32bit, @SIZEOF_IISDNs32bit@).
+-define(SIZEOF_IISDNp16bit, @SIZEOF_IISDNp16bit@).
+-define(SIZEOF_IISDNp32bit, @SIZEOF_IISDNp32bit@).
 
 %% array sizes
 -define(IISDN_NUM_DS1_INTERFACES, @IISDN_NUM_DS1_INTERFACES@).
@@ -69,6 +79,29 @@
 -define(IISDN_MAX_DN_LEN, @IISDN_MAX_DN_LEN@).
 -define(IISDN_MAX_HDLC_CHANNEL, @IISDN_MAX_HDLC_CHANNEL@).
 -define(IISDN_MAX_LINES, @IISDN_MAX_LINES@).
+-define(IISDN_MAX_BOND_CHAN, @IISDN_MAX_BOND_CHAN@).
+
+%% structure sizes
+-define(SIZEOF_IISDN_LINE_DATA, @SIZEOF_IISDN_LINE_DATA@).
+-define(SIZEOF_IISDN_L2_LAP_PARAMS, @SIZEOF_IISDN_L2_LAP_PARAMS@).
+-define(SIZEOF_IISDN_L2_UDPIP_PARAMS, @SIZEOF_IISDN_L2_UDPIP_PARAMS@).
+-define(SIZEOF_IISDN_L2_TCPIP_PARAMS, @SIZEOF_IISDN_L2_TCPIP_PARAMS@).
+-define(SIZEOF_IISDN_L2_DPNSS_PARAMS, @SIZEOF_IISDN_L2_DPNSS_PARAMS@).
+-define(SIZEOF_IISDN_L2_SS7_PARAMS, @SIZEOF_IISDN_L2_SS7_PARAMS@).
+-define(SIZEOF_IISDN_L2_V110_PARAMS, @SIZEOF_IISDN_L2_V110_PARAMS@).
+-define(SIZEOF_IISDN_L2_LAP_CONSTS, @SIZEOF_IISDN_L2_LAP_CONSTS@).
+-define(SIZEOF_IISDN_L2_IP_CONSTS, @SIZEOF_IISDN_L2_IP_CONSTS@).
+-define(SIZEOF_IISDN_L2_DPNSS_CONSTS, @SIZEOF_IISDN_L2_DPNSS_CONSTS@).
+-define(SIZEOF_IISDN_L2_SS7_CONSTS, @SIZEOF_IISDN_L2_SS7_CONSTS@).
+-define(SIZEOF_IISDN_Q931_CNFG, @SIZEOF_IISDN_Q931_CNFG@).
+-define(SIZEOF_IISDN_BONDING_DATA, @SIZEOF_IISDN_BONDING_DATA@).
+-define(SIZEOF_IISDN_X25_CONFIG, @SIZEOF_IISDN_X25_CONFIG@).
+-define(SIZEOF_IISDN_PM_CONFIG, @SIZEOF_IISDN_PM_CONFIG@).
+-define(SIZEOF_IISDN_RELAY_CONFIG, @SIZEOF_IISDN_RELAY_CONFIG@).
+-define(SIZEOF_IISDN_DPNSSCC_CONFIG, @SIZEOF_IISDN_DPNSSCC_CONFIG@).
+-define(SIZEOF_IISDN_DASSCC_CONFIG, @SIZEOF_IISDN_DASSCC_CONFIG@).
+-define(SIZEOF_IISDN_Q933A_CONFIG, @SIZEOF_IISDN_Q933A_CONFIG@).
+
 
 
 %%
@@ -264,6 +297,7 @@
 -define(IISDNl2modV120,       12).
 -define(IISDNl2modLAP_F_CORE, 13).
 -define(IISDNl2modSS7_MON,    14).
+-define(IISDNl2modTCP_IP,     15).
 -define(IISDNdirUSER_SIDE,     0).
 -define(IISDNdirNETWORK_SIDE,  1).
 -define(IISDNdirSYMMETRIC,     2).
@@ -275,26 +309,28 @@
 		{mode=?IISDNl2modLAP_D, dce_dte=0, tei_mode=0, no_sabme=0,
 		l2_detail=0, timestamp=0, ui_mode=0, priority=0, no_reestab=0,
 		mode_1tr6=0, mode_tei_1=0, no_piggyback=0}).
--record(l2_lap_consts,
-		{t200=0, t201=0, t202=0, t203=0, n200=0, n201=0, n202=0, k=0}).
--record(l2_ss7_params,
-		{mode=?IISDNl2modSS7, variant=0}).
--record(l2_ss7_consts,
-		{t1=0, t2=0, t3=0, t4n=0, t4e=0, t5=0, t6=0, t7=0}).
 -record(l2_udpip_params,
 		{mode=?IISDNl2modUDP_IP, dstport=0, dstipaddr=0}).
--record(l2_ip_consts,
-		{no_dhcp=0, ipaddr=0, gwaddr=0, subnet_mask=0}).
+-record(l2_tcpip_params,
+		{mode=?IISDNl2modTCP_IP, dstport=0, dstipaddr=0}).
 -record(l2_dpnss_params,
 		{mode=?IISDNl2modDPNSS, pbx_b=0, sabmr_as_ack=0, tie_line_mode=0}).
--record(l2_dpnss_consts,
-		{nl=0, nt1=0, nt2=0}).
+-record(l2_ss7_params,
+		{mode=?IISDNl2modSS7, variant=0}).
 -record(l2_v110_params,
 		{mode=?IISDNl2modV110, ebits=0, flow_control=0, 
 		nine_byte_rx_frames=0, num_tx_idle_frames=0, max_rx_frame_size=0,
 		stale_rx_data_timer=0, filter_status_messages=0}).
 -record(data_interface,
 		{enable=0, data_channel=0, fillandspill=0, allow_buffer_preload=0}).
+-record(l2_lap_consts,
+		{t200=0, t201=0, t202=0, t203=0, n200=0, n201=0, n202=0, k=0}).
+-record(l2_ip_consts,
+		{no_dhcp=0, ipaddr=0, gwaddr=0, subnet_mask=0}).
+-record(l2_dpnss_consts,
+		{nl=0, nt1=0, nt2=0}).
+-record(l2_ss7_consts,
+		{t1=0, t2=0, t3=0, t4n=0, t4e=0, t5=0, t6=0, t7=0}).
 
 
 -define(IISDNl3modDISABLED,     0).
@@ -370,7 +406,6 @@
 		{t302=0, t305=0, t308=0, t313=0, t314=0, t316=0, t318=0, t319=0,
 		t3m1=0, t321=0}).
 
--define(IISDN_MAX_BOND_CHAN, @IISDN_MAX_BOND_CHAN@).
 -record(bonding_data,
 		{mode=0, destination=0, num_tx_buf=0, num_rx_buf=0,
 		data_channel=0, txinit=0, txadd01=0, txfa=0, txdisc=0,
