@@ -403,8 +403,10 @@ outputv(ErlDrvData handle, ErlIOVec *ev)
 	}
 	td->ref = driver_async(dd->port, NULL, (void *)(void *)do_iframe,
 			(void *)td, (void *)(void *)free_iframe);
-	if (++dd->qsize >= dd->highwater)
+	if (++dd->qsize >= dd->highwater) {
+		DBG("SET BUSY");
 		set_busy_port(dd->port, 1);
+	}
 }
 	
 
@@ -448,8 +450,10 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 	ThreadData *td = (ThreadData *) t_data;
 
 	DBG("ready_async");
-	if (--dd->qsize <= dd->lowwater)
+	if (--dd->qsize <= dd->lowwater) {
+		DBG("UNSET BUSY");
 		set_busy_port(dd->port, 0);
+	}
 	switch (td->command) {
 		case THREAD_L4L3:
 			done_l4l3(dd, td);
@@ -599,8 +603,10 @@ call(ErlDrvData handle, unsigned int command,
 				}
 				td->ref = driver_async(dd->port, NULL, (void *)(void *)do_l4l3,
 						(void *)td, (void *)(void *)free_l4l3);
-				if (++dd->qsize >= dd->highwater)
+				if (++dd->qsize >= dd->highwater) {
+					DBG("SET BUSY");
 					set_busy_port(dd->port, 1);
+				}
 				ei_encode_version(*rbuf, &rindex);
 				ei_encode_atom(*rbuf, &rindex, "true");
 				return(rindex);
@@ -691,8 +697,10 @@ call(ErlDrvData handle, unsigned int command,
 		}
 		td->ref = driver_async(dd->port, NULL, (void *)(void *)do_ioctl,
 				(void *)td, (void *)(void *)free_ioctl);
-		if (++dd->qsize >= dd->highwater)
+		if (++dd->qsize >= dd->highwater) {
+			DBG("SET BUSY");
 			set_busy_port(dd->port, 1);
+		}
 		/*  return the reference  */
 		if (ei_encode_version(*rbuf, &rindex)
 				|| ei_encode_tuple_header(*rbuf, &rindex, 2)
