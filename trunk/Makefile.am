@@ -1,6 +1,8 @@
+## $Id$
+##
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = c_src include src ebin examples
+SUBDIRS = c_src include src ebin doc examples
 
 %.boot:%.rel ebin/netaccess.app
 	${ERLC} -I ./ebin $<

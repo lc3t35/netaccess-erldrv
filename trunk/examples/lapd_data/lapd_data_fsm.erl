@@ -1,5 +1,8 @@
+%%% $Id$
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2004,2005
+%%% @copyright 2004-2005 Motivity Telecom Inc.
+%%% @author Vance Shipley <vances@motivity.ca>
+%%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
 %%% used, reproduced, stored in any retrieval system, or transmitted,
@@ -8,15 +11,15 @@
 %%% Motivity Telecom Inc.
 %%%---------------------------------------------------------------------
 %%%
-%%% @author Vance Shipley <vances@motivity.ca>
-%%%
 %%% @doc An finite state machine which starts a LAPD protocol and sends
 %%% 		and receives IFRAMES, checking their integrity on reception.
 %%%
          
 -module(lapd_data_fsm).
--copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
+-copyright('Copyright (c) 2004-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
+-vsn('$Revision$').
+
 -behaviour(netaccess_fsm).
 -include("iisdn.hrl").
 

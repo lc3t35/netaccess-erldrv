@@ -1,8 +1,11 @@
+## $Id$
+##
 ## Process this file with autoconf to produce a configure script.
 ##
 ## Boilerplate:  standard boilerplate code
 ##
-AC_INIT(netaccess, 1.0, netaccess-bugs@motivity.ca)
+AC_INIT(netaccess, 1.1, netaccess-bugs@motivity.ca)
+AC_COPYRIGHT([Copyright (c) 2001-2005 Motivity Telecom Inc])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_SRCDIR(c_src/netaccess_drv.c)
 AC_CONFIG_HEADERS(config.h)
@@ -32,8 +35,19 @@ AC_PROG_LIBTOOL
 if test -z "$ERL_TOP" ; then
 	AC_MSG_ERROR([you must set ERL_TOP to the root of the Erlang installation.])
 fi
-datadir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION
+beamdir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION/ebin
 libdir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION/priv/lib
+edocdir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION/doc/html
+eincludedir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION/include
+esrcdir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION/src
+csrcdir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION/c_src
+examplesdir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION/examples
+AC_SUBST(beamdir)
+AC_SUBST(edocdir)
+AC_SUBST(eincludedir)
+AC_SUBST(esrcdir)
+AC_SUBST(csrcdir)
+AC_SUBST(examplesdir)
 
 AC_ARG_ENABLE(debug,
 	[  --enable-debug          Turn on debugging],
@@ -69,32 +83,6 @@ if test "x$use_select" = "xyes" ; then
 	CPPFLAGS="${CPPFLAGS} -DUSE_SELECT"
 fi
 
-AC_ARG_WITH(edoc,
-	[  --with-edoc=PATH        load edoc from PATH],
-	[ case "${withval}" in
-		no) edoc=false ;;
-		yes) ;;
-		*) EDOCPATH="${EDOCPATH} ${withval}" ;;
-	esac ])
-AM_CONDITIONAL(EDOC, test x"${edoc}" != "xfalse")
-
-AC_ARG_WITH(syntax_tools,
-	[  --with-syntax_tools=PATH  load syntax_tools from PATH],
-	[ case "${withval}" in
-		no) ;;
-		yes) ;;
-		*) EDOCPATH="${EDOCPATH} ${withval}" ;;
-	esac ])
-
-AC_ARG_WITH(xmerl,
-	[  --with-xmerl=PATH       load xmerl from PATH],
-	[ case "${withval}" in
-		no) ;;
-		yes) ;;
-		*) EDOCPATH="${EDOCPATH} ${withval}" ;;
-	esac ])
-AC_SUBST(EDOCPATH)
-
 
 ##
 ## Programs:  check for programs needed by the configure process,
@@ -117,6 +105,10 @@ fi
 AC_ARG_VAR(ERL_TOP, [Erlang top level directory])
 AC_ARG_VAR(ERLC, [Erlang compiler command])
 AC_ARG_VAR(ERL, [Erlang emulator command])
+if test -z "${ERLCFLAGS}" ; then
+	ERLCFLAGS="-W -v"
+fi
+AC_SUBST(ERLCFLAGS)
 
 
 ##
@@ -526,5 +518,6 @@ AC_CHECK_LIB(ei, ei_x_new)
 ##
 
 AC_CONFIG_FILES([include/iisdn.hrl include/pridrv.hrl])
-AC_CONFIG_FILES([Makefile src/Makefile c_src/Makefile include/Makefile examples/Makefile examples/lapd_data/Makefile ebin/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile c_src/Makefile include/Makefile
+		doc/Makefile doc/html/Makefile examples/Makefile examples/lapd_data/Makefile ebin/Makefile])
 AC_OUTPUT

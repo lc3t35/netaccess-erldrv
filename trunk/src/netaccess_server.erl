@@ -1,5 +1,7 @@
+%%% $Id$
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2001-2005
+%%% @copyright 2001-2005 Motivity Telecom Inc.
+%%% @author Vance Shipley <vances@motivity.ca>
 %%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
@@ -9,14 +11,13 @@
 %%% Motivity Telecom Inc.
 %%%---------------------------------------------------------------------
 %%%
-%%% @author Vance Shipley <vances@motivity.ca>
-%%%
 %%% @doc The Erlang side of the netaccess device driver.
 %%%
          
 -module(netaccess_server).
 -copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
+-vsn('$Revision$').
 
 -behaviour(gen_server).
 
@@ -28,13 +29,6 @@
 	terminate/2, code_change/3]).
 %% optional call back for gen_server status
 -export([format_status/2]).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%
-%%% This module implements the Erlang side of the netaccess device driver
-%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %%----------------------------------------------------------------------
