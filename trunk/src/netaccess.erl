@@ -35,6 +35,7 @@
 -export([board_id/1]).
 -export([set_tsi/2, req_tsi_status/1]).
 -export([enable_protocol/3]).
+-export([send/2]).
 
 -include("pridrv.hrl").
 -include("iisdn.hrl").
@@ -347,7 +348,18 @@ enable_protocol(Port, LapdId, Data) ->
 	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
 	port_command(Port, L4L3_bin).
 	
+
+%% @spec (Channel, DataBin) -> true
+%% 	Channel = port()
+%% 	DataBin = binary() | iolist()
+%%
+%% @doc Sends a data message on an open channel.
+%%
+send(Channel, Data) ->
+	% the driver uses the first byte to distinguish between control & data
+	port_command(Channel, [255, Data]).
 	
+
 %%----------------------------------------------------------------------
 %%  internal functions
 %%----------------------------------------------------------------------
