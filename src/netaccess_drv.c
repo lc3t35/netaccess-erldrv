@@ -892,21 +892,18 @@ message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl, int ctrllen,
 int
 message_to_board(int fd, SysIOVec *iov)
 {
-	struct strbuf ctrlp, datap;
+	struct strbuf buf;
 
 	/*  the first byte is the type; control or data  */
 	if(iov->iov_base[0] == 0) {
-		ctrlp.len = (iov->iov_len - 1);
-		ctrlp.buf = &iov->iov_base[1];
-		datap.len = 0;
-		datap.buf = NULL;
+		buf.len = (iov->iov_len - 1);
+		buf.buf = &iov->iov_base[1];
+		/*  send a control message to the board with high priority  */
+		return(putmsg(fd, &buf, NULL, RS_HIPRI));
 	} else {
-		ctrlp.len = 0;
-		ctrlp.buf = NULL;
-		datap.len = (iov->iov_len - 1);
-		datap.buf = &iov->iov_base[1];
+		buf.len = (iov->iov_len - 1);
+		buf.buf = &iov->iov_base[1];
+		/*  send a data message to the board  */
+		return(putmsg(fd, NULL, &buf, 0));
 	}
-
-	/*  send the message to the board  */	
-	return(putmsg(fd, &ctrlp, &datap, 0));
 }
