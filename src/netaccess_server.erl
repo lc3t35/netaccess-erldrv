@@ -209,7 +209,7 @@ handle_cast(_, State) ->
 
 
 %% an asynch task has completed
-handle_info({Port, {ref, Ref}, Result}, {Port, Board, StateData} = State) ->
+handle_info({_Port, {ref, Ref}, Result}, {Port, Board, StateData} = State) ->
 	case gb_trees:lookup({ref, Ref}, StateData) of
 		{value, {From, _Time}} ->
 			% a generic ioctl operation
