@@ -75,6 +75,7 @@
 
 %% array sizes
 -define(IISDN_NUM_DS1_INTERFACES, @IISDN_NUM_DS1_INTERFACES@).
+-define(IISDN_MAX_VC_PER_CHAN, @IISDN_MAX_VC_PER_CHAN@).
 -define(IISDN_MAX_SPID_LEN, @IISDN_MAX_SPID_LEN@).
 -define(IISDN_MAX_DN_LEN, @IISDN_MAX_DN_LEN@).
 -define(IISDN_MAX_HDLC_CHANNEL, @IISDN_MAX_HDLC_CHANNEL@).
@@ -101,6 +102,7 @@
 -define(SIZEOF_IISDN_DPNSSCC_CONFIG, @SIZEOF_IISDN_DPNSSCC_CONFIG@).
 -define(SIZEOF_IISDN_DASSCC_CONFIG, @SIZEOF_IISDN_DASSCC_CONFIG@).
 -define(SIZEOF_IISDN_Q933A_CONFIG, @SIZEOF_IISDN_Q933A_CONFIG@).
+-define(SIZEOF_IISDN_Q933A_PVC_STATUS, @SIZEOF_IISDN_Q933A_PVC_STATUS@).
 
 
 
@@ -433,3 +435,17 @@
 -record(q933a_config,
 		{network_side=0, n391=0, n392=0, n393=0, t391=0, t392=0}).
 
+-define(L3L4mPROTOCOL_STATUS,   16#21).
+-record(protocol_stat,
+		{status=0, l2_state=0, l2_error=0, l2_errpt=0,
+		b_channels=0, b_chan_req=0, txcount=0, rxcount=0,
+		l2_detail=0, l2_detail_data=0,
+		all_calls_dropped=0, num_q933a_pvcs=0,
+		n_b_channels=lists:duplicate(?IISDN_NUM_DS1_INTERFACES, 0),
+		n_b_chan_req=lists:duplicate(?IISDN_NUM_DS1_INTERFACES, 0),
+		nfas_primary_dchan_status=0, nfas_backup_dchan_status=0,
+		ethernet_speed=0, ethernet_mode=0,
+		connectBPS=0, connectTyp=0, ip=#l2_ip_consts{},
+		q933a_pvcs=lists:duplicate(?IISDN_MAX_VC_PER_CHAN - 1, #q933a_pvc_status{}),
+		amf_status=[0,0,0,0]}).
+-record(q933a_pvc_status, {lli=0, status=0}).

@@ -38,7 +38,8 @@
 		relay_config/1, dpnsscc_config/1, dasscc_config/1,
 		q933a_config/1]).
 -export([l2_lap_consts/1, l2_ss7_consts/1, l2_ip_consts/1,
-		l2_dpnss_consts/1]).
+	 	l2_dpnss_consts/1]).
+-export([protocol_stat/1, q933a_pvc_status/1]).
 
 -include("iisdn.hrl").
 
@@ -300,7 +301,13 @@ l2_ip_consts(Ip) when is_record(Ip, l2_ip_consts) ->
 			(Ip#l2_ip_consts.ipaddr):?IISDNu32bit,
 			(Ip#l2_ip_consts.gwaddr):?IISDNu32bit,
 			(Ip#l2_ip_consts.subnet_mask):?IISDNu32bit,
-			0:Pad/integer-unit:8>>.
+			0:Pad/integer-unit:8>>;
+l2_ip_consts(Ip) when is_binary(Ip) ->
+	<<No_dhcp:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit,
+			Ipaddr:?IISDNu32bit, Gwaddr:?IISDNu32bit,
+			Subnet_mask:?IISDNu32bit, _Rest/binary>> = Ip,
+	#l2_ip_consts{no_dhcp = No_dhcp, ipaddr = Ipaddr,
+			gwaddr = Gwaddr, subnet_mask = Subnet_mask}.
 
 l2_dpnss_consts(Dpnss) when is_record(Dpnss, l2_dpnss_consts) ->
 	Pad = lists:max([?SIZEOF_IISDN_L2_LAP_CONSTS,
@@ -641,7 +648,7 @@ hardware_data(HW) when is_binary(HW) ->
 			tdm_rate=Tdm_rate,
 			enable_8370_rliu_monitor=Enable_8370_rliu_monitor,
 			dbcount=Dbcount, enable_t810x_snap_mode=Enable_t810x_snap_mode,
-			clk_status=Clk_status, line_data=LineData, 
+			clk_status=Clk_status, line_data=LineData,  % TODO: convert line_data
 			csu = U8toL(U8toL, Csu, [])}.
 
 
@@ -724,3 +731,48 @@ q931_timers(T) when is_record(T, q931_timers) ->
 			(T#q931_timers.t319):?IISDNu16bit,
 			(T#q931_timers.t3m1):?IISDNu16bit,
 			(T#q931_timers.t321):?IISDNu16bit>>.
+
+protocol_stat(P) when is_binary(P) ->
+	Size_bchans = (?IISDN_NUM_DS1_INTERFACES * ?SIZEOF_IISDNu32bit),
+	Size_q933a = ((?IISDN_MAX_VC_PER_CHAN - 1) * ?SIZEOF_IISDN_Q933A_PVC_STATUS),
+	Size_amf = (4 * ?SIZEOF_IISDNu32bit),
+	<<Status:?IISDNu8bit, L2_state:?IISDNu8bit,
+			L2_error:?IISDNu8bit, L2_errpt:?IISDNu8bit, B_channels:?IISDNu32bit,
+			B_chan_req:?IISDNu32bit, Txcount:?IISDNu32bit, Rxcount:?IISDNu32bit,
+			L2_detail:?IISDNu16bit, L2_detail_data:?IISDNu16bit, 0:?IISDNu16bit,
+			All_calls_dropped:?IISDNu8bit, Num_q933a_pvcs:?IISDNu8bit,
+			Nbchans:Size_bchans/binary, Nbreq:Size_bchans/binary,
+			Nfas_primary_dchan_status:?IISDNu8bit, 
+			Nfas_backup_dchan_status:?IISDNu8bit,
+			Ethernet_speed:?IISDNu8bit, Ethernet_mode:?IISDNu8bit,
+			ConnectBPS:?IISDNu32bit, ConnectTyp:?IISDNu32bit,
+			L2IpConsts:?SIZEOF_IISDN_L2_IP_CONSTS/binary,
+			Q933a:Size_q933a/binary, Amf:Size_amf/binary, _Rest/binary>> = P,
+	U32toL = fun (Iter, <<>>, List) -> List;
+			(Iter, <<Digit:?IISDNu32bit, Rest/binary>>, Acc) ->
+				Iter(Iter, Rest, Acc ++ [Digit])
+			end,
+	N_b_channels = U32toL(U32toL, Nbchans, []),
+	N_b_chan_req = U32toL(U32toL, Nbreq, []),
+	QList = q933a_pvc_status(Q933a, []),
+	Amf_status = U32toL(U32toL, Amf, []),
+	#protocol_stat{status = Status, l2_state = L2_state, l2_error = L2_error,
+			l2_errpt = L2_errpt, b_channels = B_channels, b_chan_req = B_chan_req,
+			txcount = Txcount, rxcount = Rxcount, l2_detail = L2_detail, 
+			l2_detail_data = L2_detail_data,
+			all_calls_dropped = All_calls_dropped, num_q933a_pvcs = Num_q933a_pvcs,
+			n_b_channels = N_b_channels, n_b_chan_req = N_b_chan_req,
+			nfas_primary_dchan_status = Nfas_primary_dchan_status,
+			nfas_backup_dchan_status = Nfas_backup_dchan_status,
+			ethernet_speed = Ethernet_speed, ethernet_mode = Ethernet_mode,
+			connectBPS = ConnectBPS, connectTyp = ConnectTyp,
+			ip = l2_ip_consts(L2IpConsts), q933a_pvcs = QList,
+			amf_status = Amf_status}.
+
+q933a_pvc_status(Q) when is_binary(Q) ->
+	<<Lli:?IISDNu16bit, Status:?IISDNu8bit, _Pad:?IISDNu8bit>> = Q,
+	#q933a_pvc_status{lli = Lli, status = Status}.
+q933a_pvc_status(<<>>, QList) -> QList;
+q933a_pvc_status(<<Q:?SIZEOF_IISDN_Q933A_PVC_STATUS/binary, Rest/binary>>, QList) ->
+	q933a_pvc_status(Rest, QList ++ [q933a_pvc_status(Q)]).
+	

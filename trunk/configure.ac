@@ -184,6 +184,7 @@ AC_CHECK_SIZEOF(IISDN_RELAY_CONFIG, [], [${iisdn_includes}])
 AC_CHECK_SIZEOF(IISDN_DPNSSCC_CONFIG, [], [${iisdn_includes}])
 AC_CHECK_SIZEOF(IISDN_DASSCC_CONFIG, [], [${iisdn_includes}])
 AC_CHECK_SIZEOF(IISDN_Q933A_CONFIG, [], [${iisdn_includes}])
+AC_CHECK_SIZEOF(IISDN_Q933A_PVC_STATUS, [], [${iisdn_includes}])
 SIZEOF_int=$ac_cv_sizeof_int
 SIZEOF_ushort=$ac_cv_sizeof_ushort
 SIZEOF_uint=$ac_cv_sizeof_uint
@@ -214,6 +215,7 @@ SIZEOF_IISDN_RELAY_CONFIG=$ac_cv_sizeof_IISDN_RELAY_CONFIG
 SIZEOF_IISDN_DPNSSCC_CONFIG=$ac_cv_sizeof_IISDN_DPNSSCC_CONFIG
 SIZEOF_IISDN_DASSCC_CONFIG=$ac_cv_sizeof_IISDN_DASSCC_CONFIG
 SIZEOF_IISDN_Q933A_CONFIG=$ac_cv_sizeof_IISDN_Q933A_CONFIG
+SIZEOF_IISDN_Q933A_PVC_STATUS=$ac_cv_sizeof_IISDN_Q933A_PVC_STATUS
 AC_SUBST(SIZEOF_int)
 AC_SUBST(SIZEOF_ushort)
 AC_SUBST(SIZEOF_uint)
@@ -244,6 +246,7 @@ AC_SUBST(SIZEOF_IISDN_RELAY_CONFIG)
 AC_SUBST(SIZEOF_IISDN_DPNSSCC_CONFIG)
 AC_SUBST(SIZEOF_IISDN_DASSCC_CONFIG)
 AC_SUBST(SIZEOF_IISDN_Q933A_CONFIG)
+AC_SUBST(SIZEOF_IISDN_Q933A_PVC_STATUS)
 
 ## use the preprocessor to determine which values these #define's
 ## get in this environment and export them for building corresponding
@@ -263,6 +266,11 @@ AC_MSG_CHECKING([for defined value of IISDN_NUM_DS1_INTERFACES])
 				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
 		AC_MSG_RESULT([$IISDN_NUM_DS1_INTERFACES])
 		AC_SUBST(IISDN_NUM_DS1_INTERFACES)
+AC_MSG_CHECKING([for defined value of IISDN_MAX_VC_PER_CHAN])
+		_AC_COMPUTE_INT([IISDN_MAX_VC_PER_CHAN], [IISDN_MAX_VC_PER_CHAN],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_MAX_VC_PER_CHAN])
+		AC_SUBST(IISDN_MAX_VC_PER_CHAN)
 AC_MSG_CHECKING([for defined value of IISDN_MAX_SPID_LEN])
 		_AC_COMPUTE_INT([IISDN_MAX_SPID_LEN], [IISDN_MAX_SPID_LEN],
 				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
