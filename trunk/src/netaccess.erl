@@ -11,13 +11,23 @@
 %%%
 %%% @author Vance Shipley <vances@motivity.ca>
 %%%
-%%% @doc Main API of the Netaccess application.
+%%% @doc Main API of the netaccess application.
 %%%	<p>This module provides the main application programming interface
-%%%	for the Netaccess application.  The application includes a
-%%%	dynamically linked in device driver to the Netaccess series boards
+%%%	for the netaccess application.  The application includes a
+%%%	dynamically linked device driver to the Netaccess&#153; series boards
 %%%	from Brooktrout Technology.  This module is an Erlang binding to
-%%%	the Instant ISDN &#153; Simple Message Interface (SMI) API.</p>
+%%%	the Instant ISDN&#153; Simple Message Interface (SMI) API.</p>
+%%%
+%%% <a name="type-ena_proto_data" href="iisdn.html#type-ena_proto_data"></a>
 %%% @end
+%%%
+%%% @reference <a href="http://www.brooktrout.com/products/ns301/">
+%%% 		NS301 product information</a>
+%%% @end
+%%%
+%%% The following are to make the edoc links to types defined in the 
+%%% iisdn module work:
+%%% 
          
 -module(netaccess).
 -copyright('Copyright (c) 2001-2004 Motivity Telecom Inc.').
@@ -25,8 +35,8 @@
 -author('vances@motivity.ca').
 
 %% our published API functions
--export([start/0, start/1, start/2, start/3]).
--export([start_link/1, start_link/2, start_link/3]).
+-export([start/0, start/2, start/3]).
+-export([start_link/2, start_link/3]).
 -export([stop/1]).
 -export([open/1, close/1]).
 -export([reset_board/1, boot/2]).
@@ -52,25 +62,23 @@
 %%		Reason = term()
 %%
 %% @doc Start the netacccess server.
+%% 	<p>Creates a <tt>netaccess_server</tt> process to handle requests
+%% 	for the board.  The server opens a management channel to the board 
+%% 	which is used to handle board level requests and indications.</p>
 %%
-%% @see gen_server:start/4
+%% 	<p>If the <tt>netaccess_server</tt> is successfully created and 
+%% 	initialized the function returns <tt>{ok, Server}</tt> where 
+%% 	<tt>Server</tt> is the <tt>pid()</tt> of the 
+%% 	<tt>netaccess_server</tt>.  Otherwise it returns 
+%% 	<tt>{error, Reason}</tt>.</p>
+%%
+%% 	<p><b>Note:</b>  This is a convenience function which uses the default board
+%% 	name <tt>"/dev/pri0"</tt> and board number <tt>0</tt>.</p>
+%%
+%% @end
 %%
 start() ->
 	gen_server:start(netaccess_server, [?DEFAULT_BOARDNAME, 0], []).
-	
-%% @spec (BoardName) -> {ok, Server} | {error, Reason}
-%% 	BoardName = string()
-%%		Server = pid()
-%%		Reason = term()
-%%
-%% @doc Start the netacccess server.
-%% 	<p>e.g. <code>netaccess:start("/dev/pri0")</code></p>
-%% @end
-%%
-%% @see gen_server:start/4
-%%
-start(BoardName) ->
-	gen_server:start(netaccess_server, [BoardName, 0], []).
 	
 %% @spec (BoardName, BoardNumber) -> {ok, Server} | {error, Reason}
 %% 	BoardName = string()
@@ -78,11 +86,16 @@ start(BoardName) ->
 %%		Server = pid()
 %%		Reason = term()
 %%
-%% @doc Start the netacccess server.
+%% @doc Start the netacccess server on a specific board.
+%% 	<p>Creates a <tt>netaccess_server</tt> process to handle 
+%% 	requests for the board with device name <tt>BoardName</tt>.
+%% 	The board number is needed to to tie the opened <tt>STREAMS</tt>
+%% 	clone device to the correct device instance.</p>
+%%
 %% 	<p>e.g. <code>netaccess:start("/dev/pri0", 0)</code></p>
+%%
 %% @end
 %%
-%% @see gen_server:start/4
 %%
 start(BoardName, BoardNumber) ->
 	gen_server:start(netaccess_server, [BoardName, BoardNumber], []).
@@ -96,25 +109,17 @@ start(BoardName, BoardNumber) ->
 %%		Server = pid()
 %%		Reason = term()
 %%
-%% @doc Start the netacccess server.
+%% @doc Start the netacccess server using a registered name.
+%% 	<p>If <tt>ServerName</tt> = <tt>{local,Name}</tt> the process
+%% 	is registered locally using <tt>register/2</tt>.  If
+%% 	<tt>ServerName</tt> = <tt>{global,Name}</tt> the process
+%% 	is registered globally using <tt>global:register_name/2</tt>.</p>
 %%
-%% @see gen_server:start/4
+%% @end
 %%
 start(ServerName, BoardName, BoardNumber) ->
 	gen_server:start(ServerName, netaccess_server, [BoardName, BoardNumber], []).
 	
-%% @spec (BoardName) -> {ok, Server} | {error, Reason}
-%% 	BoardName = string()
-%%		Server = pid()
-%%		Reason = term()
-%%
-%% @doc Start the netacccess server and link to the calling process.
-%%
-%% @see gen_server:start_link/4
-%%
-start_link(BoardName) ->
-	gen_server:start_link(netaccess_server, [BoardName, 0], []).
-
 %% @spec (BoardName, BoardNumber) -> {ok, Server} | {error, Reason}
 %% 	BoardName = string()
 %% 	BoardNumber = integer()
@@ -122,10 +127,8 @@ start_link(BoardName) ->
 %%		Reason = term()
 %%
 %% @doc Start the netacccess server and link to the calling process.
-%% 	<p>e.g. <code>netaccess:start_link("/dev/pri0", 0)</code></p>
-%% @end
 %%
-%% @see gen_server:start/4
+%% @see start/2
 %%
 start_link(BoardName, BoardNumber) ->
 	gen_server:start_link(netaccess_server, [BoardName, BoardNumber], []).
@@ -141,7 +144,7 @@ start_link(BoardName, BoardNumber) ->
 %%
 %% @doc Start the netacccess server and link to the calling process.
 %%
-%% @see gen_server:start_link/4
+%% @see start/3
 %%
 start_link(ServerName, BoardName, BoardNumber) ->
 	gen_server:start_link(ServerName, netaccess_server, [BoardName, BoardNumber], []).
@@ -167,9 +170,16 @@ stop(ServerRef) ->
 %%		Channel = port()
 %%
 %% @doc Open a channel on a netaccess board.
+%% 	<p>Opens a channel on the board for exclusive use by the caller.</p>
+%%
+%% 	<p>Returns a <tt>port()</tt> to the driver which has been linked
+%% 	to the calling processes using <tt>port_connect/2</tt>.  Fails 
+%% 	otherwise.</p>
+%%
 %% 	<p><b>Note:</b>  It is not possible to open a channel on a remote node.</p>
 %%
-%% @see erlang:open_port/2
+%% @end
+%%
 %%
 open(ServerRef) ->
 	gen_server:call(ServerRef, open).
@@ -177,9 +187,9 @@ open(ServerRef) ->
 %% @spec (Channel) -> true
 %% 	Channel = port()
 %%
-%% @doc Close a channel on a netaccess board.
+%% @doc Close an open channel on a netaccess board.
+%% 	<p>Closes the <tt>port()</tt> to the driver.</p>
 %%
-%% @see erlang:port_close/1
 %%
 close(Port) ->
 	port_close(Port).
@@ -199,14 +209,14 @@ close(Port) ->
 %%		Reason = term()
 %%
 %% @doc Boot an open netaccess board.
-%%		<p>BootFile may be either the boot code itself in a binary
+%%		<p>BootFile may be either the boot code itself in a <tt>binary()</tt>
 %%		or the file name of the boot file.</p>
 %%
-%%		<p>If the kernel is 64 bit the Erlang emulator as well
-%%		as the netaccess driver must be compiled as 64 bit for
-%%		this to work.  Otherwise it will return "badarg".</p>
+%%		<p><b>Note:</b>If the kernel is 64 bit the Erlang emulator, as well
+%%		as the netaccess driver, must be compiled as 64 bit for
+%%		this to work.  Otherwise fails with <tt>badarg</tt>.</p>
 %%
-%% @see file:read_file/1
+%% @end
 %%
 boot(ServerRef, BootBin) when binary(BootBin) ->
 	gen_server:call(ServerRef, {ioctl, ?BOOT_BOARD, BootBin}, 62000);
@@ -225,6 +235,11 @@ boot(ServerRef, Filename) when list(Filename) ->
 %% 	Node = atom()
 %%
 %% @doc Perform a reset on an open netaccess board.
+%% 	<p>Resets the board and runs internal diagnostics.
+%% 	This may take ten seconds or more to complete.  Afterwards
+%% 	the board will need to be downloaded again.</p>
+%%
+%% @end
 %%
 reset_board(ServerRef) ->
 	gen_server:call(ServerRef, {ioctl, ?RESET_BOARD, 0}).
@@ -237,8 +252,8 @@ reset_board(ServerRef) ->
 %%		Version = string()
 %%		Reason = term()
 %%
-%% @doc Get software version string from an open netaccess board.
-%%
+%% @doc Retrieve software version string from an open netaccess board.
+%% 	
 get_version(ServerRef) ->
 	gen_server:call(ServerRef, {ioctl, ?GET_VERSION, 0}).
 
@@ -247,12 +262,12 @@ get_version(ServerRef) ->
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
-%% 	DriverInfo = driver_info()
+%% 	DriverInfo = pridrv:driver_info()
 %%		Reason = term()
 %%
 %% @see pridrv:driver_info()
 %%
-%% @doc Get driver information from an open netaccess board.
+%% @doc Retrieve driver information from an open netaccess board.
 %%
 get_driver_info(ServerRef) ->
 	case gen_server:call(ServerRef, {ioctl, ?GET_DRIVER_INFO, 0}) of
@@ -267,7 +282,13 @@ get_driver_info(ServerRef) ->
 %% 	Channel = port()
 %% 	QSize = integer()
 %%
-%% @doc Get the current size of the queue of outbound IFRAMEs.
+%% @doc Retrieve the current size of the outbound queue.
+%% 	<p>Messages to the board are handled in their own threads
+%% 	in the driver.  If the stream is flow controlled these 
+%% 	requests may not complete immediately.  This function will
+%% 	return the number of pending requests still running.</p>
+%%
+%% @end
 %%
 get_qsize(Channel) ->
 	port:call(Channel, ?QSIZE, 0).
@@ -277,7 +298,13 @@ get_qsize(Channel) ->
 %% 	NewValue = integer()
 %% 	OldValue = integer()
 %%
-%% @doc Set the highwater mark for the queue of outgoing IFRAMEs.
+%% @doc Set the highwater mark for the outbound queue.
+%% 	<p>A highwater mark is maintained in the queue.  Once
+%% 	this mark is reached the port is set as busy causing
+%% 	the calling process to block.  Once the queue drains
+%% 	to the lowwater mark the port will be set to not busy.</p>
+%%
+%% 	<p>Returns the previous value of the highwater mark.</p>
 %%
 set_highwater(Channel, NewValue) ->
 	port:call(Channel, ?HIGHWATER, NewValue).
@@ -287,7 +314,12 @@ set_highwater(Channel, NewValue) ->
 %% 	NewValue = integer()
 %% 	OldValue = integer()
 %%
-%% @doc Set the lowwater mark for the queue of outgoing IFRAMEs.
+%% @doc Set the lowwater mark for the outbound queue.
+%% 	<p>The lowwater mark determines when to remove flow
+%% 	control by setting the port as not busy after it has
+%% 	previously been set busy due to the highwater mark
+%% 	having been reached.</p>
+%% 	<p>Returns the previous value of the lowwater mark.</p>
 %%
 set_lowwater(Channel, NewValue) ->
 	port:call(Channel, ?LOWWATER, NewValue).
@@ -297,7 +329,19 @@ set_lowwater(Channel, NewValue) ->
 %% 	NewValue = integer()
 %% 	OldValue = integer()
 %%
-%% @doc Set the lowwater mark for the queue of outgoing IFRAMEs.
+%% @doc Set the maximum size of a received IFRAME.
+%% 	<p>A <tt>binary()</tt> must be allocated to receive an incoming
+%% 	data message into whenever an event is signaled from
+%% 	an open channel on the board.  To minimize the memory
+%% 	requirements of the system a small <tt>binary()</tt>, suitable
+%% 	for typical telephony signaling messages, is allocated.</p>
+%%
+%% 	<p>This function may be used to allocate a larger, or smaller
+%% 	<tt>binary()</tt> to receive incoming IFRAMEs.  Incoming IFRAMEs larger
+%% 	than this value will be discarded.</p>
+%%
+%% 	<p><b>Note:</b>  The default is <tt>260</tt> bytes as recommended in
+%% 	ITU-T Recommendation Q.921.</p>
 %%
 set_maxiframesize(Channel, NewValue) ->
 	port:call(Channel, ?MAXIFRAMESIZE, NewValue).
@@ -313,10 +357,10 @@ set_maxiframesize(Channel, NewValue) ->
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
-%% 	BoardId = board_id()
+%% 	BoardId = iisdn:board_id()
 %%		Reason = term()
 %%
-%% @doc Get board identification.
+%% @doc Retrieve board identification.
 %%
 req_board_id(ServerRef) ->
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mREQ_BOARD_ID},
@@ -327,7 +371,7 @@ req_board_id(ServerRef) ->
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
-%% 	HardwareData = hardware_data()
+%% 	HardwareData = iisdn:hardware_data()
 %%
 %% @doc Set hardware settings on a board.
 %%
@@ -340,7 +384,7 @@ set_hardware(ServerRef, Data) when is_record(Data, hardware_data) ->
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
-%% 	HardwareData = hardware_data()
+%% 	HardwareData = iisdn:hardware_data()
 %%		Reason = term()
 %%
 %% @doc Query the hardware setup.
@@ -354,7 +398,7 @@ req_hw_status(ServerRef) ->
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
-%% 	TsiData = tsi_data()
+%% 	TsiData = iisdn:tsi_data()
 %%
 %% @doc Create timeslot mappings.
 %%
@@ -367,7 +411,7 @@ set_tsi(ServerRef, Data) ->
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
-%% 	TsiDataList = [tsi_data()]
+%% 	TsiDataList = [iisdn:tsi_data()]
 %%		Reason = term()
 %%
 %% @doc Retrieve the timeslot mappings.
@@ -380,7 +424,7 @@ req_tsi_status(ServerRef) ->
 %% @spec (Channel, LapdId, EnaProtoData) -> true
 %% 	Channel = port()
 %% 	LapdId = integer()
-%% 	EnaProtoData = ena_proto_data()
+%% 	EnaProtoData = iisdn:ena_proto_data()
 %%
 %% @doc Specifies and enables layer 1, 2 &amp; 3 processing on an open channel.
 %%
@@ -395,7 +439,7 @@ enable_protocol(Channel, LapdId, EnaProtoData) ->
 %% 	Channel = port()
 %% 	LapdId = integer()
 %% 	LogicalLinkID = integer()
-%% 	EnaProtoData = ena_proto_data()
+%% 	EnaProtoData = iisdn:ena_proto_data()
 %%
 %% @doc Disable the protocol stack running on an HDLC channel.
 %%
@@ -409,7 +453,7 @@ disable_protocol(Channel, LapdId, LogicalLinkID) ->
 %% @spec (Channel, LapdId) -> ProtocolStatus
 %% 	Channel = port()
 %% 	LapdId = integer()
-%% 	ProtocolStatus = protocol_stat()
+%% 	ProtocolStatus = iisdn:protocol_stat()
 %%
 %% @doc Retrieves the current protocol status for an active channel.
 %%
@@ -422,7 +466,7 @@ req_protocol_status(Channel, LapdId) ->
 %% @spec (Channel, LapdId) -> L2Stats
 %% 	Channel = port()
 %% 	LapdId = integer()
-%% 	L2Stats = l2_stats() | mtp2_stats()
+%% 	L2Stats = iisdn:l2_stats() | iisdn:mtp2_stats()
 %%
 %% @doc Retrieves level statistics for a channel.
 %%
@@ -432,7 +476,7 @@ req_l2_stats(Channel, LapdId) ->
 	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
 	
 
-%l @spec (Channel, Iframe) -> true
+%% @spec (Channel, Iframe) -> true
 %% 	Channel = port()
 %% 	Iframe= binary() | iolist()
 %%
@@ -441,4 +485,6 @@ req_l2_stats(Channel, LapdId) ->
 send(Channel, Iframe) ->
 	port_command(Channel, Iframe).
 	
+
+
 
