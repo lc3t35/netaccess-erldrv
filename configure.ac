@@ -20,7 +20,7 @@ AC_PROG_LIBTOOL
 if test -z "$ERL_TOP" ; then
 	AC_MSG_ERROR([you must set ERL_TOP to the root of the Erlang installation.])
 fi
-datadir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION/ebin
+datadir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION
 libdir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION/priv/lib
 
 AC_ARG_ENABLE(debug,
@@ -308,5 +308,5 @@ AC_CHECK_LIB(ei, ei_x_new)
 ##
 
 AC_CONFIG_FILES([include/iisdn.hrl include/pridrv.hrl])
-AC_CONFIG_FILES([Makefile priv/lib/Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile priv/lib/Makefile src/Makefile c_src/Makefile include/Makefile])
 AC_OUTPUT
