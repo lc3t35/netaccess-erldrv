@@ -46,6 +46,7 @@
 -export([set_tsi/2, req_tsi_status/1]).
 -export([get_qsize/1, set_maxiframesize/2, set_lowwater/2, set_highwater/2]).
 -export([enable_protocol/3, disable_protocol/3, req_protocol_status/2]).
+-export([relay_add_rule/4, relay_clear_rules/3, relay_del_rule/4]).
 -export([req_l2_stats/2]).
 -export([send/2]).
 
@@ -386,8 +387,9 @@ req_board_id(ServerRef) ->
 %%
 %% @doc Set hardware settings on a board.
 %%
-set_hardware(ServerRef, Data) when is_record(Data, hardware_data) ->
-	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_HARDWARE, data = Data},
+set_hardware(ServerRef, HwData) when is_record(HwData, hardware_data) ->
+	DataBin = iisdn:hardware_data(HwData),
+	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_HARDWARE, data = DataBin},
 	gen_server:call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
@@ -412,8 +414,9 @@ req_hw_status(ServerRef) ->
 %%
 %% @doc Create timeslot mappings.
 %%
-set_tsi(ServerRef, Data) ->
-	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_TSI, data = Data},
+set_tsi(ServerRef, TsiData) when is_record(TsiData, tsi_data) ->
+	DataBin = iisdn:tsi_data(TsiData),
+	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mSET_TSI, data = DataBin},
 	gen_server:call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
@@ -437,9 +440,78 @@ req_tsi_status(ServerRef) ->
 %%
 %% @doc Specifies and enables layer 1, 2 &amp; 3 processing on an open channel.
 %%
-enable_protocol(Channel, LapdId, EnaProtoData) ->
-	L4L3_rec = #l4_to_l3{lapdid = LapdId,
-			msgtype = ?L4L3mENABLE_PROTOCOL, data = EnaProtoData},
+enable_protocol(Channel, LapdId, EnaProtoData) 
+	enable_protocol(Channel, LapdId,  0, EnaProtoData).
+
+%% @spec (Channel, LapdId, LogicalLinkID, EnaProtoData) -> ok
+%% 	Channel = port()
+%% 	LapdId = integer()
+%% 	LogicalLinkID = integer()
+%% 	EnaProtoData = iisdn:ena_proto_data()
+%%
+%% @doc Specifies and enables layer 1, 2 &amp; 3 processing on an open channel.
+%%
+enable_protocol(Channel, LapdId, LogicalLinkID, EnaProtoData) 
+		when is_record(EnaProtoData, ena_proto_data) ->
+	DataBin = iisdn:ena_proto_data(EnaProtoData),
+	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID, 
+			msgtype = ?L4L3mENABLE_PROTOCOL, data = DataBin},
+	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
+	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+	
+
+%% @spec (Channel, LapdId, LogicalLinkID, RelayRules) -> ok
+%% 	Channel = port()
+%% 	LapdId = integer()
+%% 	LogicalLinkID = integer()
+%% 	RelayRules = [iisdn:relay_rule()]
+%%
+%% @doc Add relay rules on a channel previously enabled for packet relay.
+%%
+relay_add_rule(Channel, LapdId, LogicalLinkID, RelayRules) 
+	relay_add_rule(Channel, LapdId, LogicalLinkID, RelayRules, <<>>).
+%% @hidden
+relay_add_rule(Channel, LapdId, LogicalLinkID, [RelayRule|T], Rules) 
+		when is_record(RelayRule, relay_rule) ->
+	NewRule = iisdn:relay_rule(RelayRule),
+	NewBin = <<Rules/binary, NewRule/binary>>,
+	relay_add_rule(Channel, LapdId, LogicalLinkID, T, NewBin);
+relay_add_rule(Channel, LapdId, LogicalLinkID, [], Rules) ->
+	EmptyRule = iisdn:relay_rule(#relay_rule()),
+	DataBin = <<Rules/binary, EmptyRule/binary>>,
+	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID,
+			msgtype = ?L4L3mRELAY_ADD_RULE, data = DataBin},
+	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
+	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+	
+
+%% @spec (Channel, LapdId, LogicalLinkID) -> ok
+%% 	Channel = port()
+%% 	LapdId = integer()
+%% 	LogicalLinkID = integer()
+%%
+%% @doc Clear all relay rules on a channel previously enabled for packet relay.
+%%
+relay_clear_rules(Channel, LapdId, LogicalLinkID) ->
+	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID, 
+			msgtype = ?L4L3mRELAY_CLEAR_RULES},
+	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
+	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+	
+
+%% @spec (Channel, LapdId, LogicalLinkID, RelayRule) -> ok
+%% 	Channel = port()
+%% 	LapdId = integer()
+%% 	LogicalLinkID = integer()
+%% 	RelayRule = iisdn:relay_rule()
+%%
+%% @doc Delete a relay rule previously added on a channel enabled for packet relay.
+%%
+relay_del_rule(Channel, LapdId, LogicalLinkID, RelayRule) 
+		when is_record(RelayRule, relay_rule) ->
+	DataBin = iisdn:relay_rule(RelayRule),
+	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID,
+			msgtype = ?L4L3mRELAY_DEL_RULE, data = DataBin},
 	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
 	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
 	

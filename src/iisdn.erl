@@ -95,22 +95,12 @@
 %% 	L4L3mBin = binary()
 %%
 l4_to_l3(R) when is_record(R, l4_to_l3) ->
-	MessageType = R#l4_to_l3.msgtype, 
-	CommonHeader = <<(R#l4_to_l3.lapdid):?IISDNu8bit, 
+	<<(R#l4_to_l3.lapdid):?IISDNu8bit, 
 			(R#l4_to_l3.msgtype):?IISDNu8bit,
 			(R#l4_to_l3.l4_ref):?IISDNu16bit,
 			(R#l4_to_l3.call_ref):?IISDNu16bit,
-			(R#l4_to_l3.lli):?IISDNu16bit>>,
-	MessageSpecificData = R#l4_to_l3.data,
-	l4_to_l3(MessageType, CommonHeader, MessageSpecificData).
-l4_to_l3(_, Header, Data) when is_binary(Data) ->
-	<<Header/binary, Data/binary>>;
-l4_to_l3(?L4L3mSET_HARDWARE, Header, Data) ->
-	<<Header/binary, (hardware_data(Data))/binary>>;
-l4_to_l3(?L4L3mSET_TSI, Header, Data) ->
-	<<Header/binary, (tsi_data(Data))/binary>>;
-l4_to_l3(?L4L3mENABLE_PROTOCOL, Header, Data) ->
-	<<Header/binary, (ena_proto_data(Data))/binary>>.
+			(R#l4_to_l3.lli):?IISDNu16bit,
+			(R#l4_to_l3.data)/binary>>.
 
 %% @type l3_to_l4().  L3L4 SMI Message sent from board to host.
 %% 	<p>A record which includes the following fields:</p>
