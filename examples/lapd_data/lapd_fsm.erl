@@ -30,7 +30,9 @@ init([ServerRef, LapdId, Timing]) ->
 			ServerPid = whereis(Name);
 		{global, Name} ->
 			ServerPid = global:whereis_name(Name);
-		Name ->
+		Pid when is_pid(Pid) ->
+			ServerPid = Pid;
+		Name when is_atom(Name) ->
 			ServerPid = whereis(Name)
 	end,
 	% open a lapid on the board
@@ -68,13 +70,18 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		?IISDNdsESTABLISHED ->
 			report_status(P, element(2, StateData)),
 			{Delay, _} = random:uniform_s(element(3, StateData), now()),
-			{next_state, established, StateData, Delay}
+			gen_fsm:start_timer(Delay, timeout),
+			{next_state, established, StateData}
 	end;
+establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
+	print_stats(L3L4m#l3_to_l4.data),
+	{next_state, establishing, StateData};
 establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
-establishing(timeout, StateData) ->
+establishing({timeout, _Ref, timeout}, StateData) ->
 	{next_state, establishing, StateData};
 establishing(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
@@ -105,11 +112,15 @@ established({Channel, <<Hash:8/unit:8, Data/binary>>}, StateData) ->
 		_ ->
 			{stop, bad_hash, StateData}
 	end;	
-established(timeout, {Channel, LapdId, Timeout} = StateData) ->
+established({timeout, _Ref, timeout}, {Channel, LapdId, Timeout} = StateData) ->
 	% send an IFRAME
-io:fwrite("~b sending IFRAME~n", [LapdId]),
 	netaccess:send(Channel, iframe()),
-	{next_state, established, StateData, Timeout};
+	gen_fsm:start_timer(Timeout, timeout),
+	{next_state, established, StateData};
+established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
+	print_stats(L3L4m#l3_to_l4.data),
+	{next_state, established, StateData};
 established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
@@ -136,10 +147,14 @@ not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 			{next_state, not_established, StateData}
 	end;
 not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
+	print_stats(L3L4m#l3_to_l4.data),
+	{next_state, not_established, StateData};
+not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
-not_established(timeout, StateData) ->
+not_established({timeout, _Ref, timeout}, StateData) ->
 	{next_state, not_established, StateData};
 not_established(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
@@ -155,7 +170,8 @@ handle_sync_event(_Event, _From, StateName, StateData) ->
 handle_info(_Info, StateName, StateData) ->
 	{next_state, StateName, StateData}.
 
-terminate(_Reason, _StateName, {Channel, _LapdId, _Timeout}) ->
+terminate(Reason, StateName, {Channel, LapdId, _Timeout}) ->
+	error_logger:info_report([{lapdid, LapdId}, {statename, StateName}, {reason, Reason}]),
 	catch netaccess:close(Channel).
 
 code_change(_OldVsn, StateName, StateData, _Extra) ->
@@ -286,3 +302,43 @@ report_status(P, LapdId) ->
 			{rxcount, P#protocol_stat.rxcount},
 			{l2_detail, Detail},
 			{l2_detail_data, P#protocol_stat.l2_detail_data}]).
+
+print_stats(L2Mtp2StatsBin) when is_binary(L2Mtp2StatsBin) ->
+	print_stats(iisdn:l2_mtp2_stats(L2Mtp2StatsBin));
+print_stats(L2Mtp2StatsRec) when is_record(L2Mtp2StatsRec, l2_mtp2_stats) ->
+	print_l2_stats(L2Mtp2StatsRec#l2_mtp2_stats.stats).
+print_l2_stats(L2Stats) when is_record(L2Stats, l2_stats) ->
+	error_logger:info_report(["Level 2 Statistics",
+			{iframe_tx, L2Stats#l2_stats.iframe_tx},
+			{rr_cmd_tx, L2Stats#l2_stats.rr_cmd_tx},
+			{rnr_cmd_tx, L2Stats#l2_stats.rnr_cmd_tx},
+			{rej_cmd_tx, L2Stats#l2_stats.rej_cmd_tx},
+			{sabm_tx, L2Stats#l2_stats.sabm_tx},
+			{sabme_tx, L2Stats#l2_stats.sabme_tx},
+			{disc_tx, L2Stats#l2_stats.disc_tx},
+			{rr_rsp_tx, L2Stats#l2_stats.rr_rsp_tx},
+			{rnr_rsp_tx, L2Stats#l2_stats.rnr_rsp_tx},
+			{rej_rsp_tx, L2Stats#l2_stats.rej_rsp_tx},
+			{dm_tx, L2Stats#l2_stats.dm_tx},
+			{ua_tx, L2Stats#l2_stats.ua_tx},
+			{frmr_tx, L2Stats#l2_stats.frmr_tx},
+			{iframe_rx, L2Stats#l2_stats.iframe_rx},
+			{rr_cmd_rx, L2Stats#l2_stats.rr_cmd_rx},
+			{rnr_cmd_rx, L2Stats#l2_stats.rnr_cmd_rx},
+			{rej_cmd_rx, L2Stats#l2_stats.rej_cmd_rx},
+			{sabm_rx, L2Stats#l2_stats.sabm_rx},
+			{sabme_rx, L2Stats#l2_stats.sabme_rx},
+			{disc_rx, L2Stats#l2_stats.disc_rx},
+			{rr_rsp_rx, L2Stats#l2_stats.rr_rsp_rx},
+			{rnr_rsp_rx, L2Stats#l2_stats.rnr_rsp_rx},
+			{rej_rsp_rx, L2Stats#l2_stats.rej_rsp_rx},
+			{dm_rx, L2Stats#l2_stats.dm_rx},
+			{ua_rx, L2Stats#l2_stats.ua_rx},
+			{frmr_rx, L2Stats#l2_stats.frmr_rx},
+			{crc_errors, L2Stats#l2_stats.crc_errors},
+			{rcv_errors, L2Stats#l2_stats.rcv_errors},
+			{retrans_cnt, L2Stats#l2_stats.retrans_cnt},
+			{poll_errors, L2Stats#l2_stats.poll_errors},
+			{ui_tx, L2Stats#l2_stats.ui_tx},
+			{ui_rx, L2Stats#l2_stats.ui_rx}]).
+	
