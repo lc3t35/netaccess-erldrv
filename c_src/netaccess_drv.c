@@ -492,9 +492,10 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 static void
 flush(ErlDrvData handle)
 {
-	/*  DriverData *dd = (DriverData *) handle;  */
+	DriverData *dd = (DriverData *) handle;
 
 	DBG("flush");
+	driver_deq(dd->port, driver_sizeq(dd->port));
 }
 
 
