@@ -24,10 +24,10 @@
 
 -define(MAXIFRAMESZ, 260).
 
--record(state, {server, port, lapdid, iframe, iframe_interval, 
+-record(state, {server, port, lapdid, dce_dte, iframe, iframe_interval, 
 			iframe_ref, report_interval, report_ref}).
 
-init([ServerRef, LapdId, IframeInterval, ReportInterval]) ->
+init([ServerRef, LapdId, Role, IframeInterval, ReportInterval]) ->
 	case ServerRef of
 		{local, Name} ->
 			ServerPid = whereis(Name);
@@ -38,11 +38,16 @@ init([ServerRef, LapdId, IframeInterval, ReportInterval]) ->
 		Name when is_atom(Name) ->
 			ServerPid = whereis(Name)
 	end,
+	DceDte = case Role of
+		network -> ?IISDNdirNETWORK_SIDE;
+		symmetric -> ?IISDNdirSYMMETRIC;
+		_User -> ?IISDNdirUSER_SIDE
+	end,
 	% open a lapid on the board
 	case netaccess:open(ServerPid) of
 		Port when is_port(Port) ->
 			StateData = #state{server = ServerPid,
-					port = Port, lapdid = LapdId,
+					port = Port, lapdid = LapdId, dce_dte = DceDte,
 					iframe = iframe(),
 					iframe_interval = IframeInterval,
 					report_interval = ReportInterval},
@@ -55,7 +60,7 @@ init_protocol(StateData) ->
  	L1 = #level1{l1_mode = ?IISDNl1modHDLC,
 			num_txbuf = 4, num_rxbuf = 4},
 	L2Parms = #l2_lap_params{mode = ?IISDNl2modLAP_D,
-			dce_dte = ?IISDNdirSYMMETRIC, l2_detail = 1},
+			dce_dte = StateData#state.dce_dte, l2_detail = 1},
 	D = #data_interface{enable = 1, data_channel = StateData#state.lapdid},
  	L2 = #level2{par = L2Parms, data_interface = D},
 	ProtoData = #ena_proto_data{level1 = L1, level2 = L2},
