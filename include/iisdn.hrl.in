@@ -306,6 +306,7 @@
 
 
 -define(L4L3mENABLE_PROTOCOL,  16#B6).
+-define(L4L3mDISABLE_PROTOCOL, 16#A1).
 -record(ena_proto_data,
 		{command=0, command_parameter=0, level1 = #level1{},
 		level2 = #level2{}, level3 = #level3{}}).
@@ -488,10 +489,11 @@
 -record(q933a,
 		{network_side=0, n391=0, n392=0, n393=0, t391=0, t392=0}).
 
--define(L3L4mPROTOCOL_STATUS,   16#21).
--define(IISDNdsNOT_ESTABLISHED,     0).
--define(IISDNdsESTABLISHING,        1).
--define(IISDNdsESTABLISHED,         2).
+-define(L4L3mREQ_PROTOCOL_STATUS, 16#A5).
+-define(L3L4mPROTOCOL_STATUS,     16#21).
+-define(IISDNdsNOT_ESTABLISHED,       0).
+-define(IISDNdsESTABLISHING,          1).
+-define(IISDNdsESTABLISHED,           2).
 -record(protocol_stat,
 		{status=0, l2_state=0, l2_error=0, l2_errpt=0,
 		b_channels=0, b_chan_req=0, txcount=0, rxcount=0,

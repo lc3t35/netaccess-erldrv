@@ -32,10 +32,10 @@
 -export([reset_board/1, boot/2]).
 -export([get_version/1, get_driver_info/1]).
 -export([set_hardware/2, req_hw_status/1]).
--export([board_id/1]).
+-export([req_board_id/1]).
 -export([set_tsi/2, req_tsi_status/1]).
 -export([get_qsize/1, set_maxiframesize/2, set_lowwater/2, set_highwater/2]).
--export([enable_protocol/3]).
+-export([enable_protocol/3, disable_protocol/3, req_protocol_status/2]).
 -export([req_l2_stats/2]).
 -export([send/2]).
 
@@ -318,7 +318,7 @@ set_maxiframesize(Channel, NewValue) ->
 %%
 %% @doc Get board identification.
 %%
-board_id(ServerRef) ->
+req_board_id(ServerRef) ->
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mREQ_BOARD_ID},
 	gen_server:call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
@@ -391,12 +391,40 @@ enable_protocol(Channel, LapdId, EnaProtoData) ->
 	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
 	
 
+%% @spec (Channel, LapdId, LogicalLinkID) -> true
+%% 	Channel = port()
+%% 	LapdId = integer()
+%% 	LogicalLinkID = integer()
+%% 	EnaProtoData = ena_proto_data()
+%%
+%% @doc Disable the protocol stack running on an HDLC channel.
+%%
+disable_protocol(Channel, LapdId, LogicalLinkID) ->
+	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID,
+			msgtype = ?L4L3mDISABLE_PROTOCOL},
+	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
+	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+	
+
+%% @spec (Channel, LapdId) -> ProtocolStatus
+%% 	Channel = port()
+%% 	LapdId = integer()
+%% 	ProtocolStatus = protocol_stat()
+%%
+%% @doc Retrieves the current protocol status for an active channel.
+%%
+req_protocol_status(Channel, LapdId) ->
+	L4L3_rec = #l4_to_l3{lapdid = LapdId, msgtype = ?L4L3mREQ_PROTOCOL_STATUS},
+	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
+	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
+	
+
 %% @spec (Channel, LapdId) -> L2Stats
 %% 	Channel = port()
 %% 	LapdId = integer()
 %% 	L2Stats = l2_stats() | mtp2_stats()
 %%
-%% @doc Gets level statistics for a channel.
+%% @doc Retrieves level statistics for a channel.
 %%
 req_l2_stats(Channel, LapdId) ->
 	L4L3_rec = #l4_to_l3{lapdid = LapdId, msgtype = ?L4L3mREQ_L2_STATS},
