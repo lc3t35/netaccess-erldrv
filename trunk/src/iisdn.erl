@@ -1573,7 +1573,7 @@ l2_stats(L2StatsBin) when is_binary(L2StatsBin) ->
 	<<IframeTx:?IISDNu16bit, RrCmdTx:?IISDNu16bit, RnrCmdTx:?IISDNu16bit, RejCmdTx:?IISDNu16bit, 
 			SabmTx:?IISDNu16bit, SabmeTx:?IISDNu16bit, DiscTx:?IISDNu16bit, RrRspTx:?IISDNu16bit, 
 			RnrRspTx:?IISDNu16bit, RejRspTx:?IISDNu16bit, DmTx:?IISDNu16bit, UaTx:?IISDNu16bit, 
-			FrmrTx:?IISDNu16bit, IframeTx:?IISDNu16bit, IframeRx:?IISDNu16bit, RrCmdRx:?IISDNu16bit,
+			FrmrTx:?IISDNu16bit, IframeRx:?IISDNu16bit, RrCmdRx:?IISDNu16bit,
 			RnrCmdRx:?IISDNu16bit, RejCmdRx:?IISDNu16bit, SabmRx:?IISDNu16bit, SabmeRx:?IISDNu16bit,
 			DiscRx:?IISDNu16bit, RrRspRx:?IISDNu16bit, RnrRspRx:?IISDNu16bit, RejRspRx:?IISDNu16bit,
 			DmRx:?IISDNu16bit, UaRx:?IISDNu16bit, FrmrRx:?IISDNu16bit, CrcErrors:?IISDNu16bit, 
