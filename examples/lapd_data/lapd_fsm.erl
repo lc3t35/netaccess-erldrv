@@ -61,7 +61,7 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 			gen_fsm:start_timer(Delay, timeout),
 			{next_state, established, StateData}
 	end;
-establishing({port, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
+establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData}.
