@@ -107,13 +107,13 @@
 
 
 %%
-%% general structure of a board to host message
+%% general structure of a host to board message
 %%
 -record(l4_to_l3,
 		{lapdid=0, msgtype=0, l4_ref=0, call_ref=0, lli=0, data = <<>>}).
 
 %%
-%% general structure of a host to board message
+%% general structure of a board to host message
 %%
 -record(l3_to_l4,
 		{lapdid=0, msgtype=0, l4_ref=0, call_ref=0, bchanel=0,
@@ -161,8 +161,14 @@
 		{72, fatal_error}, {73, hot_swap_extraction},
 		{74, dchan_out_of_range}])))).
 
--define(L4L3mSET_HARDWARE, 16#A7). 
--define(L4L3mREQ_HW_STATUS, 16#A8). 
+-define(L4L3mREQ_BOARD_ID,    16#C1).
+-define(L3L4mBOARD_ID,        16#3B).
+-record(board_id, {iisdn_ver, banner, date, model, rev, board_type,
+		num_lines, num_hdlc_chan, num_modem_chan, line_type,
+		kernel_ram_size, mezz_ram_size, num_bfio_devices, bfio_device}).
+
+-define(L4L3mSET_HARDWARE,    16#A7). 
+-define(L4L3mREQ_HW_STATUS,   16#A8). 
 -define(L3L4mHARDWARE_STATUS, 16#24). 
 -record(hardware_data,
 		{clocking=0, clocking2=0, enable_clocking2=0, 

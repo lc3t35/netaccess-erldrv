@@ -40,6 +40,7 @@
 -export([l2_lap_consts/1, l2_ss7_consts/1, l2_ip_consts/1,
 	 	l2_dpnss_consts/1]).
 -export([protocol_stat/1, q933a_pvc_status/1]).
+-export([board_id/1]).
 
 -include("iisdn.hrl").
 
@@ -85,6 +86,31 @@ l3_to_l4(Bin) when is_binary(Bin) ->
 			call_ref=Call_ref, bchanel=Bchanel, iface=Iface,
 			bchannel_mask=Bchannel_mask, lli=Lli, 
 			data_channel=Data_channel, data=Data}.
+
+board_id(B) when is_binary(B) ->
+	Size_32 = (32 * ?SIZEOF_IISDNu8bit),
+	Size_16 = (16 * ?SIZEOF_IISDNu8bit),
+	Size_12 = (12 * ?SIZEOF_IISDNu8bit),
+	Size_lines = (?IISDN_MAX_LINES * ?SIZEOF_IISDNu8bit),
+	<<IISDNVer:Size_32/binary, Banner:Size_32/binary, Date:Size_16/binary,
+			Model:Size_16/binary, Rev:Size_12/binary, Board_type:?IISDNu8bit,
+			Num_lines:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, 
+			Num_hdlc_chan:?IISDNu16bit, Num_modem_chan:?IISDNu16bit,
+			Line_type:Size_lines/binary, Kernel_ram_size:?IISDNu32bit,
+			Mezz_ram_size:?IISDNu32bit, Num_bfio_devices:?IISDNu8bit,
+			_:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, _Rest/binary>> = B,
+	#board_id{iisdn_ver = lists:takewhile(fun(I) -> I /= 0 end, binary_to_list(IISDNVer)),
+			banner  = lists:takewhile(fun(I) -> I /= 0 end, binary_to_list(Banner)),
+			date = lists:takewhile(fun(I) -> I /= 0 end, binary_to_list(Date)),
+			model = lists:takewhile(fun(I) -> I /= 0 end, binary_to_list(Model)),
+			rev = lists:takewhile(fun(I) -> I /= 0 end, binary_to_list(Rev)),
+			board_type = Board_type, num_lines = Num_lines,
+			num_hdlc_chan = Num_hdlc_chan, num_modem_chan = Num_modem_chan,
+			line_type = lists:takewhile(fun(I) -> I /= 0 end, line_type(Line_type)),
+			kernel_ram_size = Kernel_ram_size, mezz_ram_size = Mezz_ram_size,
+			num_bfio_devices = Num_bfio_devices}.
+			
+
 
 level1(L1) when is_record(L1, level1) ->
 	Digit32 = fun(Digit32, Bin) -> <<Bin/binary, Digit32:?IISDNu32bit>> end,
@@ -685,7 +711,7 @@ line_data(LD) when is_binary(LD) ->
 			Bril1_t3:?IISDNu8bit, Bril1_t4:?IISDNu16bit>> = LD,
 	#line_data{framing=Framing, line_code=Line_code,
 			pm_mode=Pm_mode, line_length=Line_length, term=Term,
-			line_type=Line_type, integrate_alarms=Integrate_alarms,
+			line_type=line_type(Line_type), integrate_alarms=Integrate_alarms,
 			filter_unsolicited=Filter_unsolicited, 
 			filter_yellow=Filter_yellow, bri_l1mode=Bri_l1mode,
 			briL1_cmd=BriL1_cmd, bri_loop=Bri_loop,
@@ -783,4 +809,23 @@ q933a_pvc_status(Q) when is_binary(Q) ->
 q933a_pvc_status(<<>>, QList) -> QList;
 q933a_pvc_status(<<Q:?SIZEOF_IISDN_Q933A_PVC_STATUS/binary, Rest/binary>>, QList) ->
 	q933a_pvc_status(Rest, QList ++ [q933a_pvc_status(Q)]).
+	
+
+%%%
+%%% internal functions
+%%%
+
+%%% @hidden
+line_type(1) -> t1;
+line_type(2) -> t1_csu;
+line_type(3) -> pri_e1;
+line_type(4) -> bri_u;
+line_type(5) -> bri_st;
+line_type(Bin) when is_binary(Bin) ->
+	line_type(Bin, []);
+line_type(Other) -> Other.
+line_type(<<>>, List) -> List;
+line_type(<<Type:?IISDNu8bit, Rest/binary>>, List) ->
+	line_type(Rest, List ++ [line_type(Type)]).
+	
 	

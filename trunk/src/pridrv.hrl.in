@@ -14,6 +14,8 @@
 %%%---------------------------------------------------------------------%%%
 
 
+-define(DEFAULT_BOARDNAME, "/dev/pri0").
+
 %% ioctl commands
 -define(BOOT_BOARD, 0).
 -define(ENABLE_MANAGEMENT_CHAN, 1).
