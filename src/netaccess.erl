@@ -148,12 +148,13 @@ stop(ServerRef) ->
 
 
 %% @spec (ServerRef) -> {ok, Channel}
-%% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
+%% 	ServerRef = Name | {Name, Node} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
 %%		Channel = port()
 %%
 %% @doc Open a channel on the netaccess board.
+%% 	<p><b>Note:</b>  It is not possible to open a channel on a remote node.</p>
 %%
 %% @see erlang:open_port/2
 %%
