@@ -198,7 +198,7 @@ handle_cast(_, State) ->
 	{noreply, State}.
 
 
-% an asynch task has completed
+%% an asynch task has completed
 handle_info({Port, {ref, Ref}, Result}, {Port, StateData} = State) when is_port(Port) ->
 	case gb_trees:lookup({ref, Ref}, StateData) of
 		{value, {From, _Time}} ->
@@ -211,7 +211,6 @@ handle_info({Port, {ref, Ref}, Result}, {Port, StateData} = State) when is_port(
 					"Misdirected reply from netaccess driver"]),
 			{noreply, State}
 	end;
-
 % an L3L4 SMI message binary arrived from the board
 handle_info({Port, {'L3L4m', CtrlBin, DataBin}}, {Port, StateData} = State) 
 			when is_binary(CtrlBin), size(CtrlBin) > 0 ->
@@ -223,7 +222,6 @@ handle_info({Port, {'L3L4m', CtrlBin, DataBin}}, {Port, StateData} = State)
 					Reason, {port, Port}, {control, CtrlBin}, {data, DataBin}]),
 			{noreply, State}
 	end;
-
 % an L3L4mBOARD_ID message
 handle_info({Port, {'L3L4m', L3L4_rec, _DataBin} = Msg}, {Port, StateData} = State)
 		when is_record(L3L4_rec, l3_to_l4),
@@ -245,7 +243,6 @@ handle_info({Port, {'L3L4m', L3L4_rec, _DataBin} = Msg}, {Port, StateData} = Sta
 					"L3L4mBOARD_ID", L3L4_rec]),
 			{noreply, State}
 	end;
-
 % an L3L4mHARDWARE_STATUS message
 handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = State)
 		when is_record(L3L4_rec, l3_to_l4),
@@ -261,7 +258,6 @@ handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = Stat
 					"L3L4mHARDWARE_STATUS", L3L4_rec]),
 			{noreply, State}
 	end;
-
 % an L3L4mTSI_STATUS message 
 handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = State)
 		when is_record(L3L4_rec, l3_to_l4),
@@ -291,40 +287,35 @@ handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = Stat
 					"L3L4mTSI_STATUS", L3L4_rec]),
 			{noreply, State}
 	end;
-
-
 % an L3L4 SMI message arrived from the board
 handle_info({Port, {'L3L4m', L3L4, DataBin} = Msg}, {Port, StateData} = State) ->
 	error_logger:info_report(["Netaccess server received unhandled L3L4m", L3L4]),
 	{noreply, State};
-
-% port has closed normally
-handle_info({'EXIT', Port, normal}, {Port, StateData} = State) ->
-	{noreply, State};
-
-% port has closed abnormally
-handle_info({'EXIT', Port, Reason}, {Port, StateData} = State) ->
+% our management port has closed
+handle_info({'EXIT', Port, Reason}, {Port, _StateData} = State) ->
 	{stop, Reason, State};
-
-% a port owner process has exited
-handle_info({'EXIT', Pid, _Reason}, State) when is_pid(Pid) ->
+% a port we were opening closed before we transfered ownership
+handle_info({'EXIT', Port, Reason}, State) ->
 	{noreply, State};
-
+% someone wants us to shutdown and cleanup
+handle_info({'EXIT', Pid, shutdown}, State) when is_pid(Pid) ->
+	{stop, shutdown, State};
+% an abnormal exit condition
+handle_info({'EXIT', Pid, Reason}, State) when is_pid(Pid) ->
+	{stop, Reason, State};
+% unknown message
 handle_info(Unknown, State) ->
 	error_logger:error_report([{server, self()}, {message, Unknown},
 			"Netaccess server received unknown message"]),
 	{noreply, State}.
 
-% someone wants us to shutdown and cleanup
+%% exit gracefully
 terminate(_Reason, State) ->
-	case catch erl_ddll:unload_driver(netaccess_drv) of
-		{'EXIT', Error} ->
-			error_logger:error_report([{server, self()},
-					"Netaccess server failed to unload driver"]);
-		Return -> Return
-	end.
+	catch erl_ddll:unload_driver(netaccess_drv).
 
-code_change(_, _, _) -> ok.
+%% new code version has been loaded
+code_change(OldVsn, State, Extra) ->
+	{ok, State}.
 
 
 %%----------------------------------------------------------------------
