@@ -315,16 +315,16 @@ close(Port) ->
 %%
 %% select a netaccess board for the channel 
 %%
-%% returns {ok, done} or fails
+%% returns ok or fails
 %%
 select_board(Port, Board) when integer(Board) ->
-	do_ioctl({ioctl, ?SELECT_BOARD, [Board], Port}).
+	do_ioctl({ioctl, ?SELECT_BOARD, Board, Port}).
 
 
 %%
 %% enable a management channel on an open netaccess board
 %%
-%% returns {ok, done} or fails
+%% returns ok or fails
 %%
 enable_management_chan(Port) ->
 	do_ioctl({ioctl, ?ENABLE_MANAGEMENT_CHAN, [], Port}).
@@ -333,7 +333,7 @@ enable_management_chan(Port) ->
 %%
 %% boot an open netaccess board
 %%
-%% returns {ok, done} or {error, Reason}
+%% returns ok or {error, Reason}
 %%
 boot(Port, BootBin) when binary(BootBin) ->
 	do_ioctl({ioctl, ?BOOT_BOARD, BootBin, Port}, 62000);
@@ -349,7 +349,7 @@ boot(Port, Filename) when list(Filename) ->
 %%
 %% perform a reset on an open netaccess board
 %%
-%% returns {ok, done} or fails
+%% returns ok or fails
 %%
 reset_board(Port) ->
 	do_ioctl({ioctl, ?RESET_BOARD, [], Port}).
@@ -476,7 +476,7 @@ set_tsi(Port, NumMappings, Granularity, [], TsiMapBins) ->
 			<<Error:?PRIu8bit, _/binary>> = Rest,
 			{error, ?L3L4mErrorMsg(Error)}
 	after
-		100 -> {ok, done}
+		100 -> ok
 	end;
 set_tsi(Port, NumMappings, Granularity, [?TsiMapTerms | T], TsiMapBins) ->
 	set_tsi(Port, NumMappings, Granularity, T,
@@ -543,8 +543,8 @@ handle_call({close, Port}, _From, State) ->
 
 %% perform an ioctl on an open channel to a netaccess board
 handle_call({ioctl, Operation, Data, Port}, From, State) ->
-	case catch erlang:port_control(Port, Operation, Data) of
-		Ref when is_list(Ref) ->
+	case catch erlang:port_call(Port, Operation, Data) of
+		{ok, Ref} ->
 			NewState = gb_trees:insert({ref, Ref},
 					{Port, From, now()}, State),
 			{noreply, NewState};
@@ -565,14 +565,14 @@ handle_call(_, _, State) ->
 	{noreply, State}.
 
 handle_cast({ioctl, Operation, Data, Port}, State) ->
-	catch erlang:port_control(Port, Operation, Data),
+	catch erlang:port_call(Port, Operation, Data),
 	{noreply, State};
 	
 handle_cast(_, State) ->
 	{noreply, State}.
 
 % an asynch task has completed
-handle_info({Port, Ref, Result}, State) when is_port(Port) ->
+handle_info({Port, {ref, Ref}, Result}, State) when is_port(Port) ->
 	{Port, From, _Time} = gb_trees:get({ref, Ref}, State),
 	NewState = gb_trees:delete({ref, Ref}, State),
 	gen_server:reply(From, Result),
@@ -592,7 +592,8 @@ handle_info({'EXIT', Port, Reason}, State) ->
 	{noreply, NewState};
 
 handle_info(Unknown, State) ->
-	error_logger:error_report([{'Unknown message', Unknown}, State]),
+	error_logger:error_report([{message, Unknown}, {state, State},
+			"Unknown message received"]),
 	{noreply, State}.
 
 % someone wants us to shutdown and cleanup
