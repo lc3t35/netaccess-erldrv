@@ -66,6 +66,10 @@
 #  include "erl_driver.h"
 #endif
 
+#if HAVE_EI_H
+#  include <ei.h>
+#endif
+
 #if HAVE_ENVIRONMENT_H
 #  include <environment.h>
 #endif
@@ -121,13 +125,7 @@ static void free_tdata(void *t_data);
 static int message_to_board(int fd, SysIOVec *iov);
 static int message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl,
 		int ctrllen, ErlDrvBinary *data, int datalen);
-static int output_atom_result(ErlDrvPort port, unsigned char *ref,
-		char *ret, char *result);
-static int output_binary_result(ErlDrvPort port, unsigned char *ref,
-		char *ret, ErlDrvBinary *bin, int len);
-static int output_string_result(ErlDrvPort port, unsigned char *ref,
-		char *ret, char *string, int len);
-static int output_error(ErlDrvPort port, char *string);
+
 
 /**********************************************************************
  **********************************************************************
@@ -136,23 +134,21 @@ static int output_error(ErlDrvPort port, char *string);
  **********************************************************************/
 
 /*  our driver's exported callbacks  */
-static ErlDrvData netaccess_start(ErlDrvPort port, char *command);
-static void netaccess_stop(ErlDrvData handle);
-static void netaccess_output(ErlDrvData handle, char *buf, int len);
-static void netaccess_ready_input(ErlDrvData handle, ErlDrvEvent event);
-static void netaccess_ready_output(ErlDrvData handle, ErlDrvEvent event);
-static void netaccess_finish(void);
-static int netaccess_control(ErlDrvData handle, unsigned int command,
-				char *buf, int len, char **rbuf, int rlen);
-static void netaccess_timeout(ErlDrvData handle);
-static void netaccess_outputv(ErlDrvData handle, ErlIOVec *ev);
-static void netacess_ready_async(ErlDrvData handle, ErlDrvThreadData t_data);
-static void netaccess_flush(ErlDrvData handle);
-static int netaccess_call(ErlDrvData handle, unsigned int command,
-			char *buf, int len, char **rbuf, int rlen, unsigned int *flags);
+static ErlDrvData start(ErlDrvPort port, char *command);
+static void stop(ErlDrvData handle);
+static void output(ErlDrvData handle, char *buf, int len);
+static void finish(void);
+static void timeout(ErlDrvData handle);
+static void outputv(ErlDrvData handle, ErlIOVec *ev);
+static void ready_async(ErlDrvData handle, ErlDrvThreadData t_data);
+static void flush(ErlDrvData handle);
+static int call(ErlDrvData handle, unsigned int command,
+		char *buf, int len, char **rbuf, int rlen, unsigned int *flags);
+static void event(ErlDrvData handle, ErlDrvEvent event,
+		ErlDrvEventData event_data);
 
 
-ErlDrvEntry  netaccess_driver_entry;
+static ErlDrvEntry  driver_entry;
 
 
 /*  This is passed to most of the driver routines, it is our global data  */
@@ -171,7 +167,7 @@ typedef struct td {
 	struct strioctl *ctlp;          /* streams control data        */ 
 	download_t *bp;                 /* structure to hold boot file */
 	int result;                     /* return from async function  */
-	int terrno;                      /* errno from async function   */
+	int terrno;                     /* errno from async function   */
 	ErlDrvBinary *bin;              /* driver binary for result    */
 } ThreadData;
 
@@ -201,71 +197,71 @@ extern int erts_async_max_threads;
 DRIVER_INIT(netaccess_drv)
 {
 	DBG("DRIVER_INIT");
-	memset(&netaccess_driver_entry, 0, sizeof(netaccess_driver_entry));
+	memset(&driver_entry, 0, sizeof(driver_entry));
 
 	/*  called after loading, redundant        */
-	netaccess_driver_entry.init = NULL;
+	driver_entry.init = NULL;
 
 	/*  called when open_port/2 is invoked,
 									    return value -1 means failure          */
-	netaccess_driver_entry.start = netaccess_start;
+	driver_entry.start = start;
 
 	/*  called when port is closed, 
 									    and when emulator halted               */
-	netaccess_driver_entry.stop = netaccess_stop;
+	driver_entry.stop = stop;
 
 	/*  called when we have output from
 									    erlang to the port                     */
-	netaccess_driver_entry.output = netaccess_output;
+	driver_entry.output = output;
 
 	/*  called when we have input from 
 									    one of the driver's handles            */
-	netaccess_driver_entry.ready_input = netaccess_ready_input;
+	driver_entry.ready_input = NULL;
 
 	/*  called when output is possible to
 									    one of the driver's handles            */
-	netaccess_driver_entry.ready_output = netaccess_ready_output;
+	driver_entry.ready_output = NULL;
 
 	/*  name supplied as command in open_port  */
-	netaccess_driver_entry.driver_name = "netaccess_drv";
+	driver_entry.driver_name = "netaccess_drv";
 
 	/*  called before unloading the driver     */
-	netaccess_driver_entry.finish = netaccess_finish;
+	driver_entry.finish = finish;
 
 	/*  handle:  deprecated                    */
-	netaccess_driver_entry.handle = NULL;
+	driver_entry.handle = NULL;
 
 	/*  invoked by port_control/3              */
-	netaccess_driver_entry.control = netaccess_control;
+	driver_entry.control = NULL;
 
 	/*  handling of timeout in driver          */
-	netaccess_driver_entry.timeout = netaccess_timeout;
+	driver_entry.timeout = timeout;
 
 	/*  called when we have output from
 									    erlang to the port                     */
-	netaccess_driver_entry.outputv = netaccess_outputv;
+	driver_entry.outputv = outputv;
 
 	/*  ready on the async driver              */
-	netaccess_driver_entry.ready_async = netacess_ready_async;
+	driver_entry.ready_async = ready_async;
 
 	/*  called when the port is about to be 
 									 	 closed, and there is data in the driver
 										 queue that needs to be flushed before
 										 'stop' can be called                   */
-	netaccess_driver_entry.flush = netaccess_flush;
+	driver_entry.flush = flush;
 
 	/*  called when port_call/3 is invoked     */
-	netaccess_driver_entry.call = netaccess_call;
+	driver_entry.call = call;
 
 	/*  called when an event selected by  driver_event() has occurred  */
-	netaccess_driver_entry.event = NULL;
+	driver_entry.event = event;
 
-	return &netaccess_driver_entry;
+	return &driver_entry;
 }
 
 
 /**********************************************************************
- *  netaccess_start                                                   *
+ *  start                                                             *
  *                                                                    *
  *  Erlang/OTP runs this callback in response to an open_port/2.      *
  *  Opens a new file descriptor to the driver.  Each call creates a   *
@@ -276,12 +272,13 @@ DRIVER_INIT(netaccess_drv)
  *       open_port({spawn, 'netaccess_drv /dev/pri0'}, PortSettings)  *
  **********************************************************************/
 static ErlDrvData
-netaccess_start(ErlDrvPort port, char *command)
+start(ErlDrvPort port, char *command)
 {
 	char *s;
 	DriverData *dd;
+	struct erl_drv_event_data pd;
 
-	DBG("netaccess_start");
+	DBG("start");
 	set_port_control_flags(port, 0); /*  port_control/3 returns a list */
 
 	if((dd = driver_alloc(sizeof(DriverData))) == NULL)
@@ -299,7 +296,8 @@ netaccess_start(ErlDrvPort port, char *command)
 	}
 
 	SET_NONBLOCKING(dd->fd);
-	driver_select(port, (ErlDrvEvent) dd->fd, DO_READ, 1);
+	pd.events = (POLLIN | POLLRDBAND | POLLPRI);
+	driver_event(port, (ErlDrvEvent) dd->fd, (ErlDrvEventData) &pd);
 
 	dd->port = port;	
 
@@ -308,7 +306,7 @@ netaccess_start(ErlDrvPort port, char *command)
 
 
 /**********************************************************************
- *  netaccess_stop                                                    *
+ *  stop                                                              *
  *                                                                    *
  *  Erlang/OTP runs this callback in response to a port_close/1.      *
  *  Closes the file descriptor to the driver and frees all associated *
@@ -318,14 +316,13 @@ netaccess_start(ErlDrvPort port, char *command)
  *  case it will not be called until the queue is empty.              *
  **********************************************************************/
 static void
-netaccess_stop(ErlDrvData handle) 
+stop(ErlDrvData handle) 
 {
 	DriverData *dd = (DriverData *) handle;
 
-	DBG("netaccess_stop");
+	DBG("stop");
 	/*  unregister the device handle  */
-	driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_READ, 0);
-	driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 0);
+	driver_event(dd->port, (ErlDrvEvent) dd->fd, 0);
 
 	close(dd->fd);
 	driver_free(dd);
@@ -333,38 +330,39 @@ netaccess_stop(ErlDrvData handle)
 
 
 /**********************************************************************
- *  netaccess_output                                                  *
+ *  output                                                            *
  *                                                                    *
  *  Erlang/OTP runs this callback in response to a port_command/2 if  *
  *  (driver_entry.outputv == NULL).  Accepts simple byte buffer.  If  *
- *  netaccess_outputv is used this will never be used.                 *
+ *  outputv() is used this will never be used.                        *
  *  Receives data from an Erlang process.                             *
  **********************************************************************/
 static void
-netaccess_output(ErlDrvData handle, char *buff, int bufflen)
+output(ErlDrvData handle, char *buff, int bufflen)
 {
 	DriverData *dd = (DriverData *) handle;
-	DBG("netaccess_output");
+	DBG("output");
 
 }
 
 
 /**********************************************************************
- *  netaccess_oputputv                                                *
+ *  oputputv                                                          *
  *                                                                    *
  *  Erlang/OTP runs this callback in response to a port_command/2.    *
  *  Supports scatter/gather IO.  When defined in driver_entry this    *
- *  function takes precendence over output (netaccess_output).        *
+ *  function takes precendence over output().                         *
  *  [Note:  the first element of the IO vector is null so we skip to  *
  *          the second and start from there.  The emulator does this  *
  *          to make it easier for the inet driver to add in a header] *
  *  Receives data from an Erlang process.                             *
  **********************************************************************/
 static void
-netaccess_outputv(ErlDrvData handle, ErlIOVec *ev)
+outputv(ErlDrvData handle, ErlIOVec *ev)
 {
 	DriverData *dd = (DriverData *) handle;
 	int sz;
+	struct erl_drv_event_data pd;
 
 	/*  if there's a queue just add to it  */
 	if((sz = driver_sizeq(dd->port)) > 0) {
@@ -381,9 +379,11 @@ netaccess_outputv(ErlDrvData handle, ErlIOVec *ev)
 			case ENOSR:
 			case EAGAIN:
 				driver_enqv(dd->port, ev, 0);
-				driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 1);
+				pd.events = POLLOUT;
+				driver_event(dd->port, (ErlDrvEvent) dd->fd, &pd);
 				break;
 			default:
+				driver_event(dd->port, (ErlDrvEvent) dd->fd, 0);
 				driver_failure_posix(dd->port, errno);
 		}
 	}
@@ -391,46 +391,229 @@ netaccess_outputv(ErlDrvData handle, ErlIOVec *ev)
 	
 
 /**********************************************************************
- *  netaccess_control                                                 *
+ *  finish                                                            *
  *                                                                    *
- *  Erlang/OTP runs this callback in response to a port_control/3.    *
- *  Receives a command & data from Erlang and sends reply data.       *
- *  The second argument is the command passed as argument 2 in        *
- *  port_control/3.  The third argument is a pointer to the binary    *
- *  which will be passed to the driver ioctl function as is.  The     *
- *  fourth argument is a pointer to a buffer in which we may store a  *
- *  response.  The response will be the reference to the async task   *
- *  which is launched to service the ioctl request and can be used to *
- *  later cancel the request.  The sixth argument is the length       *
- *  of the supplied buffer.  If the supplied buffer is not large      *
- *  enough to hold the response we may allocate a larger one and      *
- *  replace the pointer value with the address of the new buffer.     *
- *  This function should return the number of bytes supplied in the   *
- *  response buffer or -1 to indicate the command was not recognized. *
+ *  Erlang/OTP runs this callback when the driver is unloaded with    *
+ *  erl_ddll:unload_driver(Name).  Frees all driver data.             *
  **********************************************************************/
-static int
-netaccess_control(ErlDrvData handle, unsigned int command, 
-			char* buf, int count, char** res, int res_size)
+static void
+finish(void) 
+{
+	
+	DBG("finish");
+}
+
+
+/**********************************************************************
+ *  timeout                                                           *
+ *                                                                    *
+ *  Erlang/OTP runs this callback when a timeout, specified earlier   *
+ *  with driver_set_timer, expires.                                   *
+ **********************************************************************/
+static void
+timeout(ErlDrvData handle)
 {
 	DriverData *dd = (DriverData *) handle;
+	DBG("timeout");
+
+}
+
+
+/**********************************************************************
+ *  ready_async                                                       *
+ *                                                                    *
+ *  Erlang/OTP runs this callback when a previously scheduled async   *
+ *  operation, called with driver_async, completes.                   *
+ **********************************************************************/
+static void
+ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
+{
+	DriverData *dd = (DriverData *) handle;
+	ThreadData *td = (ThreadData *) t_data;
+	ErlDrvTermData *ret;
+
+	DBG("ready_async");
+
+	if (td->result < 0) {
+		/*  {ref, Ref, {error, Reason}}  */
+		if (!(ret = driver_alloc(12 * sizeof(ErlDrvTermData)))) {
+			DBG("driver_alloc failed");
+			return;
+		}
+		ret[0] = ERL_DRV_ATOM;
+		ret[1] = driver_mk_atom("ref");
+		ret[2] = ERL_DRV_INT;
+		ret[3] = td->ref;
+		ret[4] = ERL_DRV_ATOM;
+		ret[5] = driver_mk_atom("error");
+		ret[6] = ERL_DRV_ATOM;
+		ret[7] = driver_mk_atom(erl_errno_id(td->terrno));
+		ret[8] = ERL_DRV_TUPLE;
+		ret[9] = 2;
+		ret[10] = ERL_DRV_TUPLE;
+		ret[11] = 3;
+		if (driver_output_term(dd->port, ret, 12) < 1)
+			DBG("driver_output_term failed");
+		driver_free(ret);
+		return;
+	} 
+		
+	else
+		switch(td->command) {
+			case SELECT_BOARD:      
+			case BOOT_BOARD:      
+			case ENABLE_MANAGEMENT_CHAN:
+			case RESET_BOARD:
+				/*  {Port, {ref, Ref}, ok}  */
+				if (!(ret = driver_alloc(12 * sizeof(ErlDrvTermData)))) {
+					DBG("driver_alloc failed");
+					return;
+				}
+				ret[0] = ERL_DRV_PORT;
+				ret[1] = driver_mk_port(dd->port);
+				ret[2] = ERL_DRV_ATOM;
+				ret[3] = driver_mk_atom("ref");
+				ret[4] = ERL_DRV_INT;
+				ret[5] = td->ref;
+				ret[6] = ERL_DRV_TUPLE;
+				ret[7] = 2;
+				ret[8] = ERL_DRV_ATOM;
+				ret[9] = driver_mk_atom("ok");
+				ret[10] = ERL_DRV_TUPLE;
+				ret[11] = 3;
+				if (driver_output_term(dd->port, ret, 12) < 1)
+					DBG("driver_output_term failed");
+				driver_free(ret);
+				break;
+			case GET_VERSION:
+				/*  {Port, {ref, Ref}, {ok, Version}}  */
+				if (!(ret = driver_alloc(17 * sizeof(ErlDrvTermData)))) {
+					DBG("driver_alloc failed");
+					return;
+				}
+				ret[0] = ERL_DRV_PORT;
+				ret[1] = driver_mk_port(dd->port);
+				ret[2] = ERL_DRV_ATOM;
+				ret[3] = driver_mk_atom("ref");
+				ret[4] = ERL_DRV_INT;
+				ret[5] = td->ref;
+				ret[6] = ERL_DRV_TUPLE;
+				ret[7] = 2;
+				ret[8] = ERL_DRV_ATOM;
+				ret[9] = driver_mk_atom("ok");
+				ret[10] = ERL_DRV_STRING;
+				(char *) ret[11] = td->ctlp->ic_dp;
+				ret[12] = strlen(td->ctlp->ic_dp);
+				ret[13] = ERL_DRV_TUPLE;
+				ret[14] = 2;
+				ret[15] = ERL_DRV_TUPLE;
+				ret[16] = 3;
+				if (driver_output_term(dd->port, ret, 17) < 1)
+					DBG("driver_output_term failed");
+				driver_free(ret);
+				break;
+			case GET_DRIVER_INFO:
+				/*  {Port, {ref, Ref}, {ok, Binary}}  */
+				if (!(ret = driver_alloc(18 * sizeof(ErlDrvTermData)))) {
+					DBG("driver_alloc failed");
+					return;
+				}
+				ret[0] = ERL_DRV_PORT;
+				ret[1] = driver_mk_port(dd->port);
+				ret[2] = ERL_DRV_ATOM;
+				ret[3] = driver_mk_atom("ref");
+				ret[4] = ERL_DRV_INT;
+				ret[5] = td->ref;
+				ret[6] = ERL_DRV_TUPLE;
+				ret[7] = 2;
+				ret[8] = ERL_DRV_ATOM;
+				ret[9] = driver_mk_atom("ok");
+				ret[10] = ERL_DRV_BINARY;
+				(ErlDrvBinary *) ret[11] = td->bin;
+				ret[12] = td->ctlp->ic_len;
+				ret[13] = 0;
+				ret[14] = ERL_DRV_TUPLE;
+				ret[15] = 2;
+				ret[16] = ERL_DRV_TUPLE;
+				ret[17] = 3;
+				if (driver_output_term(dd->port, ret, 18) < 1)
+					DBG("driver_output_term failed");
+				driver_free(ret);
+				break;
+		}
+	free_tdata(td);
+}
+
+
+/**********************************************************************
+ *  flush                                                             *
+ *                                                                    *
+ *  Erlang/OTP runs this callback when there is data in the driver    *
+ *  queue and stop is about to be called.                             *
+ **********************************************************************/
+static void
+flush(ErlDrvData handle)
+{
+	DriverData *dd = (DriverData *) handle;
+
+	DBG("flush");
+}
+
+
+/**********************************************************************
+ *  call                                                              *
+ *                                                                    *
+ *  Erlang/OTP runs this callback in response to a port_call/3.       *
+ *  Works mostly like port_control but uses the external term format  *
+ *  for input and output.  The ei functions are used for decoding the *
+ *  the input and ecoding the result.                                 *
+ **********************************************************************/
+static int
+call(ErlDrvData handle, unsigned int command, 
+			char *buf, int len, char **rbuf, int rlen, unsigned int *flags)
+{
+	DriverData *dd = (DriverData *) handle;
+	long ref;
 	int qsize;
-	int int_result;        /*  use to hold int returns  */ 
 	ThreadData *td;
 	struct strioctl *cntl_ptr;
+	int version, index, rindex, type, size;
 
-	DBG("netaccess_control");
+	DBG("call");
+	index = rindex = size = 0;
+   if (ei_decode_version(buf, &index, &version))
+      return((int) ERL_DRV_ERROR_GENERAL);
+
 	switch(command) {
 		case CANCEL_ASYNC:
 			DBG("CANCEL_ASYNC");
-			int_result = driver_async_cancel(atol(buf));
-			memcpy(*res, &int_result, sizeof(int_result));
-			return sizeof(int_result);
+			if (ei_decode_long(buf, &index, &ref))
+				return((int) ERL_DRV_ERROR_BADARG);
+			if (driver_async_cancel(ref)) {
+				if (ei_encode_version(*rbuf, &rindex)
+						|| ei_encode_atom(*rbuf, &rindex, "false")) {
+					DBG("ei_encode failed");
+					return((int) ERL_DRV_ERROR_ERRNO);
+				}
+			} else {
+				if (ei_encode_version(*rbuf, &rindex)
+						|| ei_encode_atom(*rbuf, &rindex, "true")) {
+					DBG("ei_encode failed");
+					return((int) ERL_DRV_ERROR_ERRNO);
+				}
+			}
+			return(rindex);
+			break;
 		case FLUSH_QUEUE:
 			DBG("FLUSH_QUEUE");
     		qsize = driver_sizeq(dd->port);
-			int_result = driver_deq(dd->port, qsize);        
-			memcpy(*res, &int_result, sizeof(int_result));
-			return sizeof(int_result);
+			driver_deq(dd->port, qsize);        
+			if (ei_encode_version(*rbuf, &rindex)
+					|| ei_encode_atom(*rbuf, &rindex, "true")) {
+				DBG("ei_encode failed");
+				return((int) ERL_DRV_ERROR_ERRNO);
+			} else
+				return(rindex);
 	}
 	/*  these are potentially blocking tasks so we must be threaded  */
 	if (erts_async_max_threads > 0) {
@@ -446,10 +629,12 @@ netaccess_control(ErlDrvData handle, unsigned int command,
 		switch(command) {
 			case SELECT_BOARD:
 				DBG("SELECT_BOARD");
+				if (ei_decode_long(buf, &index, &ref))
+					return((int) ERL_DRV_ERROR_BADARG);
 				cntl_ptr->ic_cmd = PRIDRViocSEL_BOARD;
 				cntl_ptr->ic_len = 1;                
 				cntl_ptr->ic_dp = (char *) driver_alloc(10);  /* board string */  
-				cntl_ptr->ic_dp[0] = buf[0];          /* board num sent data  */
+				cntl_ptr->ic_dp[0] = ref;                     /* board num  */
 				break;
 #ifdef _LP64 /*  passing a pointer in an ioctl requires 64-bit compilation
                  on 64 bit kernels.  if the kernel is 32 bit or if it is
@@ -467,13 +652,16 @@ netaccess_control(ErlDrvData handle, unsigned int command,
 				memset(td->bp, 0, sizeof(download_t));
 				cntl_ptr->ic_len = sizeof(download_t);
 				cntl_ptr->ic_dp = (char *) td->bp;
-				td->bp->len = count;
-				td->bp->outptr = (char *) driver_alloc(count);
-				if (td->bp->outptr == NULL) {
+				if (ei_get_type(buf, &index, &type, &size)
+						|| (type != ERL_BINARY_EXT)
+						|| !(td->bp->outptr = (char *) driver_alloc(count))) {
 					free_tdata(td);
-					return -1;
+					return((int) ERL_DRV_ERROR_ERRNO);
+				} else {
+					if (ei_decode_binary(buf, &index, td->bp->outptr, 
+							&td->bp->len))
+						return((int) ERL_DRV_ERROR_BADARG);
 				}
-				memcpy(td->bp->outptr, buf, count);  /* must make a copy  */
 				break;
 #endif	/*  _LP64   */
 			case ENABLE_MANAGEMENT_CHAN:
@@ -494,228 +682,128 @@ netaccess_control(ErlDrvData handle, unsigned int command,
 				DBG("GET_DRIVER_INFO");
 				cntl_ptr->ic_cmd = PRIDRViocGET_DRIVER_INFO;
 				cntl_ptr->ic_len = sizeof(driver_info_t);
-				td->bin = driver_alloc_binary(sizeof(driver_info_t));
-				if (td->bin == NULL) {
+				if (!(td->bin = driver_alloc_binary(sizeof(driver_info_t)))) {
 					free_tdata(td);
-					return -1;
+					return((int) ERL_DRV_ERROR_ERRNO);
 				}
 				cntl_ptr->ic_dp = (char *) td->bin->orig_bytes;
 				break;
 			default:
 				DBG("unknown command");
 				free_tdata(td);
-				return -1;     /*  port_control/3 will exit with badarg  */
+				return((int) ERL_DRV_ERROR_BADARG);
 		}
 		td->ref = driver_async(dd->port, QKEY,
 				do_ioctl, td, free_tdata);
-		/*  return the reference as a string (list)  */
-		sprintf(*res, "%ld", td->ref);
-		return(strlen(*res));
+		/*  return the reference  */
+		if (ei_encode_version(*rbuf, &rindex)
+				|| ei_encode_tuple_header(*rbuf, &rindex, 2)
+				|| ei_encode_atom(*rbuf, &rindex, "ok")
+				|| ei_encode_long(*rbuf, &rindex, td->ref)) {
+			DBG("ei_encode failed");
+			return((int) ERL_DRV_ERROR_ERRNO);
+		}
+		return(rindex);
 	}
-
-	return -1;              /*  port_control/3 will exit with badarg  */
-
+	return((int) ERL_DRV_ERROR_BADARG);
 }
 
 
 /**********************************************************************
- *  netaccess_ready_input                                             *
+ *  event                                                             *
  *                                                                    *
- *  Erlang/OTP runs this callback when a file decsriptor, previously  *
- *  specified in a driver_select call, has input ready to read.       *
- *  The event argument contains the file descriptor in question.      *
+ *  Erlang/OTP runs this callback when an event selected by           *
+ *  driver_event() has occurred.                                      *
  **********************************************************************/
-static void
-netaccess_ready_input(ErlDrvData handle, ErlDrvEvent event)
-{
-	DriverData *dd = (DriverData *) handle;
+static void 
+event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
+{     
+   DriverData *dd = (DriverData *) handle;
 	ErlDrvBinary *ctrlbin, *databin;
 	struct strbuf strctrl, strdata;
 	int flags = 0;
-
-	DBG("netaccess_ready_input");
-	/*  construct a streams buffer for the control message  */
-	ctrlbin = driver_alloc_binary(sizeof(L3_to_L4_struct));
-	if (ctrlbin == NULL) {
-		driver_failure_posix(dd->port, errno);
-		return;
-	}
-	strctrl.maxlen = ctrlbin->orig_size;
-	strctrl.buf = ctrlbin->orig_bytes;
-
-	/*  construct a streams buffer for the data message  */
-	databin = driver_alloc_binary(BUFSIZE);
-	if (databin == NULL) {
-		driver_failure_posix(dd->port, errno);
-		driver_free_binary(ctrlbin);
-		return;
-	}
-	strdata.maxlen = databin->orig_size;
-	strdata.buf = databin->orig_bytes;
-
-	/*  read a message from the board  */
-	if(getmsg((int) event, &strctrl, &strdata, &flags) < 0) {
-		switch(errno) {
-			/*  these few errors can be ignored  */
-			case EAGAIN:
-			case EINTR:
-				driver_free_binary(ctrlbin);
-				driver_free_binary(databin);
-				break;
-			/*  other errors cause the port to be closed  */
-			default:
-				driver_failure_posix(dd->port, errno);
-				driver_free_binary(ctrlbin);
-				driver_free_binary(databin);
-		}
-	return;
-	}
-
-	/*  send the control & data messages to the port owner  */
-	message_to_port(dd->port, ctrlbin, ((strctrl.len < 1) ? 0 : strctrl.len),
-			databin, ((strdata.len < 1) ? 0 : strdata.len));
-
-	driver_free_binary(ctrlbin);
-	driver_free_binary(databin);
-}
-
-
-/**********************************************************************
- *  netaccess_ready_output                                            *
- *                                                                    *
- *  Erlang/OTP runs this callback when a file decsriptor, previously  *
- *  specified in a driver_select call, is now available to write to.  *
- *  The event argument contains the file descriptor in question.      *
- **********************************************************************/
-static void
-netaccess_ready_output(ErlDrvData handle, ErlDrvEvent event)
-{
-	DriverData *dd = (DriverData *) handle;
 	int vsize, qsize;
 	SysIOVec *iov;
 
-	DBG("netaccess_ready_output");
-	while((iov = driver_peekq(dd->port, &vsize)) != NULL) {
-		qsize = driver_sizeq(dd->port);
-		/*  send the next message to the board  */	
-		if(message_to_board(dd->fd, iov) < 0) {
-			switch(errno) {
-				case EINTR:
-				case EAGAIN:
-					driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 1);
-					return;
-				default:
-					driver_deq(dd->port, qsize);  /*  dump the whole queue  */
-					driver_failure_posix(dd->port, errno);
-					return;
-			}
+
+	DBG("event");
+	if (event_data->revents & (POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI)) {
+		/*  construct a streams buffer for the control message  */
+		if (!(ctrlbin = driver_alloc_binary(sizeof(L3_to_L4_struct)))) {
+			driver_failure_posix(dd->port, errno);
+			return;
 		}
-		driver_deq(dd->port, iov[0].iov_len); /* dequeue this sent message */
-		if(qsize <= dd->low)                /*  queue emptying, unthrottle  */
-			set_busy_port(dd->port, 0);
-	}
-	driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 0);
-}
-
-
-/**********************************************************************
- *  netaccess_finish                                                  *
- *                                                                    *
- *  Erlang/OTP runs this callback when the driver is unloaded with    *
- *  erl_ddll:unload_driver(Name).  Frees all driver data.             *
- **********************************************************************/
-static void
-netaccess_finish(void) 
-{
+		strctrl.maxlen = ctrlbin->orig_size;
+		strctrl.buf = ctrlbin->orig_bytes;
 	
-	DBG("netaccess_finish");
-}
-
-
-/**********************************************************************
- *  netaccess_timeout                                                 *
- *                                                                    *
- *  Erlang/OTP runs this callback when a timeout, specified earlier   *
- *  with driver_set_timer, expires.                                   *
- **********************************************************************/
-static void
-netaccess_timeout(ErlDrvData handle)
-{
-	DriverData *dd = (DriverData *) handle;
-	DBG("netaccess_timeout");
-
-}
-
-
-/**********************************************************************
- *  netaccess_ready_async                                             *
- *                                                                    *
- *  Erlang/OTP runs this callback when a previously scheduled async   *
- *  operation, called with driver_async, completes.                   *
- **********************************************************************/
-static void
-netacess_ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
-{
-	DriverData *dd = (DriverData *) handle;
-	ThreadData *td = (ThreadData *) t_data;
-	unsigned char ctd[21];	
-
-	DBG("netaccess_ready_async");
-	sprintf(ctd, "%ld", td->ref);
-
-	if(td->result < 0) 
-		output_atom_result(dd->port, ctd, "error", erl_errno_id(td->terrno));
-	else
-		switch(td->command) {
-			case SELECT_BOARD:      
-			case BOOT_BOARD:      
-			case ENABLE_MANAGEMENT_CHAN:
-			case RESET_BOARD:
-				output_atom_result(dd->port, ctd, "ok", "done");
-				break;
-			case GET_VERSION:
-				output_string_result(dd->port, ctd, "ok",
-						td->ctlp->ic_dp, strlen(td->ctlp->ic_dp));
-				break;
-			case GET_DRIVER_INFO:
-				output_binary_result(dd->port, ctd, "ok",
-						td->bin, td->ctlp->ic_len);
-				break;
+		/*  construct a streams buffer for the data message  */
+		if (!(databin = driver_alloc_binary(BUFSIZE))) {
+			driver_failure_posix(dd->port, errno);
+			driver_free_binary(ctrlbin);
+			return;
 		}
-	free_tdata(td);
-}
+		strdata.maxlen = databin->orig_size;
+		strdata.buf = databin->orig_bytes;
+	
+		/*  read a message from the board  */
+		if(getmsg((int) event, &strctrl, &strdata, &flags) < 0) {
+			switch(errno) {
+				/*  these few errors can be ignored  */
+				case EAGAIN:
+				case EINTR:
+					driver_free_binary(ctrlbin);
+					driver_free_binary(databin);
+					break;
+				/*  other errors cause the port to be closed  */
+				default:
+					driver_failure_posix(dd->port, errno);
+					driver_free_binary(ctrlbin);
+					driver_free_binary(databin);
+			}
+		return;
+		}
+	
+		/*  send the control & data messages to the port owner  */
+		message_to_port(dd->port, ctrlbin, ((strctrl.len < 1) ? 0 : strctrl.len),
+				databin, ((strdata.len < 1) ? 0 : strdata.len));
+	
+		driver_free_binary(ctrlbin);
+		driver_free_binary(databin);
+	}
+	
+	if (event_data->revents & POLLOUT) {
+		DBG("POLLOUT");
+		while((iov = driver_peekq(dd->port, &vsize)) != NULL) {
+			qsize = driver_sizeq(dd->port);
+			/*  send the next message to the board  */	
+			if(message_to_board(dd->fd, iov) < 0) {
+				switch(errno) {
+					case EINTR:
+					case EAGAIN:
+						driver_event(dd->port, event, event_data);
+						return;
+					default:
+						driver_deq(dd->port, qsize);  /*  dump the whole queue  */
+						driver_failure_posix(dd->port, errno);
+						return;
+				}
+			}
+			driver_deq(dd->port, iov[0].iov_len); /* dequeue this sent message */
+			if(qsize <= dd->low)                /*  queue emptying, unthrottle  */
+				set_busy_port(dd->port, 0);
+		}
+		event_data->events = (event_data->events & ~POLLOUT);
+		driver_event(dd->port, event, event_data);
+	}
 
-
-/**********************************************************************
- *  netaccess_flush                                                   *
- *                                                                    *
- *  Erlang/OTP runs this callback when there is data in the driver    *
- *  queue and stop is about to be called.                             *
- **********************************************************************/
-static void
-netaccess_flush(ErlDrvData handle)
-{
-	DriverData *dd = (DriverData *) handle;
-
-	DBG("netaccess_flush");
-}
-
-
-/**********************************************************************
- *  netaccess_call                                                    *
- *                                                                    *
- *  Erlang/OTP runs this callback in response to a port_call/3.       *
- *  Works mostly like port_control (?).                               *
- **********************************************************************/
-static int
-netaccess_call(ErlDrvData handle, unsigned int command, 
-			char *buf, int len, char **rbuf, int rlen, unsigned int *flags)
-{
-	DriverData *dd = (DriverData *) handle;
-
-	DBG("netaccess_call");
-
-	return((int) ERL_DRV_ERROR_GENERAL);
+	if (event_data->revents & POLLWRBAND) {
+		DBG("POLLWRBAND");
+	}
+	if (event_data->revents & (POLLERR|POLLHUP|POLLNVAL)) {
+		DBG("POLLERR|POLLHUP|POLLNVAL");
+		driver_event(dd->port, event, 0);
+		driver_failure_posix(dd->port, errno);
+	}
 }
 
 
@@ -740,7 +828,6 @@ static void
 do_ioctl(void *t_data)
 {
 	ThreadData *td = (ThreadData *) t_data;
-	int ret;
 
 	DBG("do_iotcl");
 	td->result = ioctl(td->fd, I_STR, (struct strioctl *) td->ctlp);
@@ -776,127 +863,6 @@ free_tdata(void *t_data)
 	}
 	if (t_data != NULL)
 		driver_free(t_data);
-}
-
-
-/*  output result of ioctl to port e.g. {Port, Ref, {ok, Result}}  */
-static int
-output_atom_result(ErlDrvPort port, unsigned char *ref,
-				char *ret, char *result)
-{
-	ErlDrvTermData spec[13 + (strlen(ref) * 2)];
-	int i, j;
-
-	i = 0;
-	spec[i++] = ERL_DRV_PORT;
-	spec[i++] = driver_mk_port(port);
-
-	for(j = 0; j < strlen(ref); j++) {
-		spec[i++] = ERL_DRV_INT;
-		spec[i++] = ref[j];
-	}
-	spec[i++] = ERL_DRV_NIL;
-	spec[i++] = ERL_DRV_LIST;
-	spec[i++] = ++j;
-
-	spec[i++] = ERL_DRV_ATOM;
-	spec[i++] = driver_mk_atom(ret);
-	spec[i++] = ERL_DRV_ATOM;
-	spec[i++] = driver_mk_atom(result);
-
-	spec[i++] = ERL_DRV_TUPLE;
-	spec[i++] = 2;
-	spec[i++] = ERL_DRV_TUPLE;
-	spec[i] = 3;
-
-	return driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
-}
-
-/*  output result of ioctl to port e.g. {Port, Ref, {ok, <<Binary>>}}  */
-static int
-output_binary_result(ErlDrvPort port, unsigned char *ref,
-				char *ret, ErlDrvBinary *bin, int len)
-{
-	ErlDrvTermData spec[15 + (strlen(ref) * 2)];
-	int i, j;
-
-	i = 0;
-	spec[i++] = ERL_DRV_PORT;
-	spec[i++] = driver_mk_port(port);
-
-	for(j = 0; j < strlen(ref); j++) {
-		spec[i++] = ERL_DRV_INT;
-		spec[i++] = ref[j];
-	}
-	spec[i++] = ERL_DRV_NIL;
-	spec[i++] = ERL_DRV_LIST;
-	spec[i++] = ++j;
-
-	spec[i++] = ERL_DRV_ATOM;
-	spec[i++] = driver_mk_atom(ret);
-
-	spec[i++] = ERL_DRV_BINARY;
-	spec[i++] = (ErlDrvTermData) bin;
-	spec[i++] = len;
-	spec[i++] = 0;
-
-	spec[i++] = ERL_DRV_TUPLE;
-	spec[i++] = 2;
-	spec[i++] = ERL_DRV_TUPLE;
-	spec[i] = 3;
-
-    return driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
-}
-
-/*  output result of ioctl to port e.g. {Port, Ref, {ok, "IISDN Ver 7.0"}}  */
-static int
-output_string_result(ErlDrvPort port, unsigned char *ref,
-				char *ret, char *string, int len)
-{
-	ErlDrvTermData spec[14 + (strlen(ref) * 2)];
-	int i, j;
-
-	i = 0;
-	spec[i++] = ERL_DRV_PORT;
-	spec[i++] = driver_mk_port(port);
-
-	for(j = 0; j < strlen(ref); j++) {
-		spec[i++] = ERL_DRV_INT;
-		spec[i++] = ref[j];
-	}
-	spec[i++] = ERL_DRV_NIL;
-	spec[i++] = ERL_DRV_LIST;
-	spec[i++] = ++j;
-
-	spec[i++] = ERL_DRV_ATOM;
-	spec[i++] = driver_mk_atom(ret);
-
-	spec[i++] = ERL_DRV_STRING;
-	spec[i++] = (ErlDrvTermData) string;
-	spec[i++] = len;
-
-	spec[i++] = ERL_DRV_TUPLE;
-	spec[i++] = 2;
-	spec[i++] = ERL_DRV_TUPLE;
-	spec[i] = 3;
-
-    return driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
-}
-
-
-/*  output error e.g.     {Port, {error, einval}}     */
-static int
-output_error(ErlDrvPort port, char *string)
-{
-	ErlDrvTermData spec[] = {
-        	ERL_DRV_PORT, driver_mk_port(port),
-        		ERL_DRV_ATOM, driver_mk_atom("error"),
-        		ERL_DRV_ATOM, driver_mk_atom(string),
-        		ERL_DRV_TUPLE, 2,
-        	ERL_DRV_TUPLE, 2,
-    };
-
-    return driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
 }
 
 
