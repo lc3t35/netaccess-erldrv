@@ -98,17 +98,14 @@ l4_to_l3(R) when is_record(R, l4_to_l3) ->
 			(R#l4_to_l3.lli):?IISDNu16bit>>,
 	MessageSpecificData = R#l4_to_l3.data,
 	l4_to_l3(MessageType, CommonHeader, MessageSpecificData).
-%% The first octet is coded as a zero for all L4L3 messages so that the
-%% erlang netaccess driver knows to send them as control messages on the
-%% stream (data messages such as I-frames have a non-zero first octet).
 l4_to_l3(_, Header, Data) when is_binary(Data) ->
-	<<0, Header/binary, Data/binary>>;
+	<<Header/binary, Data/binary>>;
 l4_to_l3(?L4L3mSET_HARDWARE, Header, Data) ->
-	<<0, Header/binary, (hardware_data(Data))/binary>>;
+	<<Header/binary, (hardware_data(Data))/binary>>;
 l4_to_l3(?L4L3mSET_TSI, Header, Data) ->
-	<<0, Header/binary, (tsi_data(Data))/binary>>;
+	<<Header/binary, (tsi_data(Data))/binary>>;
 l4_to_l3(?L4L3mENABLE_PROTOCOL, Header, Data) ->
-	<<0, Header/binary, (ena_proto_data(Data))/binary>>.
+	<<Header/binary, (ena_proto_data(Data))/binary>>.
 
 %% @type l3_to_l4().  L3L4 SMI Message sent from board to host.
 %% 	<p>A record which includes the following fields:</p>

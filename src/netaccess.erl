@@ -342,22 +342,22 @@ req_tsi_status(ServerRef) ->
 %%
 %% @doc Specifies and enables layer 1, 2 &amp; 3 processing on an open channel.
 %%
-enable_protocol(Port, LapdId, Data) ->
+enable_protocol(Port, LapdId, EnaProtoData) ->
 	L4L3_rec = #l4_to_l3{lapdid = LapdId,
-			msgtype = ?L4L3mENABLE_PROTOCOL, data = Data},
+			msgtype = ?L4L3mENABLE_PROTOCOL, data = EnaProtoData},
 	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
-	port_command(Port, L4L3_bin).
+	erlang:port_call(Port, ?L4L3m, L4L3_bin).
 	
 
-%% @spec (Channel, DataBin) -> true
+%% @spec (Channel, Iframe) -> true
 %% 	Channel = port()
-%% 	DataBin = binary() | iolist()
+%% 	Iframe= binary() | iolist()
 %%
 %% @doc Sends a data message on an open channel.
 %%
-send(Channel, Data) ->
+send(Channel, Iframe) ->
 	% the driver uses the first byte to distinguish between control & data
-	port_command(Channel, [255, Data]).
+	port_command(Channel, Iframe).
 	
 
 %%----------------------------------------------------------------------

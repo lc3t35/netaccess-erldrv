@@ -63,6 +63,10 @@
 #  include <stropts.h>
 #endif
 
+#if HAVE_SYS_UIO_H
+#  include <sys/uio.h>
+#endif
+
 #if HAVE_ERL_DRIVER_H
 #  include "erl_driver.h"
 #endif
@@ -92,18 +96,17 @@
 #define LOWWATER (4 * MAXIFRAMESZ)
 #define HIGHWATER (8 * MAXIFRAMESZ)
 
-#define SET_NONBLOCKING(fd)     fcntl((fd), F_SETFL, \
-                                      fcntl((fd), F_GETFL, 0) | O_NONBLOCK)
-#define QKEY NULL
 #define CANCEL_ASYNC 10
 #define FLUSH_QUEUE  11
 
-#define BOOT_BOARD 0
+#define BOOT_BOARD             0
 #define ENABLE_MANAGEMENT_CHAN 1
-#define RESET_BOARD  2
-#define GET_VERSION 3
-#define GET_DRIVER_INFO 4
-#define SELECT_BOARD 5
+#define RESET_BOARD            2
+#define GET_VERSION            3
+#define GET_DRIVER_INFO        4
+#define SELECT_BOARD           5
+#define THREAD_L4L3           43
+#define THREAD_IFRAME         92
 
 #if defined(DEBUG)
 #  define DBG(string) fprintf(stderr, string "\r\n");
@@ -126,7 +129,6 @@ typedef struct {
 
 /*  This data is needed for a thread executing an ioctl request  */
 typedef struct {
-	int command;                    /* ioctl command               */
 	struct strioctl *ctlp;          /* streams control data        */
 	download_t *bp;                 /* structure to hold boot file */
 	ErlDrvBinary *bin;              /* driver binary for result    */
@@ -134,27 +136,27 @@ typedef struct {
 
 /*  This data is needed for a thread sending an L4L3 SMI message  */
 typedef struct {
-	SysIOVec ctrlbin;
+	struct strbuf strctrl;
 } ThreadL4L3Data;
 
 /*  This data is needed for a thread sending an IFRAME message    */
 typedef struct {
-	SysIOVec databin;
+	int vsize;
+	int size;
+	SysIOVec *iov;
+	ErlDrvBinary **binv;
 } ThreadIframeData;
 
 /*  This data is passed around for asynchronous requests  */
 typedef struct {
-#define TD_IOCTL  0
-#define TD_L4L3   1
-#define TD_IFRAME 2
-	int type;                       /* ioctl, l4l3 or iframe       */
+	int command;                    /* ioctl command               */
 	int fd;                         /* File descriptor             */
 	long ref;                       /* handle to async task        */
-	int result;                     /* return from async function  */
+	int tresult;                     /* return from async function  */
 	int terrno;                     /* errno from async function   */
 	union {
 		ThreadIoctlData ioctl;       /* iotctl specific data        */
-		ThreadL4L3Data l3l4;         /* L4L3 SMI message data       */
+		ThreadL4L3Data l4l3;         /* L4L3 SMI message data       */
 		ThreadIframeData iframe;     /* IFRAME message data         */
 	} data;
 } ThreadData;
@@ -188,15 +190,15 @@ static void event(ErlDrvData handle, ErlDrvEvent event,
  **********************************************************************
  **********************************************************************/
 
-static void do_ioctl(void *t_data);
-static void done_ioctl(DriverData *dd, ThreadData *td);
-static void free_ioctl(void *t_data);
-static void do_l4l3(void *t_data);
+static void do_l4l3(ThreadData *td);
 static void done_l4l3(DriverData *dd, ThreadData *td);
-static void free_l4l3(void *t_data);
-static void do_iframe(void *t_data);
+static void free_l4l3(ThreadData *td);
+static void do_iframe(ThreadData *td);
 static void done_iframe(DriverData *dd, ThreadData *td);
-static void free_iframe(void *t_data);
+static void free_iframe(ThreadData *td);
+static void do_ioctl(ThreadData *td);
+static void done_ioctl(DriverData *dd, ThreadData *td);
+static void free_ioctl(ThreadData *td);
 static int message_to_board(int fd, SysIOVec *iov);
 static int message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl,
 		int ctrllen, ErlDrvBinary *data, int datalen);
@@ -303,24 +305,23 @@ start(ErlDrvPort port, char *command)
 	DBG("start");
 	set_port_control_flags(port, 0); /*  port_control/3 returns a list */
 
-	if((dd = driver_alloc(sizeof(DriverData))) == NULL)
+	if(!(dd = driver_alloc(sizeof(DriverData))))
 		return ERL_DRV_ERROR_ERRNO;
 
 	/*  pull out the board device name if present  */
 	if((s = (char *) strchr(command, ' ')) != NULL) {
 		s++;
 		/*  open the STREAMS clone device for the Netaccess driver  */
-		if ((dd->fd = open(s, O_RDWR)) < 0)
+		if ((dd->fd = open(s, O_RDWR|O_NONBLOCK)) < 0)
 			return ERL_DRV_ERROR_ERRNO;
 	} else {    /*  when no device name is present we use default  */
-		if ((dd->fd = open(DEV_PATH, O_RDWR)) < 0)
+		if ((dd->fd = open(DEV_PATH, O_RDWR|O_NONBLOCK)) < 0)
 			return ERL_DRV_ERROR_ERRNO;
 	}
-
-	SET_NONBLOCKING(dd->fd);
 	pd.events = (POLLIN | POLLRDBAND | POLLPRI);
 	driver_event(port, (ErlDrvEvent) dd->fd, (ErlDrvEventData) &pd);
 
+	fcntl(dd->fd, F_SETFL, (fcntl(dd->fd, F_GETFL, 0) & ~O_NONBLOCK));
 	dd->port = port;	
 	dd->low = LOWWATER;       /*  queue low water mark   */
 	dd->high = HIGHWATER;     /*  queue high water mark  */
@@ -368,10 +369,42 @@ static void
 outputv(ErlDrvData handle, ErlIOVec *ev)
 {
 	DriverData *dd = (DriverData *) handle;
-	int sz;
+	int sz, i;
 	struct erl_drv_event_data pd;
+	ThreadData *td;
 
 	DBG("outputv");
+	if(!(td = driver_alloc(sizeof(ThreadData)))) {
+		driver_failure_posix(dd->port, errno);
+		return;
+	}
+	td->command = THREAD_IFRAME;
+	td->fd = dd->fd;
+	td->data.iframe.vsize = ev->vsize - 1;
+	td->data.iframe.size = ev->size;
+	if((td->data.iframe.iov = (SysIOVec *) driver_alloc(ev->vsize *
+			sizeof(SysIOVec))) == NULL) {
+		driver_free(td);
+		driver_failure_posix(dd->port, errno);
+		return;
+	}
+	if((td->data.iframe.binv = (ErlDrvBinary **) driver_alloc(ev->vsize *
+			sizeof(ErlDrvBinary *))) == NULL) {
+		driver_free(td->data.iframe.iov);
+		driver_free(td);
+		driver_failure_posix(dd->port, errno);
+		return;
+	}
+	for (i = 1; i < ev->vsize; i++) {
+		td->data.iframe.iov[i-1].iov_base = ev->iov[i].iov_base;
+		td->data.iframe.iov[i-1].iov_len = ev->iov[i].iov_len;
+		td->data.iframe.binv[i-1] = ev->binv[i];
+		td->data.iframe.binv[i-1]->refc++;
+	}
+	td->ref = driver_async(dd->port, NULL, (void *)(void *)do_iframe,
+			(void *)td, (void *)(void *)free_iframe);
+
+#if 0
 	/*  if there's a queue just add to it  */
 	if((sz = driver_sizeq(dd->port)) > 0) {
 			driver_enqv(dd->port, ev, 0);
@@ -380,23 +413,7 @@ outputv(ErlDrvData handle, ErlIOVec *ev)
 				set_busy_port(dd->port, 1);
 			} return;
 	}
-
-	/*  send the message to the board  */	
-	if(message_to_board(dd->fd, &ev->iov[1]) < 0) {
-		DBG("message_to_board failed");
-		switch(errno) {
-			case EINTR:
-			case ENOSR:
-			case EAGAIN:
-				driver_enqv(dd->port, ev, 0);
-				pd.events = POLLOUT;
-				driver_event(dd->port, (ErlDrvEvent) dd->fd, &pd);
-				break;
-			default:
-				driver_event(dd->port, (ErlDrvEvent) dd->fd, 0);
-				driver_failure_posix(dd->port, errno);
-		}
-	}
+#endif
 }
 	
 
@@ -409,7 +426,6 @@ outputv(ErlDrvData handle, ErlIOVec *ev)
 static void
 finish(void) 
 {
-	
 	DBG("finish");
 }
 
@@ -425,7 +441,6 @@ timeout(ErlDrvData handle)
 {
 	/*  DriverData *dd = (DriverData *) handle;  */
 	DBG("timeout");
-
 }
 
 
@@ -443,15 +458,20 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 
 	DBG("ready_async");
 
-	switch (td->type) {
-		case TD_IOCTL:
-			done_ioctl(dd, td);
-			break;
-		case TD_L4L3:
+	switch (td->command) {
+		case THREAD_L4L3:
 			done_l4l3(dd, td);
 			break;
-		case TD_IFRAME:
+		case THREAD_IFRAME:
 			done_iframe(dd, td);
+			break;
+		case SELECT_BOARD:
+		case BOOT_BOARD:      
+		case ENABLE_MANAGEMENT_CHAN:
+		case RESET_BOARD:
+		case GET_VERSION:
+		case GET_DRIVER_INFO:
+			done_ioctl(dd, td);
 			break;
 		default:
 			DBG("unknown thread data type");
@@ -490,8 +510,8 @@ call(ErlDrvData handle, unsigned int command,
 	long ref;
 	int qsize;
 	ThreadData *td;
-	struct strioctl *cntl_ptr;
-	int version, index, rindex, size;
+	struct strioctl *strioctl;
+	int version, index, rindex, type, size;
 
 	DBG("call");
 	index = rindex = size = 0;
@@ -527,88 +547,128 @@ call(ErlDrvData handle, unsigned int command,
 				DBG("ei_encode failed");
 				return((int) ERL_DRV_ERROR_ERRNO);
 			} else
+				/*  TODO:  implement something?  */
 				return(rindex);
 	}
 	/*  these are potentially blocking tasks so we must be threaded  */
 	if (erts_async_max_threads > 0) {
 		/*  initialize thread data  */
-		td = (ThreadData *) driver_alloc(sizeof(ThreadData));
+		if(!(td = (ThreadData *) driver_alloc(sizeof(ThreadData))))
+			return((int) ERL_DRV_ERROR_ERRNO);
 		memset(td, 0, sizeof(ThreadData));
-		td->type = TD_IOCTL;
+		td->command = command;
 		td->fd = dd->fd;				
-		td->data.ioctl.command = command;
-		cntl_ptr = (struct strioctl *) driver_alloc(sizeof(struct strioctl));
-		memset(cntl_ptr, 0, sizeof(struct strioctl));
-		td->data.ioctl.ctlp = cntl_ptr;
 
+		/*  handle a L4L3 SMI control message in a thread  */
+		if (command == THREAD_L4L3) {
+			if (ei_get_type(buf, &index, &type, &size)
+					|| (type != ERL_BINARY_EXT)
+					|| !(td->data.l4l3.strctrl.buf = (char *) driver_alloc(size))) {
+				driver_free(td);
+				return((int) ERL_DRV_ERROR_ERRNO);
+			} else {
+				if (ei_decode_binary(buf, &index, td->data.l4l3.strctrl.buf,
+						(long *) &td->data.l4l3.strctrl.len)) {
+					driver_free(td->data.l4l3.strctrl.buf);
+					return((int) ERL_DRV_ERROR_BADARG);
+				}
+				td->ref = driver_async(dd->port, NULL, (void *)(void *)do_l4l3,
+						(void *)td, (void *)(void *)free_l4l3);
+				ei_encode_version(*rbuf, &rindex);
+				ei_encode_atom(*rbuf, &rindex, "true");
+				return(rindex);
+			}
+		}
+
+		/*  handle an IOCTL control message in a thread   */
+		if(!(strioctl = (struct strioctl *) driver_alloc(sizeof(struct strioctl)))) {
+			driver_free(td);
+			return((int) ERL_DRV_ERROR_ERRNO);
+		}
+		memset(strioctl, 0, sizeof(struct strioctl));
+		td->data.ioctl.ctlp = strioctl;
 		switch(command) {
 			case SELECT_BOARD:
 				DBG("SELECT_BOARD");
-				if (ei_decode_long(buf, &index, &ref))
+				if (ei_decode_long(buf, &index, &ref)) {
+					free_ioctl(td);
 					return((int) ERL_DRV_ERROR_BADARG);
-				cntl_ptr->ic_cmd = PRIDRViocSEL_BOARD;
-				cntl_ptr->ic_len = 1;                
-				cntl_ptr->ic_dp = (char *) driver_alloc(10);  /* board string */  
-				cntl_ptr->ic_dp[0] = ref;                     /* board num  */
+				}
+				strioctl->ic_cmd = PRIDRViocSEL_BOARD;
+				strioctl->ic_len = 1;                
+				if(!(strioctl->ic_dp = (char *) driver_alloc(10)))  /* board string */   {
+					free_ioctl(td);
+					return((int) ERL_DRV_ERROR_ERRNO);
+				}
+				strioctl->ic_dp[0] = ref;                     /* board num  */
 				break;
 #ifdef _LP64 /*  passing a pointer in an ioctl requires 64-bit compilation
                  on 64 bit kernels.  if the kernel is 32 bit or if it is
                  64 bit and the Erlang emulator is built 64 bit this works */
 			case BOOT_BOARD:      
 				DBG("BOOT_BOARD");
-				cntl_ptr->ic_cmd = PRIDRViocBOOT;
-				cntl_ptr->ic_timout = 60;               /* 60 second timeout   */
+				strioctl->ic_cmd = PRIDRViocBOOT;
+				strioctl->ic_timout = 60;               /* 60 second timeout   */
 				/* we receive a large binary which is the boot image.          */
 				/* we must allocate a bootparam structure, initialize it,      */
 				/* allocate more space for the binary image and copy the       */
 				/* binary image into that space and pass a pointer to the      */
 				/* bootparam structure as the data for the ioctl (free later)  */
-				td->data.ioctl.bp = (download_t *) driver_alloc(sizeof(download_t));
+				if(!(td->data.ioctl.bp = (download_t *) driver_alloc(sizeof(download_t)))) {
+					free_ioctl(td);
+					return((int) ERL_DRV_ERROR_ERRNO);
+				}
 				memset(td->data.ioctl.bp, 0, sizeof(download_t));
-				cntl_ptr->ic_len = sizeof(download_t);
-				cntl_ptr->ic_dp = (char *) td->data.ioctl.bp;
+				strioctl->ic_len = sizeof(download_t);
+				strioctl->ic_dp = (char *) td->data.ioctl.bp;
 				if (ei_get_type(buf, &index, &type, &size)
 						|| (type != ERL_BINARY_EXT)
-						|| !(td->data.ioctl.bp->outptr = (char *) driver_alloc(count))) {
+						|| !(td->data.ioctl.bp->outptr = (char *) driver_alloc(size))) {
 					free_ioctl(td);
 					return((int) ERL_DRV_ERROR_ERRNO);
 				} else {
 					if (ei_decode_binary(buf, &index, td->data.ioctl.bp->outptr, 
-							&td->data.ioctl.bp->len))
+							&td->data.ioctl.bp->len)) {
+						free_ioctl(td);
 						return((int) ERL_DRV_ERROR_BADARG);
+					}
 				}
 				break;
 #endif	/*  _LP64   */
 			case ENABLE_MANAGEMENT_CHAN:
 				DBG("ENABLE_MANAGEMENT_CHAN");
-				cntl_ptr->ic_cmd = PRIDRViocENA_MGT_CHAN;
+				strioctl->ic_cmd = PRIDRViocENA_MGT_CHAN;
 				break;
 			case RESET_BOARD:
 				DBG("RESET_BOARD");
-				cntl_ptr->ic_cmd = PRIDRViocRESET_BOARD;
+				strioctl->ic_cmd = PRIDRViocRESET_BOARD;
 				break;
 			case GET_VERSION:
 				DBG("GET_VERSION");
-				cntl_ptr->ic_cmd = PRIDRViocGET_VERSION;
-				cntl_ptr->ic_len = IISDN_VERSION_STRING_LEN;
-				cntl_ptr->ic_dp = (char *) driver_alloc(IISDN_VERSION_STRING_LEN);
+				strioctl->ic_cmd = PRIDRViocGET_VERSION;
+				strioctl->ic_len = IISDN_VERSION_STRING_LEN;
+				if(!(strioctl->ic_dp = (char *) driver_alloc(IISDN_VERSION_STRING_LEN))) {
+					free_ioctl(td);
+					return((int) ERL_DRV_ERROR_ERRNO);
+				}
 				break;
 			case GET_DRIVER_INFO:
 				DBG("GET_DRIVER_INFO");
-				cntl_ptr->ic_cmd = PRIDRViocGET_DRIVER_INFO;
-				cntl_ptr->ic_len = sizeof(driver_info_t);
+				strioctl->ic_cmd = PRIDRViocGET_DRIVER_INFO;
+				strioctl->ic_len = sizeof(driver_info_t);
 				if (!(td->data.ioctl.bin = driver_alloc_binary(sizeof(driver_info_t)))) {
 					free_ioctl(td);
 					return((int) ERL_DRV_ERROR_ERRNO);
 				}
-				cntl_ptr->ic_dp = (char *) td->data.ioctl.bin->orig_bytes;
+				strioctl->ic_dp = (char *) td->data.ioctl.bin->orig_bytes;
 				break;
 			default:
 				DBG("unknown command");
 				free_ioctl(td);
 				return((int) ERL_DRV_ERROR_BADARG);
 		}
-		td->ref = driver_async(dd->port, QKEY, do_ioctl, td, free_ioctl);
+		td->ref = driver_async(dd->port, NULL, (void *)(void *)do_ioctl,
+				(void *)td, (void *)(void *)free_ioctl);
 		/*  return the reference  */
 		if (ei_encode_version(*rbuf, &rindex)
 				|| ei_encode_tuple_header(*rbuf, &rindex, 2)
@@ -685,6 +745,7 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 		driver_free_binary(databin);
 	}
 	
+/*  TODO:  remove this  */
 	if (event_data->revents & POLLOUT) {
 		DBG("POLLOUT");
 		while((iov = driver_peekq(dd->port, &vsize)) != NULL) {
@@ -717,7 +778,6 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 	}
 	if (event_data->revents & POLLERR) {
 		DBG("POLLERR");
-fprintf(stderr, "POLLERR encountered, errno = %d, revents = 0x%x\n", errno, event_data->revents);
 		driver_event(dd->port, event, 0);
 		driver_failure_posix(dd->port, errno);
 	}
@@ -752,14 +812,11 @@ fprintf(stderr, "POLLERR encountered, errno = %d, revents = 0x%x\n", errno, even
  *  can inspect it later.                                             *
  **********************************************************************/
 static void
-do_ioctl(void *t_data)
+do_ioctl(ThreadData *td)
 {
-	ThreadData *td = (ThreadData *) t_data;
-
 	DBG("do_iotcl");
-	td->result = ioctl(td->fd, I_STR, (struct strioctl *) td->data.ioctl.ctlp);
-	if (td->result < 0) 
-		td->terrno = errno;
+	td->tresult = ioctl(td->fd, I_STR, (struct strioctl *) td->data.ioctl.ctlp);
+	td->terrno = errno;
 }
 
 
@@ -775,10 +832,10 @@ done_ioctl(DriverData *dd, ThreadData *td)
 
 	DBG("done_ioctl");
 
-	if (td->result < 0) {
+	if (td->tresult < 0) {
 		/*  {Port, {ref, Ref}, {error, Reason}}  */
 		if (!(ret = driver_alloc(16 * sizeof(ErlDrvTermData)))) {
-			DBG("driver_alloc failed");
+			driver_failure_posix(dd->port, errno);
 			return;
 		}
 		ret[0] = ERL_DRV_PORT;
@@ -802,16 +859,15 @@ done_ioctl(DriverData *dd, ThreadData *td)
 		driver_free(ret);
 		return;
 	} 
-		
 	else
-		switch(td->data.ioctl.command) {
+		switch(td->command) {
 			case SELECT_BOARD:      
 			case BOOT_BOARD:      
 			case ENABLE_MANAGEMENT_CHAN:
 			case RESET_BOARD:
 				/*  {Port, {ref, Ref}, ok}  */
 				if (!(ret = driver_alloc(12 * sizeof(ErlDrvTermData)))) {
-					DBG("driver_alloc failed");
+					driver_failure_posix(dd->port, errno);
 					return;
 				}
 				ret[0] = ERL_DRV_PORT;
@@ -833,7 +889,7 @@ done_ioctl(DriverData *dd, ThreadData *td)
 			case GET_VERSION:
 				/*  {Port, {ref, Ref}, {ok, Version}}  */
 				if (!(ret = driver_alloc(17 * sizeof(ErlDrvTermData)))) {
-					DBG("driver_alloc failed");
+					driver_failure_posix(dd->port, errno);
 					return;
 				}
 				ret[0] = ERL_DRV_PORT;
@@ -860,7 +916,7 @@ done_ioctl(DriverData *dd, ThreadData *td)
 			case GET_DRIVER_INFO:
 				/*  {Port, {ref, Ref}, {ok, Binary}}  */
 				if (!(ret = driver_alloc(18 * sizeof(ErlDrvTermData)))) {
-					DBG("driver_alloc failed");
+					driver_failure_posix(dd->port, errno);
 					return;
 				}
 				ret[0] = ERL_DRV_PORT;
@@ -900,25 +956,18 @@ done_ioctl(DriverData *dd, ThreadData *td)
  *  This function should free all of our thread specific data.        *
  **********************************************************************/
 static void
-free_ioctl(void *t_data)
+free_ioctl(ThreadData *td)
 {
-	ThreadData *td = (ThreadData *) t_data;
-
 	DBG("free_ioctl");
 	if (td->data.ioctl.bin != NULL)
 		driver_free_binary(td->data.ioctl.bin);
-	if (td->data.ioctl.bp != NULL) {
-		if (td->data.ioctl.bp->outptr != NULL)
-			driver_free(td->data.ioctl.bp->outptr);
-		driver_free(td->data.ioctl.bp);
-	}
-	if (td->data.ioctl.ctlp != NULL) {
-		if (td->data.ioctl.ctlp->ic_dp != NULL)
-			driver_free(td->data.ioctl.ctlp->ic_dp);
-		driver_free(td->data.ioctl.ctlp);
-	}
-	if (t_data != NULL)
-		driver_free(t_data);
+	if (td->data.ioctl.bp != NULL)
+		driver_free(td->data.ioctl.bp->outptr);
+	driver_free(td->data.ioctl.bp);
+	if (td->data.ioctl.ctlp != NULL)
+		driver_free(td->data.ioctl.ctlp->ic_dp);
+	driver_free(td->data.ioctl.ctlp);
+	driver_free(td);
 }
 
 
@@ -929,11 +978,13 @@ free_ioctl(void *t_data)
  *  in a thread by driver_async.                                      *
  **********************************************************************/
 static void
-do_l4l3(void *t_data)
+do_l4l3(ThreadData *td)
 {
-	ThreadData *td = (ThreadData *) t_data;
-
 	DBG("do_l4l3");
+	/*  send a control message to the board with high priority  */
+	td->tresult= putmsg(td->fd, &td->data.l4l3.strctrl, NULL, RS_HIPRI);
+	td->terrno = errno;
+	/* TODO:  set thread priority  */
 }
 
 
@@ -946,8 +997,7 @@ static void
 done_l4l3(DriverData *dd, ThreadData *td)
 {
 	DBG("done_l4l3");
-
-	free_l4l3(td);
+ 	free_l4l3(td);
 }
 
 
@@ -961,11 +1011,11 @@ done_l4l3(DriverData *dd, ThreadData *td)
  *  This function should free all of our thread specific data.        *
  **********************************************************************/
 static void
-free_l4l3(void *t_data)
+free_l4l3(ThreadData *td)
 {
-	ThreadData *td = (ThreadData *) t_data;
-
 	DBG("free_l4l3");
+	driver_free(td->data.l4l3.strctrl.buf);
+	driver_free(td);
 }
 
 
@@ -976,11 +1026,11 @@ free_l4l3(void *t_data)
  *  thread by driver_async.                                           *
  **********************************************************************/
 static void
-do_iframe(void *t_data)
+do_iframe(ThreadData *td)
 {
-	ThreadData *td = (ThreadData *) t_data;
-
 	DBG("do_iframe");
+	td->tresult = writev(td->fd, td->data.iframe.iov, td->data.iframe.vsize);
+	td->terrno = errno;
 }
 
 
@@ -993,7 +1043,6 @@ static void
 done_iframe(DriverData *dd, ThreadData *td)
 {
 	DBG("done_iframe");
-
 	free_iframe(td);
 }
 
@@ -1009,11 +1058,17 @@ done_iframe(DriverData *dd, ThreadData *td)
  *  This function should free all of our thread specific data.        *
  **********************************************************************/
 static void
-free_iframe(void *t_data)
+free_iframe(ThreadData *td)
 {
-	ThreadData *td = (ThreadData *) t_data;
+	int i;
 
 	DBG("free_iframe");
+	driver_free(td->data.iframe.iov);
+	for(i = 0; i < td->data.iframe.vsize; i++)
+		if (td->data.iframe.binv[i] != NULL)
+			driver_free_binary(td->data.iframe.binv[i]);
+	driver_free(td->data.iframe.binv);
+	driver_free(td);
 }
 
 
