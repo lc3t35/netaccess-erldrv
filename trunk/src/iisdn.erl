@@ -1351,8 +1351,7 @@ hardware_data(HW) when is_record(HW, hardware_data),
 	CsuPad = ?IISDN_MAX_LINES - length(HW#hardware_data.csu),
 	CsuList = HW#hardware_data.csu ++ lists:duplicate(CsuPad, 0),
 	LtoBin = fun(Line, Bin) ->
-				B = line_data(Line),
-				<<Bin/binary, B/binary>>
+				<<Bin/binary, Line:?IISDNu8bit>>
 			end,
 	CSU = lists:foldl(LtoBin, <<>>, CsuList),
 	NewHW = HW#hardware_data{csu = CSU},
