@@ -26,7 +26,7 @@ endif
 	$(ERLC) -b beam -W -v -o ../ebin -I ../include $(DEBUG_FLAGS) $<
 
 ../doc/%.html:%.erl
-	$(ERL) -noshell -pa @EDOCPATH@ -run edoc_run file '"$<"' '[{dir,"../doc"}]' -s erlang halt
+	$(ERL) -noshell -pa @EDOCPATH@ -run edoc_run file '"$<"' '[{dir,"../doc"}]' -s init stop
 
 ../ebin/netaccess.beam:	netaccess.erl ../include/iisdn.hrl ../include/pridrv.hrl
 ../ebin/netaccess_server.beam:	netaccess_server.erl ../include/iisdn.hrl ../include/pridrv.hrl
