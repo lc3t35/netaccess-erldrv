@@ -833,34 +833,8 @@ done_ioctl(DriverData *dd, ThreadData *td)
 	ErlDrvTermData *ret;
 
 	DBG("done_ioctl");
-
-	if (td->tresult < 0) {
-		/*  {Port, {ref, Ref}, {error, Reason}}  */
-		if (!(ret = driver_alloc(16 * sizeof(ErlDrvTermData)))) {
-			driver_failure_posix(dd->port, errno);
-			return;
-		}
-		ret[0] = ERL_DRV_PORT;
-		ret[1] = driver_mk_port(dd->port);
-		ret[2] = ERL_DRV_ATOM;
-		ret[3] = driver_mk_atom("ref");
-		ret[4] = ERL_DRV_INT;
-		ret[5] = td->ref;
-		ret[6] = ERL_DRV_TUPLE;
-		ret[7] = 2;
-		ret[8] = ERL_DRV_ATOM;
-		ret[9] = driver_mk_atom("error");
-		ret[10] = ERL_DRV_ATOM;
-		ret[11] = driver_mk_atom(erl_errno_id(td->terrno));
-		ret[12] = ERL_DRV_TUPLE;
-		ret[13] = 2;
-		ret[14] = ERL_DRV_TUPLE;
-		ret[15] = 3;
-		if (driver_output_term(dd->port, ret, 16) < 1)
-			DBG("driver_output_term failed");
-		driver_free(ret);
-		return;
-	} 
+	if (td->tresult < 0)
+		driver_failure_posix(dd->port, td->terrno);
 	else
 		switch(td->command) {
 			case SELECT_BOARD:      
@@ -984,7 +958,7 @@ do_l4l3(ThreadData *td)
 {
 	DBG("do_l4l3");
 	/*  send a control message to the board with high priority  */
-	td->tresult= putmsg(td->fd, &td->data.l4l3.strctrl, NULL, RS_HIPRI);
+	td->tresult = putmsg(td->fd, &td->data.l4l3.strctrl, NULL, RS_HIPRI);
 	td->terrno = errno;
 	/* TODO:  set thread priority  */
 }
@@ -999,6 +973,8 @@ static void
 done_l4l3(DriverData *dd, ThreadData *td)
 {
 	DBG("done_l4l3");
+	if (td->tresult < 0)
+		driver_failure_posix(dd->port, td->terrno);
  	free_l4l3(td);
 }
 
@@ -1045,6 +1021,8 @@ static void
 done_iframe(DriverData *dd, ThreadData *td)
 {
 	DBG("done_iframe");
+	if (td->tresult < 0)
+		driver_failure_posix(dd->port, td->terrno);
 	free_iframe(td);
 }
 
