@@ -26,15 +26,18 @@ AC_ARG_ENABLE(debug,
 	[  --enable-debug    Turn on debugging],
 	[case "${enableval}" in
 		yes)
+			debug=true
 			CPPFLAGS="${CPPFLAGS} -DDEBUG"
 			;;
 		no)
+			debug=false
 			;;
 		*) 
 			AC_MSG_ERROR(bad value ${enableval} for --enable-debug)
 			;;
 	esac],
 	[debug=false])
+AM_CONDITIONAL(DEBUG, test x"$debug" = "xtrue")
 
 AC_ARG_ENABLE(threads,
 	[  --enable-threads   build for a threaded emulator],

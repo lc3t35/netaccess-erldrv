@@ -8,8 +8,13 @@ EXTRA_DIST = netaccess.erl netaccess_server.erl \
 		iisdn.erl iisdn.hrl \
 		q931_test.erl tsi_test.erl abis,erl
 CLEANFILES = $(beam_DATA)
+
 .erl.beam:
+if DEBUG
+	$(ERLC) -b beam -W -v +debug_info $<
+else
 	$(ERLC) -b beam -W -v $<
+endif
 
 netaccess.beam:	netaccess.erl iisdn.hrl pridrv.hrl
 netaccess_server.beam:	netaccess_server.erl 
