@@ -24,6 +24,10 @@
 -define(GET_DRIVER_INFO,        4).
 -define(SELECT_BOARD,           5).
 -define(CANCEL_ASYNC,          10).
+-define(MAXIFRAMESIZE,         20).
+-define(LOWWATER,              21).
+-define(HIGHWATER,             22).
+-define(QSIZE,                 23).
 -define(L4L3m,                 43).
 -define(IFRAME,                92).
 
