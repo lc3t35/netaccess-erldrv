@@ -538,6 +538,7 @@ call(ErlDrvData handle, unsigned int command,
 			}
 			return(rindex);
 			break;
+#if 0
 		case FLUSH_QUEUE:
 			DBG("FLUSH_QUEUE");
     		qsize = driver_sizeq(dd->port);
@@ -550,6 +551,7 @@ call(ErlDrvData handle, unsigned int command,
 				/*  TODO:  implement something?  */
 				return(rindex);
 	}
+#endif
 	/*  these are potentially blocking tasks so we must be threaded  */
 	if (erts_async_max_threads > 0) {
 		/*  initialize thread data  */
