@@ -136,7 +136,6 @@ static int message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl,
 /*  our driver's exported callbacks  */
 static ErlDrvData start(ErlDrvPort port, char *command);
 static void stop(ErlDrvData handle);
-static void output(ErlDrvData handle, char *buf, int len);
 static void finish(void);
 static void timeout(ErlDrvData handle);
 static void outputv(ErlDrvData handle, ErlIOVec *ev);
@@ -212,7 +211,7 @@ DRIVER_INIT(netaccess_drv)
 
 	/*  called when we have output from
 									    erlang to the port                     */
-	driver_entry.output = output;
+	driver_entry.output = NULL;
 
 	/*  called when we have input from 
 									    one of the driver's handles            */
@@ -330,23 +329,6 @@ stop(ErlDrvData handle)
 
 
 /**********************************************************************
- *  output                                                            *
- *                                                                    *
- *  Erlang/OTP runs this callback in response to a port_command/2 if  *
- *  (driver_entry.outputv == NULL).  Accepts simple byte buffer.  If  *
- *  outputv() is used this will never be used.                        *
- *  Receives data from an Erlang process.                             *
- **********************************************************************/
-static void
-output(ErlDrvData handle, char *buff, int bufflen)
-{
-	DriverData *dd = (DriverData *) handle;
-	DBG("output");
-
-}
-
-
-/**********************************************************************
  *  oputputv                                                          *
  *                                                                    *
  *  Erlang/OTP runs this callback in response to a port_command/2.    *
@@ -364,6 +346,7 @@ outputv(ErlDrvData handle, ErlIOVec *ev)
 	int sz;
 	struct erl_drv_event_data pd;
 
+	DBG("outputv");
 	/*  if there's a queue just add to it  */
 	if((sz = driver_sizeq(dd->port)) > 0) {
 			driver_enqv(dd->port, ev, 0);
@@ -435,24 +418,28 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 	DBG("ready_async");
 
 	if (td->result < 0) {
-		/*  {ref, Ref, {error, Reason}}  */
-		if (!(ret = driver_alloc(12 * sizeof(ErlDrvTermData)))) {
+		/*  {Port, {ref, Ref}, {error, Reason}}  */
+		if (!(ret = driver_alloc(16 * sizeof(ErlDrvTermData)))) {
 			DBG("driver_alloc failed");
 			return;
 		}
-		ret[0] = ERL_DRV_ATOM;
-		ret[1] = driver_mk_atom("ref");
-		ret[2] = ERL_DRV_INT;
-		ret[3] = td->ref;
-		ret[4] = ERL_DRV_ATOM;
-		ret[5] = driver_mk_atom("error");
-		ret[6] = ERL_DRV_ATOM;
-		ret[7] = driver_mk_atom(erl_errno_id(td->terrno));
-		ret[8] = ERL_DRV_TUPLE;
-		ret[9] = 2;
-		ret[10] = ERL_DRV_TUPLE;
-		ret[11] = 3;
-		if (driver_output_term(dd->port, ret, 12) < 1)
+		ret[0] = ERL_DRV_PORT;
+		ret[1] = driver_mk_port(dd->port);
+		ret[2] = ERL_DRV_ATOM;
+		ret[3] = driver_mk_atom("ref");
+		ret[4] = ERL_DRV_INT;
+		ret[5] = td->ref;
+		ret[6] = ERL_DRV_TUPLE;
+		ret[7] = 2;
+		ret[8] = ERL_DRV_ATOM;
+		ret[9] = driver_mk_atom("error");
+		ret[10] = ERL_DRV_ATOM;
+		ret[11] = driver_mk_atom(erl_errno_id(td->terrno));
+		ret[12] = ERL_DRV_TUPLE;
+		ret[13] = 2;
+		ret[14] = ERL_DRV_TUPLE;
+		ret[15] = 3;
+		if (driver_output_term(dd->port, ret, 16) < 1)
 			DBG("driver_output_term failed");
 		driver_free(ret);
 		return;
@@ -799,8 +786,18 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 	if (event_data->revents & POLLWRBAND) {
 		DBG("POLLWRBAND");
 	}
-	if (event_data->revents & (POLLERR|POLLHUP|POLLNVAL)) {
-		DBG("POLLERR|POLLHUP|POLLNVAL");
+	if (event_data->revents & POLLERR) {
+		DBG("POLLERR");
+		driver_event(dd->port, event, 0);
+		driver_failure_posix(dd->port, errno);
+	}
+	if (event_data->revents & POLLHUP) {
+		DBG("POLLHUP");
+		driver_event(dd->port, event, 0);
+		driver_failure_posix(dd->port, errno);
+	}
+	if (event_data->revents & POLLNVAL) {
+		DBG("POLLNVAL");
 		driver_event(dd->port, event, 0);
 		driver_failure_posix(dd->port, errno);
 	}

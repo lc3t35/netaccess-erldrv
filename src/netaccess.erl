@@ -424,11 +424,12 @@ set_hardware(Port, HardwareSettings, LineSettings, CsuFlags)
 	LineMerged = [lists:keysort(1, mergeopts(A, B)) ||
 			A <- LineSettings, B <- [LineDefaults]],
 	MakeLineBin = fun(?LineTerms) -> ?LineMask end,
-	LineBins = [MakeLineBin(A) || A <- LineSettings],
+	LineBins = [MakeLineBin(A) || A <- LineMerged],
 	CsuBin = list_to_binary(CsuFlags),
 	L4_Ref = 16#FFFF,
 	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mSET_HARDWARE, L4_Ref, 0, 0),
 	L4_to_L3_struct = concat_binary([L4L3_Bin, HardwareBin, LineBins, CsuBin]),
+	MakeLineBin = fun(?LineTerms) -> ?LineMask end,
 	do_call({smi, Port, L4_Ref, L4_to_L3_struct}).
 
 
@@ -528,7 +529,7 @@ init([]) ->
 
 %% open a port to the netaccess board
 handle_call({open, Board}, {Pid, _Tag}, State) ->
-	case catch erlang:open_port({spawn, Board}, []) of
+	case catch erlang:open_port({spawn, Board}, [binary]) of
 		Port when is_port(Port) -> 
 			NewState = gb_trees:insert({port, Port}, {Pid, now()}, State),
 			{reply, {ok, Port}, NewState};
