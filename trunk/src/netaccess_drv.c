@@ -357,6 +357,7 @@ outputv(ErlDrvData handle, ErlIOVec *ev)
 
 	/*  send the message to the board  */	
 	if(message_to_board(dd->fd, &ev->iov[1]) < 0) {
+		DBG("message_to_board failed");
 		switch(errno) {
 			case EINTR:
 			case ENOSR:
@@ -868,15 +869,26 @@ int
 message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl, int ctrllen,
 		ErlDrvBinary *data, int datalen)
 {
-	ErlDrvTermData spec[] = {
-        	ERL_DRV_PORT, driver_mk_port(port),
-				ERL_DRV_BINARY, (ErlDrvTermData) ctrl, ctrllen, 0,
-				ERL_DRV_BINARY, (ErlDrvTermData) data, datalen, 0,
-        		ERL_DRV_TUPLE, 2,
-        	ERL_DRV_TUPLE, 2,
-    };
+	ErlDrvTermData msg[16];
 
-    return driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
+	msg[0] = ERL_DRV_PORT;
+	msg[1] = driver_mk_port(port);
+	msg[2] = ERL_DRV_ATOM;
+	msg[3] = driver_mk_atom("L3L4m");
+	msg[4] = ERL_DRV_BINARY;
+	msg[5] = (ErlDrvTermData) ctrl;
+	msg[6] = ctrllen;
+	msg[7] = 0;
+	msg[8] = ERL_DRV_BINARY;
+	msg[9] = (ErlDrvTermData) data;
+	msg[10] = datalen;
+	msg[11] = 0;
+	msg[12] = ERL_DRV_TUPLE;
+	msg[13] = 3;
+	msg[14] = ERL_DRV_TUPLE;
+	msg[15] = 2;
+
+	return driver_output_term(port, msg, 16);
 }
 
 
