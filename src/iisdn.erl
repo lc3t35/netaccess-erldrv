@@ -61,7 +61,7 @@
 		q933a/1]).
 -export([l2_lap_consts/1, l2_ss7_consts/1, l2_ip_consts/1,
 	 	l2_dpnss_consts/1]).
--export([match/1, relay_rule/1]).
+-export([relay_rule/1, match/1, relay_stats/1]).
 -export([protocol_stat/1, q933a_pvc_status/1]).
 -export([board_id/1]).
 -export([l2_stats/1, mtp2_stats/1, l2_mtp2_stats/1]).
@@ -1259,7 +1259,7 @@ relay_rule(RelayRuleRec) when is_record(RelayRuleRec, relay_rule),
 %% 	<dl>
 %%			<dt><tt>recv_cnt</tt></dt><dd><tt>integer()</tt>Number of packets received on lapdid.</dd>
 %%			<dt><tt>recv_bytes</tt></dt><dd><tt>integer()</tt>Number of bytes received on lapdid.</dd>
-%%			<dt><tt>drop_cnt</tt></dt><dd><tt>integer()</tt>Number of packets received and dropped.< dd>
+%%			<dt><tt>drop_cnt</tt></dt><dd><tt>integer()</tt>Number of packets received and dropped.</dd>
 %%			<dt><tt>xmit_cnt</tt></dt><dd><tt>integer()</tt>Number of packets sent on lapdid.</dd>
 %%			<dt><tt>xmit_bytes</tt></dt><dd><tt>integer()</tt>Number of bytes sent on lapdid.</dd>
 %%			<dt><tt>xmit_deferred_cnt</tt></dt><dd><tt>integer()</tt>Number of packets sent from deferred queue.</dd>
@@ -1277,7 +1277,7 @@ relay_stats(RS) when is_binary(RS) ->
 			XmitDeferredCnt:?IISDNs32bit, XmitOverflowCnt:?IISDNs32bit,
 			CurrentDeferredQueueDepth:?IISDNs32bit, _/binary>> = RS,
 	#relay_stats{recv_cnt = RcvCnt, recv_bytes = RcvBytes,
-			drop_cnt = DropCnt, xmit_cnt = XmitCnt, xmit_bytes = XmitBytes
+			drop_cnt = DropCnt, xmit_cnt = XmitCnt, xmit_bytes = XmitBytes,
 			xmit_deferred_cnt = XmitDeferredCnt, 
 			xmit_overflow_cnt = XmitOverflowCnt,
 			current_deferred_queue_depth = CurrentDeferredQueueDepth}.

@@ -544,7 +544,7 @@
 		insTimeStamp=0, insTimeStampOffset=0}).
 -record(relay_stats,
 		{recv_cnt=0, recv_bytes=0, drop_cnt=0, xmit_cnt=0, 
-		xmit_bytes=0, xmit_deferred_cnt=0, xmit_overflow_cnt=0
+		xmit_bytes=0, xmit_deferred_cnt=0, xmit_overflow_cnt=0,
 		current_deferred_queue_depth=0}).
 
 -define(L4L3mREQ_PROTOCOL_STATUS, 16#A5).
