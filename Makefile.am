@@ -2,11 +2,11 @@
 
 SUBDIRS = c_src include src ebin examples
 
-%.boot:ebin/%.rel
-	${ERLC} $<
+%.boot:ebin/%.rel ebin/netaccess.app
+	${ERLC} -I ./ebin $<
 
 %.tar.gz:	%.boot
-	${ERL} -noshell -pz ebin -run systools make_tar $* -run init stop
+	${ERL} -noshell -pa ./ebin -run systools make_tar $* -run init stop
 
 CLEANFILES = *.boot *.script
 
