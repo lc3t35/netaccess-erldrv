@@ -745,6 +745,7 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 	DBGI("event", dd->fd);
 	if (event_data->revents & POLLERR) {
 		DBGI("POLLERR", dd->fd);
+		DBGI("errno", errno);
 		driver_event(dd->port, event, 0);
 		driver_failure_posix(dd->port, errno);
 	}

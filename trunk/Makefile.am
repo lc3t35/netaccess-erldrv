@@ -2,7 +2,7 @@
 
 SUBDIRS = c_src include src ebin examples
 
-%.boot:ebin/%.rel ebin/netaccess.app
+%.boot:%.rel ebin/netaccess.app
 	${ERLC} -I ./ebin $<
 
 %.tar.gz:	%.boot
