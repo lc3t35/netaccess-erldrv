@@ -117,7 +117,7 @@ close(Port) ->
 %% @doc Select a netaccess board for the channel.
 %%
 select_board(Port, Board) when integer(Board) ->
-	do_ioctl({ioctl, ?SELECT_BOARD, Board, Port}).
+	do_ioctl({ioctl, ?SELECT_BOARD, Board, Port}, 1000).
 
 
 %% @spec (Channel::port()) -> ok
@@ -125,7 +125,7 @@ select_board(Port, Board) when integer(Board) ->
 %% @doc Enable a management channel on an open netaccess board.
 %%
 enable_management_chan(Port) ->
-	do_ioctl({ioctl, ?ENABLE_MANAGEMENT_CHAN, [], Port}).
+	do_ioctl({ioctl, ?ENABLE_MANAGEMENT_CHAN, [], Port}, 1000).
 
 
 %% @spec (Channel::port(), BootFile) -> ok | {error, Reason:term()}
@@ -165,7 +165,7 @@ reset_board(Port) ->
 %% @doc Get software version string from an open netaccess board.
 %%
 get_version(Port) ->
-	do_ioctl({ioctl, ?GET_VERSION, [], Port}).
+	do_ioctl({ioctl, ?GET_VERSION, [], Port}, 2000).
 
 
 %% @spec (Channel:port()) -> {ok, driver_info()} | {error, Reason::term()}
@@ -191,7 +191,7 @@ get_version(Port) ->
 %%
 %%
 get_driver_info(Port) ->
-	case do_ioctl({ioctl, ?GET_DRIVER_INFO, [], Port}) of
+	case do_ioctl({ioctl, ?GET_DRIVER_INFO, [], Port}, 2000) of
 		{ok, DriverInfo} ->
 			{ok, pridrv:driver_info(DriverInfo)};
 		Return -> Return
@@ -458,7 +458,7 @@ code_change(_, _, _) -> ok.
 %%----------------------------------------------------------------------
 
 do_ioctl(Request) ->
-	do_ioctl(Request, 20000).
+	do_ioctl(Request, 30000).
 do_ioctl(Request, Timeout) ->
 	gen_server:call(netaccess_server, Request, Timeout).
 

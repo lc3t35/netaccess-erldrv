@@ -25,6 +25,6 @@
 %%
 map(Board, Destination, Source) ->
 	Map = #tsi_map{destination = Destination, source =  Source},
-	Data = #tsi_data{num_mappings = 1, tsi_map = Map},
+	Data = #tsi_data{num_mappings = 1, tsi_map = [Map]},
 	netaccess:set_tsi(Board, Data).
 
