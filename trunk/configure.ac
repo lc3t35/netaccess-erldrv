@@ -12,6 +12,19 @@ AM_INIT_AUTOMAKE
 ##
 ## Options:  control options to configure, support code for the options
 ##
+AC_CANONICAL_HOST
+case "${host}" in
+	*-solaris*)
+		case `isainfo -b` in
+			64)
+				AC_DEFINE(KERNEL_64, [], "64-bit kernel")
+				;;
+			*)
+				;;
+		esac	
+		;;
+esac
+
 CFLAGS="${CFLAGS} -Wall"
 AC_DISABLE_STATIC
 AC_LIBTOOL_DLOPEN
