@@ -477,13 +477,8 @@ relay_add_rule(Channel, LapdId, LogicalLinkID, [RelayRule|T], Rules)
 	NewBin = <<Rules/binary, NewRule/binary>>,
 	relay_add_rule(Channel, LapdId, LogicalLinkID, T, NewBin);
 relay_add_rule(Channel, LapdId, LogicalLinkID, [], Rules) ->
-	case length(Rules) of
-		8 ->
-			DataBin = Rules;
-		L when L < 8 ->
-			EmptyRule = iisdn:relay_rule(#relay_rule{}),
-			DataBin = <<Rules/binary, EmptyRule/binary>>
-	end,
+	EmptyRule = iisdn:relay_rule(#relay_rule{}),
+	DataBin = <<Rules/binary, EmptyRule/binary>>,
 	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID,
 			msgtype = ?L4L3mRELAY_ADD_RULE, data = DataBin},
 	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
