@@ -1039,7 +1039,7 @@ pm(PM) when is_record(PM, pm) ->
 	Unitid = lists:foldl(Digit8, <<>>, UidList),
 	FacIdPad = 38  - length(PM#pm.facilityid),
 	FacIdList = PM#pm.facilityid ++ lists:duplicate(FacIdPad, 0),
-	Facilityid = lists:foldl(Digit8, <<>>, PM#pm.facilityid),
+	Facilityid = lists:foldl(Digit8, <<>>, FacIdList),
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
 			?SIZEOF_IISDN_BONDING_DATA,
 			?SIZEOF_IISDN_X25_CONFIG,
@@ -1341,12 +1341,13 @@ hardware_data(HW) when is_record(HW, hardware_data),
 			(HW#hardware_data.dbcount):?IISDNu8bit,
 			(HW#hardware_data.enable_t810x_snap_mode):?IISDNu8bit,
 			(HW#hardware_data.clk_status):?IISDNu8bit,
-			(HW#hardware_data.line_data)/binary, Csu/binary>>;
+			(HW#hardware_data.line_data)/binary,
+			(HW#hardware_data.csu)/binary>>;
 hardware_data(HW) when is_record(HW, hardware_data),
 		is_list(HW#hardware_data.csu),
 		length(HW#hardware_data.csu) =< ?IISDN_MAX_LINES ->
 	CsuPad = ?IISDN_MAX_LINES - length(HW#hardware_data.csu),
-	CsuList = HW#hardware_data.csu ++ lists:duplicate(LinesPad, 0),
+	CsuList = HW#hardware_data.csu ++ lists:duplicate(CsuPad, 0),
 	LtoBin = fun(Line, Bin) ->
 				B = line_data(Line),
 				<<Bin/binary, B/binary>>
