@@ -25,16 +25,25 @@
 -define(MAXIFRAMESZ, 260).
 
 init([ServerRef, LapdId, Timing]) ->
+	case ServerRef of
+		{local, Name} ->
+			ServerPid = whereis(Name);
+		{global, Name} ->
+			ServerPid = global:whereis_name(Name);
+		Name ->
+			ServerPid = whereis(Name)
+	end,
 	% open a lapid on the board
-	case netaccess:open(ServerRef) of
+	case netaccess:open(ServerPid) of
 		Channel when is_port(Channel) ->
-			init_protocol(ServerRef, Channel, LapdId, Timing);
+			init_protocol(Channel, LapdId, Timing);
 		{'EXIT', Reason} ->
 			{stop, Reason}
 	end.
 
-init_protocol(ServerRef, Channel, LapdId, Timing) ->
- 	L1 = #level1{l1_mode = ?IISDNl1modHDLC},
+init_protocol(Channel, LapdId, Timing) ->
+ 	L1 = #level1{l1_mode = ?IISDNl1modHDLC,
+			num_txbuf = 4, num_rxbuf = 4},
 	L2Parms = #l2_lap_params{mode = ?IISDNl2modLAP_D,
 			dce_dte = ?IISDNdirSYMMETRIC},
 	D = #data_interface{enable = 1},
@@ -42,7 +51,7 @@ init_protocol(ServerRef, Channel, LapdId, Timing) ->
 	ProtoData = #ena_proto_data{level1 = L1, level2 = L2},
 	% send an L4L3mENABLE_PROTOCOL to start LAPD 
 	netaccess:enable_protocol(Channel, LapdId, ProtoData),
-	{ok, establishing, {ServerRef, Channel, LapdId, Timing}}.
+	{ok, establishing, {Channel, LapdId, Timing}}.
 
 
 %% waiting to establish multiframe state
@@ -52,12 +61,12 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	case 	P#protocol_stat.status of
 		?IISDNdsESTABLISHING ->
 			error_logger:info_msg("LAPDID ~w ESTABLISHING~n",
-					[element(3, StateData)]),
+					[element(2, StateData)]),
 			{next_state, establishing, StateData};
 		?IISDNdsESTABLISHED ->
 			error_logger:info_msg("LAPDID ~w ESTABLISHED~n",
-					[element(3, StateData)]),
-			{Delay, _} = random:uniform_s(element(4, StateData), now()),
+					[element(2, StateData)]),
+			{Delay, _} = random:uniform_s(element(3, StateData), now()),
 			gen_fsm:start_timer(Delay, timeout),
 			{next_state, established, StateData}
 	end;
@@ -74,7 +83,7 @@ established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	case 	P#protocol_stat.status of
 		?IISDNdsNOT_ESTABLISHED ->
 			error_logger:info_msg("LAPDID ~w NOT ESTABLISHED~n",
-					[element(3, StateData)]),
+					[element(2, StateData)]),
 			{next_state, not_established, StateData}
 	end;
 %% receive an IFRAME
@@ -85,7 +94,7 @@ established({Channel, <<Hash:8/unit:8, Data/binary>>}, StateData) ->
 		_ ->
 			{stop, bad_hash, StateData}
 	end;	
-established({timeout, Ref, timeout}, {ServerRef, Channel, LapdId, Timeout} = StateData) ->
+established({timeout, Ref, timeout}, {Channel, LapdId, Timeout} = StateData) ->
 	% send an IFRAME
 	netaccess:send(Channel, iframe()),
 	gen_fsm:start_timer(Timeout, timeout),
@@ -102,7 +111,7 @@ not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	case 	P#protocol_stat.status of
 		?IISDNdsESTABLISHING ->
 			error_logger:info_msg("LAPDID ~w ESTABLISHING~n",
-					[element(3, StateData)]),
+					[element(2, StateData)]),
 			{next_state, establishing, StateData}
 	end;
 not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
@@ -119,8 +128,8 @@ handle_sync_event(_Event, _From, _StateName, StateData) ->
 handle_info(_Info, StateName, StateData) ->
 	{next_state, StateName, StateData}.
 
-terminate(_Reason, _StateName, {_ServerRef, Channel, _LapdId, _Timeout}) ->
-	netaccess:close(Channel).
+terminate(_Reason, _StateName, {Channel, _LapdId, _Timeout}) ->
+	catch netaccess:close(Channel).
 
 code_change(_OldVsn, StateName, StateData, _Extra) ->
 	{ok, StateName, StateData}.
