@@ -494,6 +494,42 @@
 -define(IISDNdsNOT_ESTABLISHED,       0).
 -define(IISDNdsESTABLISHING,          1).
 -define(IISDNdsESTABLISHED,           2).
+-define(IISDNlpdsTEI_UNASSIGNED,      0).
+-define(IISDNlpdsTEI_ASSIGNED,        4).
+-define(IISDNlpdsAWAITING_ESTABLISHMENT, 5).
+-define(IISDNlpdsAWAITING_RELEASE,    6).
+-define(IISDNlpdsMULTIFRAME_ESTABLISHED, 7).
+-define(IISDNlpdsTIMER_RECOVERY,      8).
+-define(IISDNl2errNO_ERROR,           0).
+-define(IISDNl2errA,                  1).
+-define(IISDNl2errB,                  2).
+-define(IISDNl2errC,                  3).
+-define(IISDNl2errD,                  4).
+-define(IISDNl2errE,                  5).
+-define(IISDNl2errF,                  6).
+-define(IISDNl2errG,                  7).
+-define(IISDNl2errH,                  8).
+-define(IISDNl2errI,                  9).
+-define(IISDNl2errJ,                 10).
+-define(IISDNl2errK,                 11).
+-define(IISDNl2errL,                 12).
+-define(IISDNl2errM,                 13).
+-define(IISDNl2errN,                 14).
+-define(IISDNl2errO,                 15).
+-define(IISDNdsmskDM_RCVD,      16#0001).
+-define(IISDNdsmskSABME_RCVD,   16#0002).
+-define(IISDNdsmskSABME_SENT,   16#0004).
+-define(IISDNdsmskFRAME_MOD_8,  16#0008).
+-define(IISDNdsmskBAD_CRC,      16#0010).
+-define(IISDNdsmskBAD_LEN,      16#0020).
+-define(IISDNdsmskUNKN_CTRL,    16#0040).
+-define(IISDNdsmskUNKN_DLCI,    16#0080).
+-define(IISDNdsmskUNEXPECTED,   16#0100).
+-define(IISDNdsmskDISC_RCVD,    16#0200).
+-define(IISDNdsmskT200,         16#0400).
+-define(IISDNdsmskXID_RCVD,     16#0800).
+-define(IISDNdsmskUA_RCVD,      16#1000).
+-define(IISDNdsmskONR_ERROR,    16#2000).
 -record(protocol_stat,
 		{status=0, l2_state=0, l2_error=0, l2_errpt=0,
 		b_channels=0, b_chan_req=0, txcount=0, rxcount=0,
