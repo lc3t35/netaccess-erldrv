@@ -3,7 +3,7 @@
 -export([init/1]).
 
 init([ServerName, DeviceName, BoardNumber, Timer, LapdIds]) ->
-	BoardStartArgs = [{local, ServerName}, DeviceName, BoardNumber],
+	BoardStartArgs = [ServerName, DeviceName, BoardNumber],
 	BoardStartFunc = {netaccess, start_link, BoardStartArgs},
 	BoardChildSpec = {netaccess, BoardStartFunc, temporary,
 			4000, worker, [netaccess]},

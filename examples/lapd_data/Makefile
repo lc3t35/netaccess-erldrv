@@ -19,7 +19,7 @@ all: lapd
 
 lapd:	lapd_app.beam lapd_sup.beam lapd_fsm.beam
 
-release: all lapd_data.tar.gz sys.config lapd_data.rel
+release: lapd sys.config lapd_data.rel
 
 clean:
 	-rm lapd_app.beam lapd_sup.beam lapd_fsm.beam \

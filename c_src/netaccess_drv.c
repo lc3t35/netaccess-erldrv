@@ -112,11 +112,13 @@
 #if defined(DRIVER_DEBUG)
 #  define DBG(string) fprintf(stderr, string "\r\n");
 #  define DBGARG(string, arg) fprintf(stderr, string "\r\n", arg);
-#  define DBGN(string, n) fprintf(stderr, string "%ld\r\n", n);
+#  define DBGL(string, n) fprintf(stderr, string " %ld\r\n", n);
+#  define DBGI(string, n) fprintf(stderr, string " %d\r\n", n);
 #else
 #  define DBG(string)
 #  define DBGARG(string, arg)
-#  define DBGN(string, n)
+#  define DBGL(string, n)
+#  define DBGI(string, n)
 #endif
 
 
@@ -376,7 +378,7 @@ outputv(ErlDrvData handle, ErlIOVec *ev)
 	int i;
 	ThreadData *td;
 
-	DBG("outputv");
+	DBGI("outputv", dd->fd);
 	if(!(td = driver_alloc(sizeof(ThreadData)))) {
 		driver_failure_posix(dd->port, errno);
 		return;
@@ -406,7 +408,7 @@ outputv(ErlDrvData handle, ErlIOVec *ev)
 	}
 	td->ref = driver_async(dd->port, NULL, (void *)(void *)do_iframe,
 			(void *)td, (void *)(void *)free_iframe);
-	DBGN("driver_async", td->ref);
+	DBGL("driver_async", td->ref);
 	if (++dd->qsize == dd->highwater) {
 		DBG("SET BUSY");
 		dd->busy = 1;
@@ -454,9 +456,9 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 	DriverData *dd = (DriverData *) handle;
 	ThreadData *td = (ThreadData *) t_data;
 
-	DBGN("ready_async", td->ref);
+	DBGL("ready_async", td->ref);
 	if ((--dd->qsize == dd->lowwater) && (dd->busy == 1)) {
-		DBG("UNSET BUSY");
+		DBGI("UNSET BUSY", dd->fd);
 		dd->busy = 0;
 		set_busy_port(dd->port, 0);
 	}
@@ -476,7 +478,7 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 			done_ioctl(dd, td);
 			break;
 		default:
-			DBG("unknown thread data type");
+			DBGI("unknown thread data type", dd->fd);
 	}
 }
 
@@ -515,7 +517,7 @@ call(ErlDrvData handle, unsigned int command,
 	struct strioctl *strioctl;
 	int version, index, rindex, type, size;
 
-	DBG("call");
+	DBGI("call", dd->fd);
 	index = rindex = size = 0;
    if (ei_decode_version(buf, &index, &version))
       return((int) ERL_DRV_ERROR_GENERAL);
@@ -576,7 +578,7 @@ call(ErlDrvData handle, unsigned int command,
 					return((int) ERL_DRV_ERROR_ERRNO);
 				}
 			} else {
-				DBGN("cancel_async", ref);
+				DBGL("cancel_async", ref);
 				dd->busy = 0;
 				if (ei_encode_version(*rbuf, &rindex)
 						|| ei_encode_atom(*rbuf, &rindex, "true")) {
@@ -611,9 +613,9 @@ call(ErlDrvData handle, unsigned int command,
 				}
 				td->ref = driver_async(dd->port, NULL, (void *)(void *)do_l4l3,
 						(void *)td, (void *)(void *)free_l4l3);
-				DBGN("driver_async", td->ref);
+				DBGL("driver_async", td->ref);
 				if (++dd->qsize == dd->highwater) {
-					DBG("SET BUSY");
+					DBGI("SET BUSY", dd->fd);
 					dd->busy = 1;
 					set_busy_port(dd->port, 1);
 				}
@@ -707,9 +709,9 @@ call(ErlDrvData handle, unsigned int command,
 		}
 		td->ref = driver_async(dd->port, NULL, (void *)(void *)do_ioctl,
 				(void *)td, (void *)(void *)free_ioctl);
-		DBGN("driver_async", td->ref);
+		DBGL("driver_async", td->ref);
 		if (++dd->qsize == dd->highwater) {
-			DBG("SET BUSY");
+			DBGI("SET BUSY", dd->fd);
 			dd->busy = 1;
 			set_busy_port(dd->port, 1);
 		}
@@ -742,7 +744,22 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 	int flags = 0;
 
 
-	DBG("event");
+	DBGI("event", dd->fd);
+	if (event_data->revents & POLLERR) {
+		DBGI("POLLERR", dd->fd);
+		driver_event(dd->port, event, 0);
+		driver_failure_posix(dd->port, errno);
+	}
+	if (event_data->revents & POLLHUP) {
+		DBGI("POLLHUP", dd->fd);
+		driver_event(dd->port, event, 0);
+		driver_failure_posix(dd->port, errno);
+	}
+	if (event_data->revents & POLLNVAL) {
+		DBGI("POLLNVAL", dd->fd);
+		driver_event(dd->port, event, 0);
+		driver_failure_posix(dd->port, errno);
+	}
 	if (event_data->revents & (POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI)) {
 		/*  construct a streams buffer for the control message  */
 		if (!(ctrlbin = driver_alloc_binary(sizeof(L3_to_L4_struct)))) {
@@ -766,7 +783,12 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 			switch(errno) {
 				/*  these few errors can be ignored  */
 				case EAGAIN:
+					DBGI("EAGAIN", dd->fd);
+					driver_free_binary(ctrlbin);
+					driver_free_binary(databin);
+					break;
 				case EINTR:
+					DBGI("EINTR", dd->fd);
 					driver_free_binary(ctrlbin);
 					driver_free_binary(databin);
 					break;
@@ -788,23 +810,14 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 	}
 	
 	if (event_data->revents & POLLOUT) {
-		DBG("POLLOUT");
+		DBGI("POLLOUT", dd->fd);
 	}
 	if (event_data->revents & POLLWRBAND) {
-		DBG("POLLWRBAND");
-	}
-	if (event_data->revents & POLLERR) {
-		DBG("POLLERR");
-		driver_event(dd->port, event, 0);
-		driver_failure_posix(dd->port, errno);
-	}
-	if (event_data->revents & POLLHUP) {
-		DBG("POLLHUP");
-		driver_event(dd->port, event, 0);
-		driver_failure_posix(dd->port, errno);
+		DBGI("POLLWRBAND", dd->fd);
 	}
 	if (event_data->revents & POLLNVAL) {
-		DBG("POLLNVAL");
+		DBGI("UNKNOWN EVENT!", dd->fd);
+		DBGI("event:", event_data->revents);
 		driver_event(dd->port, event, 0);
 		driver_failure_posix(dd->port, errno);
 	}
@@ -831,7 +844,7 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 static void
 do_ioctl(ThreadData *td)
 {
-	DBGN("do_iotcl", td->ref);
+	DBG("do_iotcl");
 	td->tresult = ioctl(td->fd, I_STR, (struct strioctl *) td->data.ioctl.ctlp);
 	td->terrno = errno;
 }
@@ -949,7 +962,7 @@ done_ioctl(DriverData *dd, ThreadData *td)
 static void
 free_ioctl(ThreadData *td)
 {
-	DBGN("free_ioctl", td->ref);
+	DBGL("free_ioctl", td->ref);
 	if (td->data.ioctl.bin != NULL)
 		driver_free_binary(td->data.ioctl.bin);
 	if (td->data.ioctl.bp != NULL)
@@ -971,7 +984,7 @@ free_ioctl(ThreadData *td)
 static void
 do_l4l3(ThreadData *td)
 {
-	DBGN("do_l4l3", td->ref);
+	DBG("do_l4l3");
 	/*  send a control message to the board with high priority  */
 	td->tresult = putmsg(td->fd, &td->data.l4l3.strctrl, NULL, RS_HIPRI);
 	td->terrno = errno;
@@ -987,7 +1000,7 @@ do_l4l3(ThreadData *td)
 static void
 done_l4l3(DriverData *dd, ThreadData *td)
 {
-	DBGN("done_l4l3", td->ref);
+	DBGL("done_l4l3", td->ref);
 	if (td->tresult < 0)
 		driver_failure_posix(dd->port, td->terrno);
  	free_l4l3(td);
@@ -1006,7 +1019,7 @@ done_l4l3(DriverData *dd, ThreadData *td)
 static void
 free_l4l3(ThreadData *td)
 {
-	DBGN("free_l4l3", td->ref);
+	DBGL("free_l4l3", td->ref);
 	driver_free(td->data.l4l3.strctrl.buf);
 	driver_free(td);
 }
@@ -1021,7 +1034,7 @@ free_l4l3(ThreadData *td)
 static void
 do_iframe(ThreadData *td)
 {
-	DBGN("do_iframe", td->ref);
+	DBG("do_iframe");
 	td->tresult = writev(td->fd, td->data.iframe.iov, td->data.iframe.vsize);
 	td->terrno = errno;
 }
@@ -1035,7 +1048,7 @@ do_iframe(ThreadData *td)
 static void
 done_iframe(DriverData *dd, ThreadData *td)
 {
-	DBGN("done_iframe", td->ref);
+	DBGL("done_iframe", td->ref);
 	if (td->tresult < 0)
 		driver_failure_posix(dd->port, td->terrno);
 	free_iframe(td);
@@ -1057,7 +1070,7 @@ free_iframe(ThreadData *td)
 {
 	int i;
 
-	DBGN("free_iframe", td->ref);
+	DBGL("free_iframe", td->ref);
 	driver_free(td->data.iframe.iov);
 	for(i = 0; i < td->data.iframe.vsize; i++)
 		if (td->data.iframe.binv[i] != NULL)
