@@ -11,7 +11,30 @@
 %%%
 %%% @author Vance Shipley <vances@motivity.ca>
 %%%
-%%% @doc A gen_fsm based behaviour for users of the netaccess device driver.
+%%% @doc A gen_fsm based behaviour for users of the netaccess application.
+%%%
+%%% 	<p>This is a behaviour module which emulates a gen_fsm
+%%% 	 behaviour but which provides a cleaner and simpler interface to
+%%% 	the netaccess device driver API.  The binary control messages from
+%%% 	the board are converted to records and sent as events to be received 
+%%% 	directly in the user's state handlers.  Data messages are sent as 
+%%% 	binaries but are also received as events.</p>
+%%%
+%%% 	<p>Examples:</p>
+%%% 	<p><code>idle(L3L4mSETUP_IND, StateData)
+%%% 			when is_record(L3L4mSETUP_IND, setup_ind) -> </code></p>
+%%% 	<p><code>connected(IFRAME, StateData)
+%%% 			when is_binary(IFRAME) -> </code></p>
+%%%
+%%% 	<p>User processes must be started with the provided start 
+%%% 	functions.  This module exports the same API as gen_fsm
+%%% 	however you are free to use the gen_fsm functions to communicate
+%%% 	with it once started.</p>
+%%%
+%%% 	<p><code>{ok, ChannelFsm} = netaccess_fsm:start(UserModule, [], [])
+%%% 	<br/>gen_fsm:send_event(ChannelFsm, Event)</code></p>
+%%%
+%%% @see gen_fsm
 %%%
          
 -module(netaccess_fsm).
@@ -40,7 +63,7 @@
 
 %%
 %% define what call backs users must export
-%%
+%% @hidden
 behaviour_info(callbacks) ->
 	gen_fsm:behaviour_info(callbacks);
 behaviour_info(Other) -> 
@@ -98,6 +121,7 @@ cancel_timer(Ref) ->
 %%  The gen_fsm call backs
 %%----------------------------------------------------------------------
 
+%% @hidden
 init([Module, Args]) ->
 	case Module:init(Args) of
 		{ok, StateName, StateData} ->
@@ -115,6 +139,7 @@ init([Module, Args]) ->
 	end.
                 
 
+%% @hidden
 statename(Event, {Module, StateName, StateData}) ->
 	case Module:StateName(Event, StateData) of
 		{next_state, NextStateName, NewStateData} ->
@@ -128,6 +153,7 @@ statename(Event, {Module, StateName, StateData}) ->
 	end.
 
 
+%% @hidden
 statename(Event, From, {Module, StateName, StateData}) ->
 	case Module:StateName(Event, From, StateData) of
 		{reply, Reply, NextStateName, NewStateData} ->
@@ -147,6 +173,7 @@ statename(Event, From, {Module, StateName, StateData}) ->
 	end.
 
 
+%% @hidden
 handle_event(Event, statename, {Module, StateName, StateData}) ->
 	case Module:StateName(Event, StateData) of
 		{next_state, NextStateName, NewStateData} ->
@@ -160,6 +187,7 @@ handle_event(Event, statename, {Module, StateName, StateData}) ->
 	end.
 
 
+%% @hidden
 handle_sync_event(Event, From, statename, {Module, StateName, StateData}) ->
 	case Module:handle_sync_event(Event, From, StateName, StateData) of
 		{reply, Reply, NextStateName, NewStateData} ->
@@ -179,6 +207,7 @@ handle_sync_event(Event, From, statename, {Module, StateName, StateData}) ->
 	end.
 
 
+%% @hidden
 %% an L3L4 SMI control message arrived from the driver
 handle_info({Port, {'L3L4m', CtrlBin, DataBin}}, statename, {Module, StateName, StateData}) 
 			when is_binary(CtrlBin), size(CtrlBin) > 0 ->
@@ -219,10 +248,12 @@ handle_info(Event, statename, {Module, StateName, StateData}) ->
 	end.
 
 
+%% @hidden
 terminate(Reason, statename, {Module, StateName, StateData}) ->
 	Module:terminate(Reason, StateName, StateData).
 
 
+%% @hidden
 code_change(OldVersion, statename, {Module, StateName, StateData}, Extra) ->
 	case Module:code_change(OldVersion, StateName, StateData, Extra) of
 		{ok, NextStateName, NewStateData} ->
