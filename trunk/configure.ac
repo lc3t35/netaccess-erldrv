@@ -169,6 +169,17 @@ AC_CHECK_SIZEOF(PRIu32bit, [], [${naii_includes}])
 AC_CHECK_SIZEOF(PRIs32bit, [], [${naii_includes}])
 AC_CHECK_SIZEOF(PRIp16bit, [], [${naii_includes}])
 AC_CHECK_SIZEOF(PRIp32bit, [], [${naii_includes}])
+SIZEOF_INT=$ac_cv_sizeof_int
+SIZEOF_USHORT=$ac_cv_sizeof_ushort
+SIZEOF_UINT=$ac_cv_sizeof_uint
+SIZEOF_PRIU8BIT=$ac_cv_sizeof_PRIu8bit
+SIZEOF_PRIS8BIT=$ac_cv_sizeof_PRIs8bit
+SIZEOF_PRIU16BIT=$ac_cv_sizeof_PRIu16bit
+SIZEOF_PRIS16BIT=$ac_cv_sizeof_PRIs16bit
+SIZEOF_PRIU32BIT=$ac_cv_sizeof_PRIu32bit
+SIZEOF_PRIS32BIT=$ac_cv_sizeof_PRIs32bit
+SIZEOF_PRIP16BIT=$ac_cv_sizeof_PRIp16bit
+SIZEOF_PRIP32BIT=$ac_cv_sizeof_PRIp32bit
 AC_SUBST(SIZEOF_INT)
 AC_SUBST(SIZEOF_USHORT)
 AC_SUBST(SIZEOF_UINT)
