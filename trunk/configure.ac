@@ -12,6 +12,7 @@ AM_INIT_AUTOMAKE
 ##
 ## Options:  control options to configure, support code for the options
 ##
+AM_MAINTAINER_MODE
 CFLAGS="${CFLAGS} -Wall"
 AC_DISABLE_STATIC
 AC_LIBTOOL_DLOPEN
@@ -307,5 +308,5 @@ AC_CHECK_LIB(ei, ei_x_new)
 ##
 
 AC_CONFIG_FILES([include/iisdn.hrl include/pridrv.hrl])
-AC_CONFIG_FILES([Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile priv/lib/Makefile src/Makefile])
 AC_OUTPUT
