@@ -20,7 +20,7 @@
 %%% @end
          
 -module(netaccess).
--copyright('Copyright (c) 2001, 2002 Motivity Telecom Inc.').
+-copyright('Copyright (c) 2001-2004 Motivity Telecom Inc.').
 -vsn('0.1').
 -author('vances@motivity.ca').
 

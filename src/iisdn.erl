@@ -561,7 +561,24 @@ tsi_data(TS) when is_record(TS, tsi_data),
 tsi_data(TS) when is_record(TS, tsi_data) ->
 	FunMap = fun(M, Bin) -> <<Bin/binary, (tsi_map(M))/binary>> end,
 	MAP = lists:foldl(FunMap, <<>>, TS#tsi_data.tsi_map),
-	tsi_data(TS#tsi_data{tsi_map = MAP}).
+	tsi_data(TS#tsi_data{tsi_map = MAP});
+tsi_data(TS) when is_binary(TS) ->
+	<<TsiAckEnable:?IISDNu8bit,
+			NumMappings:?IISDNu8bit,
+			Granularity:?IISDNu8bit,
+			Last:?IISDNu8bit,
+			Map/binary>> = TS,
+	MapList = tsi_data(Map, []),
+	#tsi_data{tsi_ack_enable = TsiAckEnable,
+			num_mappings = NumMappings,
+			granularity = Granularity,
+			last = Last,
+			tsi_map = MapList}.
+tsi_data(<<>>, MapList) -> MapList;
+tsi_data(<<Destination:?IISDNu16bit, Source:?IISDNu16bit,
+		Rest/binary>>, MapList) ->
+	tsi_data(Rest, MapList ++ [tsi_map(<<Destination:?IISDNu16bit,
+			Source:?IISDNu16bit>>)]).
 
 tsi_map(MAP) when is_record(MAP, tsi_map) ->
 	<<(MAP#tsi_map.destination):?IISDNu16bit,
