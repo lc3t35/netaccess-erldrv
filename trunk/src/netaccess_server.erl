@@ -373,11 +373,11 @@ code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
 %% status information
-format_status(Opt, [_PDict, State]) ->
+format_status(_Opt, [_PDict, State]) ->
 	{Port, {BoardName, BoardNumber}, StateData} = State,
 	Data = [{"Port", Port}, {"BoardName", BoardName},
 			{"BoardNumber", BoardNumber},
-			{"StateData", gb_trees:to_list(StateData)}]
+			{"StateData", gb_trees:to_list(StateData)}],
 	[{data, Data}].
 
 %%----------------------------------------------------------------------

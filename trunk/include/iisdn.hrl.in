@@ -159,7 +159,8 @@
 %%
 %% error in response to L4L3mXXXXX
 %%
--define(L3L4mERROR, 16#20). 
+-define(L3L4mERROR,                    16#20). 
+-define(L3L4mFATAL_ERROR,              16#7f). 
 -define(L3L4errNO_ERROR,                   0).
 -define(L3L4errLAPDID_OUT_OF_RANGE,        1).
 -define(L3L4errLAPDID_NOT_ESTABLISHED,     2).
