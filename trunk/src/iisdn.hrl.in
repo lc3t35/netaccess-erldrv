@@ -136,7 +136,7 @@
 		enable_8370_rliu_monitor=0, dbcount=0, 
 		enable_t810x_snap_mode=0, clk_status=0,
 		line_data = lists:duplicate(?IISDN_MAX_LINES, #line_data{}),
-		csu = lists:duplicate(?IISDN_MAX_LINES, 0)}.
+		csu = lists:duplicate(?IISDN_MAX_LINES, 0)}).
 -record(line_data,
 		{framing=0, line_code=0, pm_mode=0, line_length=0, term=0,
 		line_type=0, integrate_alarms=0, filter_unsolicited=0,
@@ -219,8 +219,8 @@
 
 -define(L4L3mENABLE_PROTOCOL,  16#B6).
 -record(ena_proto_data,
-		{command=0, command_parameter=0, level1 = #level1_cnfg{},
-		level2 = #level2_cnfg{}, level3 = #level3_cnfg{}}).
+		{command=0, command_parameter=0, level1 = #level1{},
+		level2 = #level2{}, level3 = #level3{}}).
 
 -define(IISDNl1modHDLC,         0).
 -define(IISDNl1modRAW,          1).
@@ -231,7 +231,7 @@
 -define(IISDNl1modSIGNALING,    7).
 -define(IISDNl1modETHERNET,     8).
 -define(IISDNl1modBULK_RAW,     9).
--record(level1_cnfg,
+-record(level1,
       {l1_mode=0, invert_hdlc=0, num_txbuf=0, num_rxbuf=0,
       buffsz=0, chain=0, device=0, bit_reverse=0, vme_lock=0, 
       hdlc_channels=0, chan_kbit_rate=0, crc_bytes=0, 
@@ -268,7 +268,7 @@
 -define(IISDNdirUSER_SIDE,     0).
 -define(IISDNdirNETWORK_SIDE,  1).
 -define(IISDNdirSYMMETRIC,     2).
--record(level2_cnfg,
+-record(level2,
 		{par=#l2_lap_params{},
 		data_interface=#data_interface{},
 		consts=#l2_lap_consts{}}).
@@ -342,9 +342,9 @@
 -define(IISDNvarGR_303,         16#10).
 -define(IISDNvarGR_303_TMC,     16#11).
 
--record(level3_cnfg,
-		{l3_mode=0, cnfg=#q931_cnfg{}}).
--record(q931_cnfg,
+-record(level3,
+		{l3_mode=0, cnfg=#q931{}}).
+-record(q931,
 		{switch_type=0, variant=0, call_filtering=0,
 		q931_timers=#q931_timers{},
 		b_channel_service_state=lists:duplicate(?IISDN_NUM_DS1_INTERFACES, 0),
