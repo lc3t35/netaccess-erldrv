@@ -72,6 +72,8 @@
 %% 	<tt>netaccess_server</tt>.  Otherwise it returns 
 %% 	<tt>{error, Reason}</tt>.</p>
 %%
+%% 	<p>This function is suitable for use as a start function in a 
+%% 	supervisor child specification.</p>
 %% 	<p><b>Note:</b>  This is a convenience function which uses the default board
 %% 	name <tt>"/dev/pri0"</tt> and board number <tt>0</tt>.</p>
 %%
@@ -128,6 +130,9 @@ start(ServerName, BoardName, BoardNumber) ->
 %%
 %% @doc Start the netacccess server and link to the calling process.
 %%
+%% 	<p>This function is suitable for use as a start function in a 
+%% 	supervisor child specification.</p>
+%%
 %% @see start/2
 %%
 start_link(BoardName, BoardNumber) ->
@@ -143,6 +148,9 @@ start_link(BoardName, BoardNumber) ->
 %%		Reason = term()
 %%
 %% @doc Start the netacccess server and link to the calling process.
+%%
+%% 	<p>This function is suitable for use as a start function in a 
+%% 	supervisor child specification.</p>
 %%
 %% @see start/3
 %%
@@ -201,7 +209,7 @@ close(Port) ->
 %%                                                                       %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% @spec (ServerRef, BootFile) -> ok | {error, Reason}
+%% @spec (ServerRef, BootFile) -> ok
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
@@ -225,7 +233,7 @@ boot(ServerRef, Filename) when list(Filename) ->
 		{ok, BootBin} ->
 			boot(ServerRef, BootBin);
 		Error ->
-			Error	
+			exit(Error)	
 	end.
 
 
@@ -245,12 +253,11 @@ reset_board(ServerRef) ->
 	gen_server:call(ServerRef, {ioctl, ?RESET_BOARD, 0}).
 
 
-%% @spec (ServerRef) -> {ok, Version} | {error, Reason}
+%% @spec (ServerRef) -> Version
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
 %%		Version = string()
-%%		Reason = term()
 %%
 %% @doc Retrieve software version string from an open netaccess board.
 %% 	
@@ -258,24 +265,19 @@ get_version(ServerRef) ->
 	gen_server:call(ServerRef, {ioctl, ?GET_VERSION, 0}).
 
 
-%% @spec (ServerRef) -> {ok, DriverInfo} | {error, Reason}
+%% @spec (ServerRef) -> DriverInfo
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
 %% 	DriverInfo = pridrv:driver_info()
-%%		Reason = term()
 %%
 %% @see pridrv:driver_info()
 %%
 %% @doc Retrieve driver information from an open netaccess board.
 %%
 get_driver_info(ServerRef) ->
-	case gen_server:call(ServerRef, {ioctl, ?GET_DRIVER_INFO, 0}) of
-		{ok, DriverInfo} ->
-			{ok, pridrv:driver_info(DriverInfo)};
-		Error ->
-			Error	
-	end.
+	DriverInfo = gen_server:call(ServerRef, {ioctl, ?GET_DRIVER_INFO, 0}),
+	pridrv:driver_info(DriverInfo).
 	
 
 %% @spec (Channel) -> QSize
@@ -353,12 +355,11 @@ set_maxiframesize(Channel, NewValue) ->
 %%                                                                       %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% @spec (ServerRef) -> {ok, BoardId} | {error, Reason}
+%% @spec (ServerRef) -> BoardId
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
 %% 	BoardId = iisdn:board_id()
-%%		Reason = term()
 %%
 %% @doc Retrieve board identification.
 %%
@@ -380,12 +381,11 @@ set_hardware(ServerRef, Data) when is_record(Data, hardware_data) ->
 	gen_server:cast(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
-%% @spec (ServerRef) -> {ok, HardwareData} | {error, Reason}
+%% @spec (ServerRef) -> HardwareData
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
 %% 	HardwareData = iisdn:hardware_data()
-%%		Reason = term()
 %%
 %% @doc Query the hardware setup.
 %%
@@ -407,12 +407,11 @@ set_tsi(ServerRef, Data) ->
 	gen_server:cast(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
-%% @spec (ServerRef) -> {ok, TsiDataList} | {error, Reason}
+%% @spec (ServerRef) -> TsiDataList
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
 %% 	TsiDataList = [iisdn:tsi_data()]
-%%		Reason = term()
 %%
 %% @doc Retrieve the timeslot mappings.
 %%
@@ -421,7 +420,7 @@ req_tsi_status(ServerRef) ->
 	gen_server:call(ServerRef, {'L4L3m', L4L3_rec, <<>>}).
 
 
-%% @spec (Channel, LapdId, EnaProtoData) -> true
+%% @spec (Channel, LapdId, EnaProtoData) -> ok
 %% 	Channel = port()
 %% 	LapdId = integer()
 %% 	EnaProtoData = iisdn:ena_proto_data()
@@ -435,7 +434,7 @@ enable_protocol(Channel, LapdId, EnaProtoData) ->
 	erlang:port_call(Channel, ?L4L3m, L4L3_bin).
 	
 
-%% @spec (Channel, LapdId, LogicalLinkID) -> true
+%% @spec (Channel, LapdId, LogicalLinkID) -> ok
 %% 	Channel = port()
 %% 	LapdId = integer()
 %% 	LogicalLinkID = integer()

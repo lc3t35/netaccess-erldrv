@@ -25,8 +25,8 @@
 %% @doc Start the test.
 %%
 start(LapdId, Side) ->
-	{ok, Channel} = netaccess:open(),
-	ok = netaccess:select_board(Channel, 0),
+	Channel = netaccess:open(),
+	netaccess:select_board(Channel, 0),
  	L1 = #level1{l1_mode = ?IISDNl1modHDLC},
 	case Side of
 		user ->

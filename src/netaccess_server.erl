@@ -100,10 +100,10 @@ handle_call(open, {Pid, _Tag} = From, {ManagementPort, {BoardName, BoardNumber} 
 	case catch erlang:open_port({spawn, Command}, [binary]) of
 		Channel when is_port(Channel) -> 
 			case catch erlang:port_call(Channel, ?SELECT_BOARD, BoardNumber) of
-				{ok, Ref} ->
+				Ref when is_integer(Ref) ->
 					NewStateData = gb_trees:insert({ref, Ref}, {From, Channel, now()}, StateData), 
 					{noreply, {ManagementPort, Board, NewStateData}};
-				{Error, Reason} when Error == 'EXIT'; Error == error ->
+				{'EXIT', Reason} ->
 					erlang:port_close(Channel),
 					exit(Pid, Reason),
 					{noreply, State}
@@ -120,11 +120,11 @@ handle_call(open, {Pid, _Tag}, State) when node(Pid) /= node() ->
 %% perform an ioctl on an open channel to a netaccess board
 handle_call({ioctl, Operation, Data}, From, {Port, Board, StateData} = State) ->
 	case catch erlang:port_call(Port, Operation, Data) of
-		{ok, Ref} ->
+		Ref when is_integer(Ref) ->
 			NewStateData = gb_trees:insert({ref, Ref},
 					{From, now()}, StateData),
 			{noreply, {Port, Board, NewStateData}};
-		{Error, Reason} when Error == 'EXIT'; Error == error ->
+		{'EXIT', Reason} ->
 			{Pid, _Tag} = From,
 			exit(Pid, Reason),
 			{noreply, State}
@@ -193,7 +193,7 @@ handle_call_async(L4L3_Rec, From, State)  when is_record(L4L3_Rec, l4_to_l3) ->
 %% send to port
 handle_call_async(_MsgType, L4L3_Bin, _From, {Port, _Board, _StateData} = State) when is_binary(L4L3_Bin) ->
 	erlang:port_call(Port, ?L4L3m, L4L3_Bin),
-	{reply, true, State};
+	{reply, ok, State};
 %% failed to encode record
 handle_call_async(_MsgType, {'EXIT', _Reason}, {Pid, _Tag}, State) ->
 	exit(Pid, badarg),
@@ -362,18 +362,14 @@ code_change(_OldVsn, State, _Extra) ->
 
 blocking_ioctl(Port, Operation, Data) ->
 	case catch erlang:port_call(Port, Operation, Data) of
-		{ok, Ref} ->
+		Ref when is_integer(Ref)  ->
 			receive
-				{Port, {ref, Ref}, {error, Reason}} ->
-					Reason;
 				{Port, {ref, Ref}, Result} ->
 					Result
 			after 2000 ->
 				timeout
 			end;
 		{'EXIT', Reason} ->
-			Reason;
-		{error, Reason} ->
 			Reason
 	end.
 
