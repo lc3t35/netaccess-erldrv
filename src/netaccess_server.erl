@@ -47,6 +47,14 @@ init([BoardName]) ->
 	init([BoardName, 0]);
 init([BoardName, BoardNumber]) when is_list(BoardName),
 		is_integer(BoardNumber) ->
+	PoolSize = erlang:system_info(thread_pool_size),
+	init_threads(PoolSize, [BoardName, BoardNumber]).
+init_threads(0, [BoardName, BoardNumber]) ->
+	{stop, no_threads};
+init_threads(_, [BoardName, BoardNumber]) ->
+	init_start([BoardName, BoardNumber]).
+
+init_start([BoardName, BoardNumber]) ->
 	process_flag(trap_exit, true),
 	erl_ddll:start(),
 	% load the dynamically linked device driver
