@@ -23,8 +23,8 @@
 %%%
 %%% @reference <a href="http://www.brooktrout.com/products/ns301/">
 %%% 		NS301 product information</a>
-%%% @reference //netaccess/iisdn
-%%% @reference //netaccess/pridrv
+%%% @reference <a href="iisdn.html">iisdn module</a>
+%%% @reference <a href="pridrv.html">pridrvmodule</a>
 %%%
          
 -module(netaccess).
