@@ -343,6 +343,5 @@ AC_CHECK_LIB(ei, ei_x_new)
 ##
 
 AC_CONFIG_FILES([include/iisdn.hrl include/pridrv.hrl])
-AC_CONFIG_FILES([Makefile priv/lib/Makefile src/Makefile c_src/Makefile
-		include/Makefile examples/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile c_src/Makefile include/Makefile examples/Makefile examples/lapd_data/Makefile ebin/Makefile])
 AC_OUTPUT

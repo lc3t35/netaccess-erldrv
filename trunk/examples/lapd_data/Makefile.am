@@ -1,10 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = lapd_data
+lapd_datadir = $(datadir)/examples/lapd_data
 
-examplesdir = $(datadir)/examples
-
-examples_DATA = 
+lapd_data_DATA = lapd_data_app.erl lapd_data_fsm.erl lapd_data_sup.erl
 
 CLEANFILES = 
 
