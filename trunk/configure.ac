@@ -237,5 +237,6 @@ AC_CHECK_LIB(ei, ei_x_new)
 ##
 ## Output:  create output files
 ##
-AC_OUTPUT([src/iisdn.hrl src/pridrv.hrl])
-AC_OUTPUT([Makefile src/Makefile])
+AC_CONFIG_FILES([src/iisdn.hrl src/pridrv.hrl])
+AC_CONFIG_FILES([Makefile src/Makefile])
+AC_OUTPUT
