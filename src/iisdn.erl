@@ -26,6 +26,7 @@
 -module(iisdn).
 
 -export([l3_to_l4/1, l4_to_l3/1]).
+-export([error_code/1]).
 -export([ena_proto_data/1]).
 -export([hardware_data/1, line_data/1]).
 -export([tsi_data/1, tsi_map/1]).
@@ -45,20 +46,6 @@
 -include("iisdn.hrl").
 
 
-%%
-%% L4_to_L3_struct
-%%
-%% This function takes a record of the same name and returns a binary
-%% representation of an entire SMI L4L3 message suitable for sending to
-%% the boards.  If the data member is assigned a binary it will be sent
-%% as is.  If it is undefined a default record of the type associated
-%% with msgtype is used.  If data is a record of the appropriate type
-%% it will be used to build the binary.
-%%
-%% The first octet is codes as a zero for all L4L3 messages so that the
-%% erlang netaccess driver knows to send them as control messages on the
-%% stream (data messages such as I-frames have a non-zero first octet).
-%%
 l4_to_l3(R) when is_record(R, l4_to_l3) ->
 	MessageType = R#l4_to_l3.msgtype, 
 	CommonHeader = <<(R#l4_to_l3.lapdid):?IISDNu8bit, 
@@ -68,6 +55,9 @@ l4_to_l3(R) when is_record(R, l4_to_l3) ->
 			(R#l4_to_l3.lli):?IISDNu16bit>>,
 	MessageSpecificData = R#l4_to_l3.data,
 	l4_to_l3(MessageType, CommonHeader, MessageSpecificData).
+%% The first octet is coded as a zero for all L4L3 messages so that the
+%% erlang netaccess driver knows to send them as control messages on the
+%% stream (data messages such as I-frames have a non-zero first octet).
 l4_to_l3(_, Header, Data) when is_binary(Data) ->
 	<<0, Header/binary, Data/binary>>;
 l4_to_l3(?L4L3mSET_HARDWARE, Header, Data) ->
@@ -86,6 +76,55 @@ l3_to_l4(Bin) when is_binary(Bin) ->
 			call_ref=Call_ref, bchanel=Bchanel, iface=Iface,
 			bchannel_mask=Bchannel_mask, lli=Lli, 
 			data_channel=Data_channel, data=Data}.
+
+error_code(B) when is_binary(B) ->
+	<<ErrorCode:?IISDNu8bit, _Rest/binary>> = B,
+	ErrorCodes = [{0, no_erorr}, {1, lapdid_out_of_range},
+			{2, lapdid_not_established}, {3, invalid_called_number},
+			{4, no_crv_available}, {5, no_crstruct_available},
+			{6, call_ref_error}, {7, invalid_b_channel},
+			{8, b_chanel_restarting}, {9, b_chanel_oos}, 
+			{10, invalid_call_type}, {11, invalid_conn_type},
+			{12, protocol_not_disabled}, {13, invalid_hdlc_maping},
+			{14, invalid_data_queue}, {15, invalid_comand_args},
+			{16, invalid_msg_for_state}, {17, data_packet_lost},
+			{18, pm_not_esf}, {19, invalid_interface},
+			{20, b_channel_inuse}, {21, invalid_lli},
+			{22, vc_table_full}, {23, lli_not_found}, {24, blocked},
+			{25, no_hardware}, {26, invalid_spid_len}, {27, non_nfas},
+			{28, invalid_state}, {29, service_not_offered},
+			{30, dchan_temp_unavail}, {31, too_many_q931_stacks},
+			{32, service_not_config}, {33, data_interface_required},
+			{34, data_interface_invalid}, {35, sym_mode_not_supported},
+			{36, invalid_bufsz}, {37, bond_chan_not_cnfg},
+			{38, bond_chan_bit_conflict}, {39, bond_wrong_spyder_chip},
+			{40, bond_too_many_channels}, {41, bond_dup_addon_chan},
+			{42, dchan_odd_pointer_error}, {43, dchan_too_few_buffers},
+			{44, dchan_too_many_buffers}, {45, dchan_give_take_nonzero},
+			{46, dchan_zero_rxbuf_len}, {47, sym_mode_required},
+			{48, dlci_manditory}, {49, chan_kbit_rate_bad},
+			{50, invalid_mem_size}, {51, not_enough_memory},
+			{52, tx_buffer_misaligned}, {53, x_buffer_misaligned},
+			{54, too_many_dlcis}, {55, bond_bad_state}, {56, spid_rejected},
+			{57, tei_ident_remove_req}, {58, spid2_rejected},
+			{59, invalid_smi_msgid}, {60, invalid_clock_mode},
+			{61, no_overflow_queue}, {62, too_many_cas_dest},
+			{63, segment_too_large}, {64, segment_message_expected},
+			{65, segment_message_invalid}, {66, segment_timer_expired},
+			{67, invalid_download_msg}, {68, protocol_disabled},
+			{69, invalid_variant}, {70, too_many_links}, {71, too_many_headers},
+			{72, fatal_error}, {73, hot_swap_extraction},
+			{74, dchan_out_of_range}, {75, ether_already_configured},
+			{76, tsi_verification_failed},
+			{100, status_ignored}, {101, bad_call_ref},
+			{102, glare}],
+	case element(2, element(2, lists:keysearch(ErrorCode, 1, ErrorCodes))) of
+		Atom when is_atom(Atom) ->
+			Atom;
+		false ->
+			ErrorCode
+	end.
+
 
 board_id(B) when is_binary(B) ->
 	Size_32 = (32 * ?SIZEOF_IISDNu8bit),
