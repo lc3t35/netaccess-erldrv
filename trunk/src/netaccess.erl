@@ -37,12 +37,12 @@
 -define(SELECT_BOARD, 5).
 -define(CANCEL_ASYNC, 10).
 
--define(PRIs8bit, 8/?ENDIANESS-signed-integer).
--define(PRIu8bit, 8/?ENDIANESS-unsigned-integer).
--define(PRIs16bit, 16/?ENDIANESS-signed-integer).
--define(PRIu16bit, 16/?ENDIANESS-unsigned-integer).
--define(PRIs32bit, 32/?ENDIANESS-signed-integer).
--define(PRIu32bit, 32/?ENDIANESS-unsigned-integer).
+-define(PRIs8bit, 8/native-signed-integer).
+-define(PRIu8bit, 8/native-unsigned-integer).
+-define(PRIs16bit, 16/native-signed-integer).
+-define(PRIu16bit, 16/native-unsigned-integer).
+-define(PRIs32bit, 32/native-signed-integer).
+-define(PRIu32bit, 32/native-unsigned-integer).
 
 -define(PRI_MAX_LINES, 8).
 
@@ -50,18 +50,18 @@
 %% defines for get_driver_info/2
 %%
 -define(DriverInfoMask,
-		<<BoardType:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-		HangUpOnRedAlarm:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-		FlowControlBoard:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-		FlowControlWsrv:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-		FlowControlRsrv:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-		HDrops:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-		SDrops:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-		TxMsgSize:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-		RxMsgSize:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-		TxNumBufs:?SIZEUSHORT/?ENDIANESS-unsigned-integer-unit:8,
-		RxNumBufs:?SIZEUSHORT/?ENDIANESS-unsigned-integer-unit:8,
-		MaxDataChannels:?SIZEUINT/?ENDIANESS-unsigned-integer-unit:8>>).
+		<<BoardType:?SIZEINT/native-signed-integer-unit:8,
+		HangUpOnRedAlarm:?SIZEINT/native-signed-integer-unit:8,
+		FlowControlBoard:?SIZEINT/native-signed-integer-unit:8,
+		FlowControlWsrv:?SIZEINT/native-signed-integer-unit:8,
+		FlowControlRsrv:?SIZEINT/native-signed-integer-unit:8,
+		HDrops:?SIZEINT/native-signed-integer-unit:8,
+		SDrops:?SIZEINT/native-signed-integer-unit:8,
+		TxMsgSize:?SIZEINT/native-signed-integer-unit:8,
+		RxMsgSize:?SIZEINT/native-signed-integer-unit:8,
+		TxNumBufs:?SIZEUSHORT/native-unsigned-integer-unit:8,
+		RxNumBufs:?SIZEUSHORT/native-unsigned-integer-unit:8,
+		MaxDataChannels:?SIZEUINT/native-unsigned-integer-unit:8>>).
 -define(DriverInfoTerms,
 		[{board_type, BoardType}, {hangup_on_red_alarm, HangUpOnRedAlarm},
 		{flow_control_board, FlowControlBoard},

@@ -155,13 +155,6 @@ done
 ## Typedefs & Structures:  check for typedefs, structures, 
 ##                         and compiler characteristics.
 ##
-AC_C_BIGENDIAN
-if test "x$ac_cv_c_bigendian" = xyes ; then
-	ENDIANESS=big
-else
-	ENDIANESS=little
-fi
-AC_SUBST(ENDIANESS)
 AC_CHECK_SIZEOF(char)
 AC_CHECK_SIZEOF(unsigned char)
 AC_CHECK_SIZEOF(short)
