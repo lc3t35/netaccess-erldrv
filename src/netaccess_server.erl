@@ -131,7 +131,7 @@ handle_call({ioctl, Operation, Data}, From, {Port, Board, StateData} = State) ->
 	end;
 
 %% discriminate synchronous from asynchronous L4L3m requests
-handle_call({'L4L3m', L4L3_Rec, _Data}, From, State) when
+handle_call({'L4L3m', L4L3_Rec, _}, From, State) when
 		is_record(L4L3_Rec, l4_to_l3), L4L3_Rec#l4_to_l3.msgtype == ?L4L3mREQ_BOARD_ID;
 		is_record(L4L3_Rec, l4_to_l3), L4L3_Rec#l4_to_l3.msgtype == ?L4L3mREQ_HW_STATUS;
 		is_record(L4L3_Rec, l4_to_l3), L4L3_Rec#l4_to_l3.msgtype == ?L4L3mREQ_TSI_STATUS ->
@@ -139,7 +139,7 @@ handle_call({'L4L3m', L4L3_Rec, _Data}, From, State) when
 	% the responses will be delivered on the stream which has specified that
 	% lapdid in an L4L3mENABLE_PROTOCOL messages!
 	handle_call_sync(L4L3_Rec#l4_to_l3{lapdid = 16#ff}, From, State);
-handle_call({'L4L3m', L4L3_Rec, _Data}, From, State) ->
+handle_call({'L4L3m', L4L3_Rec, _}, From, State) ->
 	handle_call_async(L4L3_Rec#l4_to_l3{lapdid = 16#ff}, From, State);
 
 %% ignore unknown requests
@@ -207,6 +207,12 @@ handle_cast(stop, {ManagementPort, _Board, _StateData} = State) ->
 
 handle_cast({ioctl, Operation, Data, Port}, State) ->
 	catch erlang:port_call(Port, Operation, Data),
+	{noreply, State};
+handle_cast({'L4L3m', L4L3_Rec, _}, State) when is_record(L4L3_Rec, l4_to_l3) ->
+	Result = (catch iisdn:l4_to_l3(L4L3_Rec)),
+	handle_cast({'L4L3m', Result, <<>>}, State);
+handle_cast({'L4L3m', L4L3_Bin, _}, {Port, _Board, _StateData} = State) when is_binary(L4L3_Bin) ->
+	catch erlang:port_call(Port, ?L4L3m, L4L3_Bin),
 	{noreply, State};
 handle_cast(_, State) ->
 	{noreply, State}.
