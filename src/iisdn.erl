@@ -133,6 +133,8 @@ l4_to_l3(?L4L3mENABLE_PROTOCOL, Header, Data) ->
 %% 				Logical Link ID or DLCI.  Used wth LAPD, LAPB and V.120.</dd>
 %% 		<dt><tt>data_channel</tt></dt><dd><tt>integer()</tt>
 %% 				Identifies the data stream.  Unused in Solaris driver implementation.</dd>
+%% 		<dt><tt>data</tt></dt><dd><tt>binary()</tt>
+%%				The message specific data being received.</dd>
 %% 	</dl>
 %%
 %% @spec (L3L4mBin) -> L3L4mRec
