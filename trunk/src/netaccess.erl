@@ -177,19 +177,19 @@ set_hardware(Port, HardwareSettings, LineSettings) ->
 set_hardware(Port, HardwareSettings, LineSettings, CsuFlag)
 		when integer(CsuFlag) ->
 	set_hardware(Port, HardwareSettings, LineSettings,
-			lists:duplicate(?PRI_MAX_LINES, CsuFlag));
+			lists:duplicate(?IISDN_MAX_LINES, CsuFlag));
 
 % may be called with only one list of line settings in which
 % case we will use these settings for all spans
 set_hardware(Port, HardwareSettings, LineSettings, CsuFlags) 
 		when list(LineSettings), tuple(hd(LineSettings)) ->
 	set_hardware(Port, HardwareSettings,
-			lists:duplicate(?PRI_MAX_LINES, LineSettings), CsuFlags);
+			lists:duplicate(?IISDN_MAX_LINES, LineSettings), CsuFlags);
 
 % may be called with an unordered subset of settings
 set_hardware(Port, HardwareSettings, LineSettings, CsuFlags) 
-		when list(LineSettings), length(LineSettings) == ?PRI_MAX_LINES,
-		list(CsuFlags), length(CsuFlags) == ?PRI_MAX_LINES ->
+		when list(LineSettings), length(LineSettings) == ?IISDN_MAX_LINES,
+		list(CsuFlags), length(CsuFlags) == ?IISDN_MAX_LINES ->
 	HardwareDefaults = ?HardwareDefaults,
 	LineDefaults = ?LineDefaults,
 	HardwareMerged = lists:keysort(1, mergeopts(HardwareSettings,
@@ -219,10 +219,10 @@ req_hw_status(Port) ->
 		{Port, {'L3L4m', ?L3L4_Mask(_LapdId, ?L3L4mHARDWARE_STATUS,
 				_L4Ref, _CallRef, _BChan, _IFace, _BChanMask, _Lli,
 				_DataChan, Rest), _DataBin}} ->
-			?PRI_HARDWARE_DATA = Rest,
+			?IISDN_HARDWARE_DATA = Rest,
 			?HardwareMask = HardwareBin,
 			{ok, ?HardwareTerms, req_hw_status(LineBins,
-					size(LineBins) div ?PRI_MAX_LINES, []),
+					size(LineBins) div ?IISDN_MAX_LINES, []),
 					binary_to_list(CsuBin)}; 
 		{Port, {error, Reason}} -> {error, Reason}
 	after
@@ -242,13 +242,13 @@ set_tsi(Port, Granularity, TsiMapTerms) ->
 set_tsi(Port, NumMappings, Granularity, [], TsiMapBins) ->
 	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mSET_TSI, 16#FFFF, 0, 0),
 	Last = 0,
-	L4_to_L3_struct = concat_binary([L4L3_Bin, ?PRI_TSI_DATA]),
+	L4_to_L3_struct = concat_binary([L4L3_Bin, ?IISDN_TSI_DATA]),
 	port_command(Port, L4_to_L3_struct),
 	receive 
 		{Port, {error, Reason}} -> {error, Reason};
 		{Port, {?L3L4_Mask(_LapdId, ?L3L4mERROR, _L4Ref, _CallRef,
 				_BChan, _IFace, _BChanMask, _Lli, _DataChan, Rest), _DataBin}} ->
-			<<Error:?PRIu8bit, _/binary>> = Rest,
+			<<Error:?IISDNu8bit, _/binary>> = Rest,
 			{error, ?L3L4mErrorMsg(Error)}
 	after
 		100 -> ok
@@ -268,7 +268,7 @@ req_tsi_status(Port) ->
 		{Port, {'L3L4m', ?L3L4_Mask(_LapdId, ?L3L4mTSI_STATUS,
 				_L4Ref, _CallRef, _BChan, _IFace, _BChanMask,
 				_Lli, _DataChan, Rest), _DataBin}} ->
-			?PRI_TSI_DATA = Rest,
+			?IISDN_TSI_DATA = Rest,
 			{ok, {num_mappings, NumMappings},
 					{granularity, Granularity}, {last, Last},
 					req_tsi_status(TsiMapBins, NumMappings, [])};
@@ -305,14 +305,14 @@ enable_protocol(Port, Lapdid, Command, CommandParameter) ->
 			<<>>, <<>>, <<>>).
 enable_protocol(Port, Lapdid, Command, CommandParameter,
 		Level1, Level2, Level3) ->
-	EP = #'PRI_ENA_PROTO_DATA'{
+	EP = #'IISDN_ENA_PROTO_DATA'{
 			command=Command, 
 			command_parameter=CommandParameter, 
 			level1=Level1, level2=Level2, level3=Level3},
 	L4L3m = #'L4_to_L3_struct'{
 			lapdid = Lapdid,
 			msgtype = ?L4L3mENABLE_PROTOCOL,
-			data = naii:'PRI_ENA_PROTO_DATA'(EP)},
+			data = naii:'IISDN_ENA_PROTO_DATA'(EP)},
 	port_command(Port, naii:'L4_to_L3_struct'(L4L3m)).
 	
 	
