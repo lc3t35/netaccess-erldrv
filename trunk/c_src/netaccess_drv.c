@@ -86,7 +86,10 @@
 
 #define DEV_PATH "/dev/pri0"
 
-#define IFRAMESZ 256     /*  maximum size of a received IFRAME  */
+/*  TODO:  make this a runtime option  */
+#define MAXIFRAMESZ 260     /*  maximum size of a received IFRAME  */
+#define LOWWATER (4 * MAXIFRAMESZ)
+#define HIGHWATER (8 * MAXIFRAMESZ)
 
 #define SET_NONBLOCKING(fd)     fcntl((fd), F_SETFL, \
                                       fcntl((fd), F_GETFL, 0) | O_NONBLOCK)
@@ -295,8 +298,8 @@ start(ErlDrvPort port, char *command)
 	driver_event(port, (ErlDrvEvent) dd->fd, (ErlDrvEventData) &pd);
 
 	dd->port = port;	
-	dd->low = (4 * IFRAMESZ);       /*  queue low water mark   */
-	dd->high = (10 * IFRAMESZ);     /*  queue high water mark  */
+	dd->low = LOWWATER;       /*  queue low water mark   */
+	dd->high = HIGHWATER;     /*  queue high water mark  */
 
 	return((ErlDrvData) dd);
 }
@@ -724,7 +727,7 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 		strctrl.buf = ctrlbin->orig_bytes;
 	
 		/*  construct a streams buffer for the data message  */
-		if (!(databin = driver_alloc_binary(IFRAMESZ))) {
+		if (!(databin = driver_alloc_binary(MAXIFRAMESZ))) {
 			driver_failure_posix(dd->port, errno);
 			driver_free_binary(ctrlbin);
 			return;
