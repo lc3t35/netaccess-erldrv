@@ -278,7 +278,6 @@ fprintf(stderr, "netaccess_stop\n\r");
 
 	close(dd->fd);
 	driver_free(dd);
-	/*  what about any thread data that might still be kicking around?  */
 }
 
 
@@ -306,8 +305,8 @@ fprintf(stderr, "netaccess_output\n\r");
  *  Supports scatter/gather IO.  When defined in driver_entry this    *
  *  function takes precendence over output (netaccess_output).        *
  *  [Note:  the first element of the IO vector is null so we skip to  *
- *          the second and start from there.  This is done to make it *
- *          easier for the inet driver to add in a header.]           *
+ *          the second and start from there.  The emulator does this  *
+ *          to make it easier for the inet driver to add in a header] *
  *  Receives data from an Erlang process.                             *
  **********************************************************************/
 static void
@@ -317,10 +316,8 @@ netaccess_outputv(ErlDrvData handle, ErlIOVec *ev)
 	int sz;
 
 fprintf(stderr, "netaccess_outputv\n\r");
-	if(ev->vsize != 3) {
-		output_error("einval");
-		return;
-	}
+fprintf(stderr, "ev->vsize = %d\n\r", ev->vsize);
+fprintf(stderr, "ev->size = %d\n\r", ev->size);
 
 	/*  if there's a queue just add to it  */
 	if((sz = driver_sizeq(dd->port)) > 0) {
@@ -331,13 +328,16 @@ fprintf(stderr, "netaccess_outputv\n\r");
 	}
 
 	/*  send the message to the board  */	
-	if(message_to_board(dd->fd, ev->iov) < 0) {
-		if(errno == EAGAIN) {
-			driver_enqv(dd->port, ev, 0);
-			driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 1);
-		} else {
-			output_error(erl_errno_id(errno));
-			return;
+	if(message_to_board(dd->fd, ev->iov[1]) < 0) {
+		switch(errno) {
+			case EINTR:
+			case ENOSR:
+			case EAGAIN:
+				driver_enqv(dd->port, ev, 0);
+				driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 1);
+				break;
+			default:
+				driver_failure_posix(dd->port, errno);
 		}
 	}
 }
@@ -401,10 +401,12 @@ fprintf(stderr, "netaccess_control\n\r");
 				cntl_ptr->ic_dp = (char *) driver_alloc(10);  /* board string */  
 				cntl_ptr->ic_dp[0] = buf[0];          /* board num sent data  */
 				break;
-#ifdef _LP64	/*  passing a pointer in an ioctl requires 64-bit compilation  */
+#ifdef _LP64 /*  passing a pointer in an ioctl requires 64-bit compilation
+                 on 64 bit kernels.  if the kernel is 32 bit or if it is
+                 64 bit and the Erlang emulator is built 64 bit this works */
 			case BOOT_BOARD:      
 				cntl_ptr->ic_cmd = PRIDRViocBOOT;
-				cntl_ptr->ic_timout = 60;             /* 60 second timeout   */
+				cntl_ptr->ic_timout = 60;               /* 60 second timeout   */
 				/* we receive a large binary which is the boot image.          */
 				/* we must allocate a bootparam structure, initialize it,      */
 				/* allocate more space for the binary image and copy the       */
@@ -472,29 +474,50 @@ netaccess_ready_input(ErlDrvData handle, ErlDrvEvent event)
 	DriverData *dd = (DriverData *) handle;
 	ErlDrvBinary *ctrlbin, *databin;
 	struct strbuf strctrl, strdata;
-	char *databuf;
+	int flags = 0;
 
 fprintf(stderr, "netaccess_ready_input\n\r");
 	/*  construct a streams buffer for the control message  */
-	ctrlbin = driver_alloc_binary(sizeof(L4_to_L3_struct));
-	strctrl.maxlen = sizeof(L4_to_L3_struct);
-	strctrl.len = 0;
+	ctrlbin = driver_alloc_binary(sizeof(L3_to_L4_struct));
+	if (ctrlbin == NULL) {
+		driver_failure_posix(dd->port, errno);
+		return;
+	}
+	strctrl.maxlen = ctrlbin->orig_size;
 	strctrl.buf = ctrlbin->orig_bytes;
 
 	/*  construct a streams buffer for the data message  */
 	databin = driver_alloc_binary(BUFSIZE);
-	strdata.maxlen = BUFSIZE;
-	strdata.len = 0;
+	if (databin == NULL) {
+		driver_failure_posix(dd->port, errno);
+		driver_free_binary(ctrlbin);
+		return;
+	}
+	strdata.maxlen = databin->orig_size;
 	strdata.buf = databin->orig_bytes;
 
 	/*  read a message from the board  */
-	if(getmsg(dd->fd, &strctrl, &strdata, 0) < 0) {
-		output_error(erl_errno_id(errno));
-		return;
+	if(getmsg((int) event, &strctrl, &strdata, &flags) < 0) {
+		switch(errno) {
+			/*  these few errors can be ignored  */
+			case EAGAIN:
+			case EINTR:
+			case ENOSR:
+				driver_free_binary(ctrlbin);
+				driver_free_binary(databin);
+				break;
+			/*  other errors cause the port to be closed  */
+			default:
+				driver_failure_posix(dd->port, errno);
+				driver_free_binary(ctrlbin);
+				driver_free_binary(databin);
+		}
+	return;
 	}
 
 	/*  send the control & data messages to the port owner  */
-	message_to_port(dd->port, ctrlbin, databin);
+	message_to_port(dd->port, ctrlbin, ((strctrl.len < 1) ? 0 : strctrl.len),
+			databin, ((strdata.len < 1) ? 0 : strdata.len));
 
 	driver_free_binary(ctrlbin);
 	driver_free_binary(databin);
@@ -517,27 +540,23 @@ netaccess_ready_output(ErlDrvData handle, ErlDrvEvent event)
 
 fprintf(stderr, "netaccess_ready_output\n\r");
 	while((iov = driver_peekq(dd->port, &vsize)) != NULL) {
-		if(vsize < 3) {
-			qsize = driver_sizeq(dd->port);
-			driver_deq(dd->port, qsize);   /*  dump the whole queue  */     
-			output_error("einval");
-			return;
-		}
-		/*  send the message to the board  */	
+		qsize = driver_sizeq(dd->port);
+		/*  send the next message to the board  */	
 		if(message_to_board(dd->fd, iov) < 0) {
-			if(errno == EAGAIN) {
-				driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 1);
-				return;
-			} else {
-				qsize = driver_sizeq(dd->port);
-				driver_deq(dd->port, 3);      /*  dump this message  */     
-				output_error(erl_errno_id(errno));
-				continue;
+			switch(errno) {
+				case EINTR:
+				case ENOSR:
+				case EAGAIN:
+					driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 1);
+					return;
+				default:
+					driver_deq(dd->port, qsize);  /*  dump the whole queue  */
+					driver_failure_posix(dd->port, errno);
+					return;
 			}
 		}
-		driver_deq(dd->port, 3);        /*  dequeue this sent message  */
-		qsize = driver_sizeq(dd->port);
-		if(qsize <= dd->low)            /*  queue emptying, unthrottle  */
+		driver_deq(dd->port, iov[0].iov_len); /* dequeue this sent message */
+		if(qsize <= dd->low)                /*  queue emptying, unthrottle  */
 			set_busy_port(dd->port, 0);
 	}
 	driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 0);
@@ -784,14 +803,15 @@ output_error(ErlDrvPort port, char *string)
 
 /*  output control and data messages e.g. {Port, {<<Control>>,<<Data>>}}  */
 int
-message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl, ErlDrvBinary *data)
+message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl, int ctrllen,
+		ErlDrvBinary *data, int datalen)
 {
 	ErlDrvTermData spec[] = {
         	ERL_DRV_PORT, driver_mk_port(port),
-				ERL_DRV_BINARY, (ErlDrvTermData) ctrl, ctrl->orig_size, 0,
-				ERL_DRV_BINARY, (ErlDrvTermData) data, data->orig_size, 0,
+				ERL_DRV_BINARY, (ErlDrvTermData) ctrl, ctrllen, 0,
+				ERL_DRV_BINARY, (ErlDrvTermData) data, datalen, 0,
         		ERL_DRV_TUPLE, 2,
-        	ERL_DRV_TUPLE, 3,
+        	ERL_DRV_TUPLE, 2,
     };
 
     return driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
@@ -807,11 +827,21 @@ message_to_board(int fd, SysIOVec *iov)
 	/*  construct the streams buffers  */
 	memset(&ctrlp, 0, sizeof(ctrlp));
 	memset(&datap, 0, sizeof(datap));
-	ctrlp.buf = iov[1].iov_base;
-	ctrlp.len = iov[1].iov_len;
-	datap.buf = iov[2].iov_base;
-	datap.len = iov[2].iov_len;
+
+
+	/*  the first byte is the type  */
+	if(iov[0].iov_base[0] == 0) {
+		ctrlp.len = (iov[0].iov_len - 1);
+		ctrlp.buf = &iov[0].iov_base[1];
+		datap.len = 0;
+		datap.buf = NULL;
+	} else {
+		ctrlp.len = 0;
+		ctrlp.buf = NULL;
+		datap.len = (iov[0].iov_len - 1);
+		datap.buf = &iov[0].iov_base[1];
+	}
 
 	/*  send the message to the board  */	
-	return (putmsg(fd, &ctrlp, &datap, 0));
+	return(putmsg(fd, &ctrlp, &datap, 0));
 }

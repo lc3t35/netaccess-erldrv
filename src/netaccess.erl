@@ -24,7 +24,10 @@
 -export([open/0,open/1,close/1]).
 -export([select_board/2,boot/2,enable_management_chan/1,
 			reset_board/1,get_version/1, get_driver_info/1]).
--export([set_hardware/2, set_hardware/3, set_hardware/4]).
+-export([set_hardware/2, set_hardware/3, set_hardware/4, req_hw_status/1]).
+
+% test
+-export([mergeopts/2]).
 
 
 %% ioctl commands
@@ -45,7 +48,94 @@
 
 -define(PRI_MAX_LINES, 8).
 
+%%
+%% defines for get_driver_info/2
+%%
+-define(DriverInfoMask,
+		<<BoardType:?SIZEINT/?ENDIANESS-signed-integer,
+		HangUpOnRedAlarm:?SIZEINT/?ENDIANESS-signed-integer,
+		FlowControlBoard:?SIZEINT/?ENDIANESS-signed-integer,
+		FlowControlWsrv:?SIZEINT/?ENDIANESS-signed-integer,
+		FlowControlRsrv:?SIZEINT/?ENDIANESS-signed-integer,
+		HDrops:?SIZEINT/?ENDIANESS-signed-integer,
+		SDrops:?SIZEINT/?ENDIANESS-signed-integer,
+		TxMsgSize:?SIZEINT/?ENDIANESS-signed-integer,
+		RxMsgSize:?SIZEINT/?ENDIANESS-signed-integer,
+		TxNumBufs:?SIZEUSHORT/?ENDIANESS-unsigned-integer,
+		RxNumBufs:?SIZEUSHORT/?ENDIANESS-unsigned-integer,
+		MaxDataChannels:?SIZEUINT/?ENDIANESS-unsigned-integer>>).
+-define(DriverInfoTerms,
+		[{board_type, BoardType}, {hangup_on_red_alarm, HangUpOnRedAlarm},
+		{flow_control_board, FlowControlBoard},
+		{flow_control_wsrv, FlowControlWsrv},
+		{flow_control_rsrv, FlowControlRsrv},
+		{hdrops, HDrops}, {sdrops, SDrops},
+		{tx_msg_size, TxMsgSize}, {rx_msg_size, RxMsgSize},
+		{tx_num_bufs, TxNumBufs},	{rx_num_bufs, RxNumBufs},
+		{max_data_channels, MaxDataChannels}]).
+
+%%
+%% defines for the L4L3 & L3L4 Common Headers 
+%%
+-define(L4L3_Mask(LapdId, MsgType, L4Ref, CallRef, Lli),
+		<<0, LapdId:?PRIu8bit, MsgType:?PRIu8bit, L4Ref:?PRIu16bit,
+		CallRef:?PRIu16bit, Lli:?PRIu16bit>>).
+-define(L3L4_Mask(LapdId, MsgType, L4Ref, CallRef, BChan,
+		Iface, BChanMask, Lli, DataChan),
+		<<LapdId:?PRIu8bit, MsgType:?PRIu8bit, L4Ref:?PRIu16bit,
+		CallRef:?PRIu16bit, BChan:?PRIu8bit, Iface:?PRIu8bit,
+		 BChanMask:?PRIu32bit, Lli:?PRIu16bit, DataChan:?PRIu16bit>>).
+
+%%
+%% defines for set_hardware/2 and req_hw_status/1
+%%
 -define(L4L3mSET_HARDWARE, 16#A7). 
+-define(L4L3mREQ_HW_STATUS, 16#A8). 
+-define(L3L4mHARDWARE_STATUS, 16#24). 
+-define(PRI_HARDWARE_DATA,
+		<<_:?PRIu8bit, ?L3L4mHARDWARE_STATUS:?PRIu8bit,
+		_:(14*8), HardwareBin:12/binary,
+		LineBins:(16*?PRI_MAX_LINES)/binary,
+		CsuBin:(?PRI_MAX_LINES)/binary, _/binary>>).
+-define(HardwareMask, <<Clocking:?PRIu8bit, Clocking2:?PRIu8bit,
+		EnableClocking2:?PRIu8bit, NetRefClocking:?PRIu8bit,
+		NetRefRate:?PRIu8bit, CtBusMode:?PRIu8bit,
+		ForceFramerInit:?PRIu8bit, TdmRate:?PRIu8bit,
+		Enable8370RliuMonitor:?PRIu8bit, DbCount:?PRIu8bit,
+		EnableT810xSnapMode:?PRIu8bit, ClkStatus:?PRIu8bit>>).
+-define(HardwareTerms, [{clk_status,ClkStatus}, {clocking,Clocking},
+		{clocking2,Clocking2}, {ctbus_mode,CtBusMode},
+		{dbcount,DbCount}, {enable_8370_rliu_monitor,Enable8370RliuMonitor},
+		{enable_clocking2,EnableClocking2},
+		{enable_t810x_snap_mode,EnableT810xSnapMode},
+		{force_framer_init,ForceFramerInit},
+		{netref_clocking,NetRefClocking}, {netref_rate,NetRefRate},
+		{tdm_rate,TdmRate}]).
+-define(HardwareDefaults,
+		[{clk_status,0}, {clocking,0}, {clocking2,0}, {ctbus_mode,0},
+		{dbcount,0}, {enable_8370_rliu_monitor,0}, {enable_clocking2,0},
+		{enable_t810x_snap_mode,0}, {force_framer_init,0},
+		{netref_clocking,0}, {netref_rate,0}, {tdm_rate,0}]).
+-define(LineMask, <<Framing:?PRIu8bit, LineCode:?PRIu8bit, PmMode:?PRIu8bit,
+		LineLength:?PRIu8bit, Term:?PRIu8bit, LineType:?PRIu8bit,
+		IntegrateAlarms:?PRIu8bit, FilterUnsolicited:?PRIu8bit,
+		0:?PRIu8bit, FilterYellow:?PRIu8bit, BriL1Mode:?PRIu8bit,
+		BriL1Cmd:?PRIu8bit, BriLoop:?PRIu8bit, BriL1T3:?PRIu8bit,
+		BriL1T4:?PRIu16bit>>).
+-define(LineTerms,
+		[{briL1_T3, BriL1T3}, {briL1_T4, BriL1T4}, {briL1_cmd, BriL1Cmd},
+		{bri_l1mode, BriL1Mode}, {bri_loop, BriLoop},
+		{filter_unsolicited, FilterUnsolicited},
+		{filter_yellow, FilterYellow}, {framing, Framing},
+		{integrate_alarms, IntegrateAlarms},
+		{line_code, LineCode}, {line_length, LineLength},
+		{line_type, LineType}, {pm_mode, PmMode}, {term, Term}]).
+-define(LineDefaults, 
+		[{briL1_T3,0}, {briL1_T4,0}, {briL1_cmd,0}, {bri_l1mode,0},
+		{bri_loop,0}, {filter_unsolicited,0}, {filter_yellow,0},
+		{framing,0}, {integrate_alarms,0}, {line_code,0},
+		{line_length,0}, {line_type,0}, {pm_mode,0}, {term,0}]).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -161,32 +251,8 @@ get_version(Port) ->
 %%
 get_driver_info(Port) ->
 	case do_ioctl({ioctl, ?GET_DRIVER_INFO, [], Port}) of
-		{ok, <<BoardType:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-				HangUpOnRedAlarm:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-				FlowControlBoard:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-				FlowControlWsrv:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-				FlowControlRsrv:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-				HDrops:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-				SDrops:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-				TxMsgSize:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-				RxMsgSize:?SIZEINT/?ENDIANESS-signed-integer-unit:8,
-				TxNumBufs:?SIZEUSHORT/?ENDIANESS-unsigned-integer-unit:8,
-				RxNumBufs:?SIZEUSHORT/?ENDIANESS-unsigned-integer-unit:8,
-				MaxDataChannels:?SIZEUINT/?ENDIANESS-unsigned-integer-unit:8>>} ->
-			{ok, [{board_type, BoardType}, 
-					{hangup_on_red_alarm, HangUpOnRedAlarm},
-					{flow_control_board, FlowControlBoard},
-					{flow_control_wsrv, FlowControlWsrv},
-					{flow_control_rsrv, FlowControlRsrv},
-					{hdrops, HDrops},
-					{sdrops, SDrops},
-					{tx_msg_size, TxMsgSize},
-					{rx_msg_size, RxMsgSize},
-					{tx_num_bufs, TxNumBufs},	
-					{rx_num_bufs, RxNumBufs},
-					{max_data_channels, MaxDataChannels}]};
-		Return -> 
-			Return
+		{ok, ?DriverInfoMask} -> {ok, ?DriverInfoTerms};
+		Return -> Return
 	end.
 	
 
@@ -215,63 +281,57 @@ set_hardware(Port, HardwareSettings, LineSettings, CsuFlags)
 
 % may be called with an unordered subset of settings
 set_hardware(Port, HardwareSettings, LineSettings, CsuFlags) 
-		when list(LineSettings), size(LineSettings) == ?PRI_MAX_LINES,
-		list(CsuFlags), size(CsuFlags) == ?PRI_MAX_LINES ->
-	HardwareDefaults = [{clocking,0}, {clocking2,0}, {enable_clocking2,0},
-			{netref_clocking,0}, {netref_rate,0},
-			{ctbus_mode,0}, {force_framer_init,0}, {tdm_rate,0},
-			{enable_8370_rliu_monitor,0}, {dbcount,0},
-			{enable_t810x_snap_mode,0}, {clk_status,0}],
-	LineDefaults = [{framing, 0}, {line_code, 0}, {pm_mode, 0},
-			{line_length, 0}, {term, 0}, {line_type, 0},
-			{integrate_alarms, 0}, {filter_unsolicited, 0},
-			{filter_yellow, 0}, {bri_l1mode, 0}, {briL1_cmd, 0},
-			{bri_loop, 0}, {briL1_T3, 0}, {briL1_T4, 0}],
-	HardwareMerged = mergeopts(HardwareSettings, HardwareDefaults),
-	LineMerged = [mergeopts(A, B) || A <- LineSettings,
-			B <- lists:duplicate(?PRI_MAX_LINES, LineDefaults)],
-	do_set_hardware(Port, lists:keysort(1, HardwareMerged),
-			lists:keysort(1, LineMerged), CsuFlags).
+		when list(LineSettings), length(LineSettings) == ?PRI_MAX_LINES,
+		list(CsuFlags), length(CsuFlags) == ?PRI_MAX_LINES ->
+	HardwareDefaults = ?HardwareDefaults,
+	LineDefaults = ?LineDefaults,
+	HardwareMerged = lists:keysort(1, mergeopts(HardwareSettings,
+			HardwareDefaults)),
+	LineMerged = [lists:keysort(1, mergeopts(A, B)) ||
+			A <- LineSettings, B <- [LineDefaults]],
+	do_set_hardware(Port, HardwareMerged, LineMerged, CsuFlags).
 	
 %%
 %% internal function to set the hardware options
 %%
-do_set_hardware(Port, [{clk_status,ClkStatus}, {clocking,Clocking},
-		{clocking2,Clocking2}, {ctbus_mode,CtBusMode},
-		{dbcount,DbCount}, {enable_8370_rliu_monitor,Enable8370RliuMonitor},
-		{enable_clocking2,EnableClocking2},
-		{enable_t810x_snap_mode,EnableT810xSnapMode},
-		{force_framer_init,ForceFramerInit},
-		{netref_clocking,NetRefClocking}, {netref_rate,NetRefRate},
-		{tdm_rate,TdmRate}], LineSettings, CsuFlags) ->
-	HardwareBin = <<Clocking:?PRIu8bit, Clocking2:?PRIu8bit,
-			EnableClocking2:?PRIu8bit, NetRefClocking:?PRIu8bit,
-			NetRefRate:?PRIu8bit, CtBusMode:?PRIu8bit,
-			ForceFramerInit:?PRIu8bit, TdmRate:?PRIu8bit,
-			Enable8370RliuMonitor:?PRIu8bit, DbCount:?PRIu8bit,
-			EnableT810xSnapMode:?PRIu8bit, ClkStatus:?PRIu8bit>>,
-	MakeLineBin = fun({briL1_T3, BriL1T3}, {briL1_T4, BriL1T4},
-			{briL1_cmd, BriL1Cmd}, {bri_l1mode, BriL1Mode},
-			{bri_loop, BriLoop}, {filter_unsolicited, FilterUnsolicited},
-			{filter_yellow, FilterYellow}, {framing, Framing},
-			{integrate_alarms, IntegrateAlarms}, {line_code, LineCode},
-			{line_length, LineLength}, {line_type, LineType},
-			{pm_mode, PmMode}, {term, Term}) ->
-			<<Framing:?PRIu8bit, LineCode:?PRIu8bit, PmMode:?PRIu8bit,
-			LineLength:?PRIu8bit, Term:?PRIu8bit, LineType:?PRIu8bit,
-			IntegrateAlarms:?PRIu8bit, FilterUnsolicited:?PRIu8bit,
-			0:?PRIu8bit, FilterYellow:?PRIu8bit, BriL1Mode:?PRIu8bit,
-			BriL1Cmd:?PRIu8bit, BriLoop:?PRIu8bit, BriL1T3:?PRIu8bit,
-			BriL1T4:?PRIu16bit>>
-			end,
+do_set_hardware(Port, ?HardwareTerms, LineSettings, CsuFlags) ->
+	HardwareBin = ?HardwareMask,
+	MakeLineBin = fun(?LineTerms) -> ?LineMask end,
 	LineBins = [MakeLineBin(A) || A <- LineSettings],
 	CsuBin = list_to_binary(CsuFlags),
-	L4L3_CommonHeader = <<0:?PRIu8bit, ?L4L3mSET_HARDWARE:?PRIu8bit,
-			0:?PRIu8bit, 0:?PRIu8bit, 0:?PRIu8bit>>,
-	L4_to_L3_struct = concat_binary([L4L3_CommonHeader, HardwareBin]
-			++ LineBins ++ [CsuBin]),	
-	port_command(Port, L4_to_L3_struct).
+	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mSET_HARDWARE, 0, 0, 0),
+	L4_to_L3_struct = concat_binary([L4L3_Bin, HardwareBin, LineBins, CsuBin]),
+	port_command(Port, L4_to_L3_struct),
+	receive 
+		{Port, {error, Reason}} -> {error, Reason}
+		after 200 -> {ok, done}
+	end.
 
+
+%%
+%% query the hardware setup
+%%
+%% returns {ok, [HardwareTerms], [[LineTerms]|...], CsuTerms}
+%%
+req_hw_status(Port) ->
+	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mREQ_HW_STATUS, 0, 0, 0),
+	port_command(Port, L4L3_Bin),
+	receive 
+		{Port, {error, Reason}} -> {error, Reason};
+		{Port, {?PRI_HARDWARE_DATA, DataBin}} ->
+			?HardwareMask = HardwareBin,
+			{ok, ?HardwareTerms, req_hw_status1(LineBins,
+					size(LineBins) div ?PRI_MAX_LINES, []),
+					binary_to_list(CsuBin)}; 
+		{Port, {error, Reason}} -> {error, Reason}
+		after 200 -> {error, timeout}
+	end.
+req_hw_status1(<<>>, LineBinSize, LineTerms) -> LineTerms;
+req_hw_status1(LineBins, LineBinSize, LineTerms) ->
+	{?LineMask, Rest} = split_binary(LineBins, LineBinSize),
+	req_hw_status1(Rest, LineBinSize, LineTerms ++ ?LineTerms).
+	
+	
 	
 
 %%----------------------------------------------------------------------
@@ -354,7 +414,8 @@ handle_info({'EXIT', Port, Reason}, State) ->
 	error_logger:error_msg('Port controlling netaccess_drv terminated'),
 	{stop, normal, State};
 
-handle_info(_, State) ->
+handle_info(Unknown, State) ->
+	io:format("~p~n", [Unknown]),
 	{noreply, State}.
 
 % someone wants us to shutdown and cleanup
