@@ -837,13 +837,22 @@ level3(L3) when is_record(L3, level3),
 q931(Q931) when is_record(Q931, q931) ->
 	Q931_Timers = q931_timers(Q931#q931.q931_timers),
 	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
-	B_channel_service_state = lists:foldl(Digit32, <<>>,
-			Q931#q931.b_channel_service_state),
+	BCSSPad = ?IISDN_NUM_DS1_INTERFACES - length(Q931#q931.b_channel_service_state),
+	BCSSList = Q931#q931.b_channel_service_state ++ lists:duplicate(BCSSPad, 0),
+	B_channel_service_state = lists:foldl(Digit32, <<>>, BCSSList),
 	Digit8 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu8bit>> end,
-	Spid = lists:foldl(Digit8, <<>>, Q931#q931.spid),
-	Spid_1 = lists:foldl(Digit8, <<>>, Q931#q931.spid_1),
-	Dn = lists:foldl(Digit8, <<>>, Q931#q931.dn),
-	Dn_1 = lists:foldl(Digit8, <<>>, Q931#q931.dn_1),
+	SpidPad = ?IISDN_MAX_SPID_LEN - length(Q931#q931.spid),
+	SpidList = Q931#q931.spid ++ lists:duplicate(SpidPad, 0),
+	Spid = lists:foldl(Digit8, <<>>, SpidList),
+	SpidPad_1 = ?IISDN_MAX_SPID_LEN - length(Q931#q931.spid_1),
+	SpidList_1 = Q931#q931.spid_1 ++ lists:duplicate(SpidPad_1, 0),
+	Spid_1 = lists:foldl(Digit8, <<>>, SpidList_1),
+	DnPad = ?IISDN_MAX_DN_LEN - length(Q931#q931.dn),
+	DnList = Q931#q931.dn ++ lists:duplicate(DnPad, 0),
+	Dn = lists:foldl(Digit8, <<>>, DnList),
+	DnPad_1 = ?IISDN_MAX_DN_LEN - length(Q931#q931.dn_1),
+	DnList_1 = Q931#q931.dn_1 ++ lists:duplicate(DnPad_1, 0),
+	Dn_1 = lists:foldl(Digit8, <<>>, DnList_1),
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
 			?SIZEOF_IISDN_BONDING_DATA,
 			?SIZEOF_IISDN_X25_CONFIG,
@@ -971,7 +980,9 @@ x25(X25) when is_record(X25, x25) ->
 %%
 bonding_data(Bond) when is_record(Bond, bonding_data) ->
 	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
-	Directory = lists:foldl(Digit32, <<>>, Bond#bonding_data.directory),
+	DirectoryPad = ?IISDN_MAX_BOND_CHAN - length(Bond#bonding_data.directory),
+	DirectoryList = Bond#bonding_data.directory ++ lists:duplicate(DirectoryPad, 0),
+	Directory = lists:foldl(Digit32, <<>>, DirectoryList),
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
 			?SIZEOF_IISDN_BONDING_DATA,
 			?SIZEOF_IISDN_X25_CONFIG,
@@ -1014,10 +1025,20 @@ bonding_data(Bond) when is_record(Bond, bonding_data) ->
 %%
 pm(PM) when is_record(PM, pm) ->
 	Digit8 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu8bit>> end,
-	Equipmentid = lists:foldl(Digit8, <<>>, PM#pm.equipmentid),
-	Locationid = lists:foldl(Digit8, <<>>, PM#pm.locationid),
-	Frameid = lists:foldl(Digit8, <<>>, PM#pm.frameid),
-	Unitid = lists:foldl(Digit8, <<>>, PM#pm.unitid),
+	EidPad = 10 - length(PM#pm.equipmentid),
+	EidList = PM#pm.equipmentid ++ lists:duplicate(EidPad, 0),
+	Equipmentid = lists:foldl(Digit8, <<>>, EidList),
+	LidPad = 11 - length(PM#pm.locationid),
+	LidList = PM#pm.locationid++ lists:duplicate(LidPad, 0),
+	Locationid = lists:foldl(Digit8, <<>>, LidList),
+	FridPad = 10 - length(PM#pm.facilityid),
+	FridList = PM#pm.frameid ++ lists:duplicate(FridPad, 0),
+	Frameid = lists:foldl(Digit8, <<>>, FridList),
+	UidPad = 6 - length(PM#pm.unitid),
+	UidList = PM#pm.unitid ++ lists:duplicate(UidPad, 0),
+	Unitid = lists:foldl(Digit8, <<>>, UidList),
+	FacIdPad = 38  - length(PM#pm.facilityid),
+	FacIdList = PM#pm.facilityid ++ lists:duplicate(FacIdPad, 0),
 	Facilityid = lists:foldl(Digit8, <<>>, PM#pm.facilityid),
 	Pad = lists:max([?SIZEOF_IISDN_Q931_CNFG,
 			?SIZEOF_IISDN_BONDING_DATA,
@@ -1234,12 +1255,15 @@ match(MatchRec) when is_record(MatchRec, match) ->
 %% 	RelayRuleBin = binary()
 %%
 relay_rule(RelayRuleRec) when is_record(RelayRuleRec, relay_rule),
-		is_list(RelayRuleRec#relay_rule.match) ->
+		is_list(RelayRuleRec#relay_rule.match),
+		length(RelayRuleRec#relay_rule.match) =< ?IISDN_RELAY_MAX_MATCHES ->
+	MatchPad = ?IISDN_RELAY_MAX_MATCHES - length(RelayRuleRec#relay_rule.match),
+	MatchList = RelayRuleRec#relay_rule.match ++ lists:duplicate(MatchPad, #match{}),
 	LtoBin = fun(MatchRec, Bin) ->
 				B = match(MatchRec),
 				<<Bin/binary, B/binary>>
 			end,
-	MatchBin = lists:foldl(LtoBin, <<>>, RelayRuleRec#relay_rule.match),
+	MatchBin = lists:foldl(LtoBin, <<>>,  MatchList),
 	NewRelayRuleRec = RelayRuleRec#relay_rule{match = MatchBin},
 	relay_rule(NewRelayRuleRec);
 relay_rule(RelayRuleRec) when is_record(RelayRuleRec, relay_rule),
@@ -1303,9 +1327,8 @@ relay_stats(RS) when is_binary(RS) ->
 %% 	HardwareData = hardware_data() | binary()
 %%
 hardware_data(HW) when is_record(HW, hardware_data),
-		is_binary(HW#hardware_data.line_data) ->
-	Digit8 = fun(Digit8, Bin) -> <<Bin/binary, Digit8:?IISDNu8bit>> end,
-	Csu = lists:foldl(Digit8, <<>>, HW#hardware_data.csu),
+		is_binary(HW#hardware_data.line_data),
+		is_binary(HW#hardware_data.csu) ->
 	<<(HW#hardware_data.clocking):?IISDNu8bit,
 			(HW#hardware_data.clocking2):?IISDNu8bit,
 			(HW#hardware_data.enable_clocking2):?IISDNu8bit,
@@ -1319,13 +1342,28 @@ hardware_data(HW) when is_record(HW, hardware_data),
 			(HW#hardware_data.enable_t810x_snap_mode):?IISDNu8bit,
 			(HW#hardware_data.clk_status):?IISDNu8bit,
 			(HW#hardware_data.line_data)/binary, Csu/binary>>;
-hardware_data(HW) when is_record(HW, hardware_data), 
-		is_list(HW#hardware_data.line_data) ->
+hardware_data(HW) when is_record(HW, hardware_data),
+		is_list(HW#hardware_data.csu),
+		length(HW#hardware_data.csu) =< ?IISDN_MAX_LINES ->
+	CsuPad = ?IISDN_MAX_LINES - length(HW#hardware_data.csu),
+	CsuList = HW#hardware_data.csu ++ lists:duplicate(LinesPad, 0),
 	LtoBin = fun(Line, Bin) ->
 				B = line_data(Line),
 				<<Bin/binary, B/binary>>
 			end,
-	LD = lists:foldl(LtoBin, <<>>, HW#hardware_data.line_data),
+	CSU = lists:foldl(LtoBin, <<>>, CsuList),
+	NewHW = HW#hardware_data{csu = CSU},
+	hardware_data(NewHW);
+hardware_data(HW) when is_record(HW, hardware_data), 
+		is_list(HW#hardware_data.line_data),
+		length(HW#hardware_data.line_data) =< ?IISDN_MAX_LINES ->
+	LinesPad = ?IISDN_MAX_LINES - length(HW#hardware_data.line_data),
+	LinesList = HW#hardware_data.line_data ++ lists:duplicate(LinesPad, #line_data{}),
+	LtoBin = fun(Line, Bin) ->
+				B = line_data(Line),
+				<<Bin/binary, B/binary>>
+			end,
+	LD = lists:foldl(LtoBin, <<>>, LinesList),
 	NewHW = HW#hardware_data{line_data=LD},
 	hardware_data(NewHW);
 hardware_data(HW) when is_binary(HW) ->
