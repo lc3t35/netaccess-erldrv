@@ -1,3 +1,10 @@
+2005-03-8  Vance Shipley <vances@motivity.ca>
+
+        * implemented performamce management functions
+        * implemented L4L3m cast and call functions
+        * moved existing SMI functions to use cast and call functions
+        * netaccess:enable_protocol/3 is now syncronous
+
 2002-11-13  Vance Shipley <vances@motivity.ca>
 
         * implemented functions to set/query timeslot interchange
