@@ -23,7 +23,7 @@ datadir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION
 libdir=$ERL_TOP/lib/$PACKAGE_NAME-$PACKAGE_VERSION/priv/lib
 
 AC_ARG_ENABLE(debug,
-	[  --enable-debug    Turn on debugging],
+	[  --enable-debug          Turn on debugging],
 	[case "${enableval}" in
 		yes)
 			debug=true
@@ -35,28 +35,54 @@ AC_ARG_ENABLE(debug,
 		*) 
 			AC_MSG_ERROR(bad value ${enableval} for --enable-debug)
 			;;
-	esac],
-	[debug=false])
+	esac], [debug=false] )
 AM_CONDITIONAL(DEBUG, test x"$debug" = "xtrue")
 
 AC_ARG_ENABLE(threads,
-	[  --enable-threads   build for a threaded emulator],
+	[  --enable-threads        build for a threaded emulator],
 	[ case "${enableval}" in
 		no)  threaded=no ;;
 		yes) threaded=yes ;;
 		*)  AC_MSG_ERROR(bad value ${enableval} for --enable-threads) ;;
-	esac ], threaded=no)
+	esac ], threaded=no )
 
 AC_ARG_ENABLE(select,
-	[  --enable-select    use the select() system call],
+	[  --enable-select         use the select() system call],
 	[ case "${enableval}" in
 		no)  use_select=no ;;
 		yes) use_select=yes ;;
 		*)  AC_MSG_ERROR(bad value ${enableval} for --enable-select) ;;
-	esac ], use_select=no)
+	esac ], use_select=no )
 if test "x$use_select" = "xyes" ; then
 	CPPFLAGS="${CPPFLAGS} -DUSE_SELECT"
 fi
+
+AC_ARG_WITH(edoc,
+	[  --with-edoc=PATH        load edoc from PATH],
+	[ case "${withval}" in
+		no) ;;
+		yes) ;;
+		*) EDOCPATH="${EDOCPATH} ${withval}" ;;
+	esac ])
+AM_CONDITIONAL(EDOC, test x"${withval}" != "xno")
+
+AC_ARG_WITH(syntax_tools,
+	[  --with-syntax_tools=PATH  load syntax_tools from PATH],
+	[ case "${withval}" in
+		no) ;;
+		yes) ;;
+		*) EDOCPATH="${EDOCPATH} ${withval}" ;;
+	esac ])
+
+AC_ARG_WITH(xmerl,
+	[  --with-xmerl=PATH       load xmerl from PATH],
+	[ case "${withval}" in
+		no) ;;
+		yes) ;;
+		*) EDOCPATH="${EDOCPATH} ${withval}" ;;
+	esac ])
+AC_SUBST(EDOCPATH)
+
 
 ##
 ## Programs:  check for programs needed by the configure process,
@@ -70,8 +96,15 @@ fi
 if test -z "${ERLC}" ; then
 	AC_MSG_ERROR([cannot find Erlang compiler in path or ${ERLC}.])
 fi
+if test -z "${ERL}" ; then
+	AC_PATH_PROG(ERL, erl, [], [${ERL_TOP}/bin:${ERL_TOP}/bootstrap/bin:$PATH])
+fi
+if test -z "${ERL}" ; then
+	AC_MSG_ERROR([cannot find Erlang emuluator in path or ${ERL}.])
+fi
 AC_ARG_VAR(ERL_TOP, [Erlang top level directory])
 AC_ARG_VAR(ERLC, [Erlang compiler command])
+AC_ARG_VAR(ERL, [Erlang emulator command])
 
 
 ##
@@ -307,5 +340,6 @@ AC_CHECK_LIB(ei, ei_x_new)
 ##
 
 AC_CONFIG_FILES([include/iisdn.hrl include/pridrv.hrl])
-AC_CONFIG_FILES([Makefile priv/lib/Makefile src/Makefile c_src/Makefile include/Makefile])
+AC_CONFIG_FILES([Makefile priv/lib/Makefile src/Makefile c_src/Makefile
+		include/Makefile examples/Makefile])
 AC_OUTPUT

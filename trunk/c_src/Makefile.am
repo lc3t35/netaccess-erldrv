@@ -1,4 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = priv/lib c_src include src examples
+c_srcdir = $(datadir)/c_src
+
+c_src_DATA = netaccess_drv.c
 
