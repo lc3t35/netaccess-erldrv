@@ -1,17 +1,20 @@
 ## Process this file with automake to produce Makefile.in
 
 beamdir = $(datadir)/ebin
-beam_DATA = ../ebin/netaccess.beam ../ebin/netaccess_server.beam \
-		../ebin/pridrv.beam ../ebin/iisdn.beam
+beam_DATA = ../ebin/netaccess_app.beam ../ebin/netaccess.beam \
+		../ebin/pridrv.beam ../ebin/iisdn.beam \
+		../ebin/netaccess_server.beam ../ebin/netaccess_fsm.beam
 
 CLEANFILES = $(beam_DATA)
 
 e_srcdir = $(datadir)/src
-e_src_DATA = netaccess.erl netaccess_server.erl pridrv.erl iisdn.erl
+e_src_DATA = netaccess_app.erl netaccess.erl \
+		pridrv.erl iisdn.erl \
+		netaccess_server.erl netaccess_fsm.erl
 
 docdir = $(datadir)/doc
 if EDOC
-doc_DATA = ../doc/netaccess.html
+doc_DATA = ../doc/netaccess.html ../doc/netaccess_fsm.html
 endif
 
 if DEBUG

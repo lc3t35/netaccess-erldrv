@@ -12,6 +12,8 @@
 %%% @doc The Netaccess application provides an API and device driver
 %%% 		for the Brooktrout Netaccess WAN cards.
 %%% @end
+%%%
+%%% @hidden
          
 -module(netaccess_app).
 -copyright('Copyright (c) 2001-2004 Motivity Telecom Inc.').
@@ -23,23 +25,25 @@
 -export([start/2, prep_stop/1, stop/1, config_change/3]).
 
 
-%%% @spec start(normal, Args) -> {ok, pid()} or  {ok, pid(), State}
+%%% @spec start(normal, Args) -> {ok, Pid} | {ok, Pid, State}
+%%% 	Pid = pid()
+%%% 	State = term()
 %%%
 %%% @doc Starts the netaccess application.
 %%%
 start(normal, Listof) ->
+	ok;
 start({takeover, _Node}, _StartArgs) ->
 	{error, not_implemented};
 start({failover, _Node}, _StartArgs) ->
 	{error, not_implemented}.
 
 
-%%% @spec (State::term()) -> State::term()
+%%% @spec (State::term()) -> State
+%%%	State = term()
 %%%
 %%% @doc Called when the application is about to be shut down,
 %%% 		before any processes are terminated.
-%%%
-%%% @hidden
 %%%
 prep_stop(State) ->
 	error_logger:info_report(["Application preparing to stop.",
@@ -47,14 +51,13 @@ prep_stop(State) ->
 	State.
 
 
-%%% @spec (State::term())
+%%% @spec (State::term()) -> ok
 %%%
 %%% @doc Called when the application is about to be shut down,
 %%% 		before any processes are terminated.
 %%%
-%%% @hidden
-%%%
 stop(_State) ->
+	ok.
 
 
 %%% @spec (Changed, New, Removed) -> ok
@@ -66,8 +69,6 @@ stop(_State) ->
 %%%
 %%% @doc Called after a code  replacement, if there are any 
 %%% 		changes to the configuration  parameters.
-%%%
-%%% @hidden
 %%%
 config_change(_Changed, _New, _Removed) -> ok.
 
