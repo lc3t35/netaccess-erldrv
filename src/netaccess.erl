@@ -260,25 +260,6 @@ get_driver_info(ServerRef) ->
 %% 	Node = atom()
 %%		Reason = term()
 %%
-%% @type board_id(). A record which includes the following fields:
-%%		<dl>
-%%			<dt>iisdn_ver</dt> <dd><code>string()</code></dd>
-%%			<dt>banner</dt> <dd><code>string()</code></dd>
-%%			<dt>date</dt> <dd><code>string()</code></dd>
-%%			<dt>model</dt> <dd><code>string()</code></dd>
-%%			<dt>rev</dt> <dd><code>string()</code></dd>
-%%			<dt>board_type</dt> <dd><code>integer()</code></dd>
-%%			<dt>num_lines</dt> <dd><code>integer()</code></dd>
-%%			<dt>num_hdlc_chan</dt> <dd><code>integer()</code></dd>
-%%			<dt>num_modem_chan</dt> <dd><code>integer()</code></dd>
-%%			<dt>line_type</dt> <dd><code>[line_type()]</code></dd>
-%%			<dt>kernel_ram_size</dt> <dd><code>integer()</code></dd>
-%%			<dt>mezz_ram_size</dt> <dd><code>integer()</code></dd>
-%%			<dt>num_bfio_devices</dt> <dd><code>integer()</code></dd>
-%%		</dl>
-%%
-%% @type line_type().  [t1 | t1_csu | pri_e1 | bri_u | bri_st] 
-%%
 %% @doc Get board identification.
 %%
 board_id(ServerRef) ->
@@ -304,42 +285,6 @@ set_hardware(ServerRef, Data) when is_record(Data, hardware_data) ->
 %% 	Node = atom()
 %%		Reason = term()
 %%
-%% @type hardware_data().  A record which includes the following fields:
-%% 	<dl>
-%% 		<dt>clocking</dt> <dd><code>integer()</code></dd>
-%% 		<dt>clocking2</dt> <dd><code>integer()</code></dd>
-%% 		<dt>enable_clocking2</dt> <dd><code>integer()</code></dd>
-%% 		<dt>netref_clocking</dt> <dd><code>integer()</code></dd>
-%% 		<dt>netref_rate</dt> <dd><code>integer()</code></dd>
-%% 		<dt>ctbus_mode</dt> <dd><code>integer()</code></dd>
-%% 		<dt>force_framer_init</dt> <dd><code>integer()</code></dd>
-%% 		<dt>tdm_rate</dt> <dd><code>integer()</code></dd>
-%% 		<dt>enable_8370_rliu_monitor</dt> <dd><code>integer()</code></dd>
-%% 		<dt>dbcount</dt> <dd><code>integer()</code></dd>
-%% 		<dt>enable_t810x_snap_mode</dt> <dd><code>integer()</code></dd>
-%% 		<dt>clk_status</dt> <dd><code>integer()</code></dd>
-%% 		<dt>line_data</dt> <dd><code>[line_data()]</code></dd>
-%% 		<dt>csu</dt> <dd><code>[boolean()]</code></dd>
-%% 	</dl>
-%%
-%% @type line_data(). A record which includes the following fields:
-%% 	<dl>
-%% 		<dt>framing</dt> <dd><code>integer()</code></dd>
-%% 		<dt>line_code</dt> <dd><code>integer()</code></dd>
-%% 		<dt>pm_mode</dt> <dd><code>integer()</code></dd>
-%% 		<dt>line_length</dt> <dd><code>integer()</code></dd>
-%% 		<dt>term</dt> <dd><code>integer()</code></dd>
-%% 		<dt>line_type</dt> <dd><code>integer()</code></dd>
-%% 		<dt>integrate_alarms</dt> <dd><code>integer()</code></dd>
-%% 		<dt>filter_unsolicited</dt> <dd><code>integer()</code></dd>
-%% 		<dt>filter_yellow</dt> <dd><code>integer()</code></dd>
-%% 		<dt>bri_l1mode</dt> <dd><code>integer()</code></dd>
-%% 		<dt>briL1_cmd</dt> <dd><code>integer()</code></dd>
-%% 		<dt>bri_loop</dt> <dd><code>integer()</code></dd>
-%% 		<dt>briL1_T3</dt> <dd><code>integer()</code></dd>
-%% 		<dt>briL1_T4</dt> <dd><code>integer()</code></dd>
-%% 	</dl>
-%%
 %% @doc Query the hardware setup.
 %%
 req_hw_status(ServerRef) ->
@@ -351,21 +296,6 @@ req_hw_status(ServerRef) ->
 %% 	ServerRef = Name | {Name, Node} | {global, Name} | pid()
 %% 	Name = atom()
 %% 	Node = atom()
-%%
-%% @type tsi_data().  A record which includes the following fields:
-%% 	<dl>
-%% 		<dt>tsi_ack_enable</dt> <dd><code>integer()</code></dd>
-%% 		<dt>num_mappings</dt> <dd><code>integer()</code></dd>
-%% 		<dt>granularity</dt> <dd><code>integer()</code></dd>
-%% 		<dt>last</dt> <dd><code>integer()</code></dd>
-%% 		<dt>tsi_map</dt> <dd><code>[tsi_map()]</code></dd>
-%% 	</dl>
-%%
-%% @type tsi_map().  A record which contains the following fields:
-%% 	<dl>
-%% 		<dt>destination</dt> <dd><code>integer()</code></dd>
-%% 		<dt>source</dt> <dd><code>integer()</code></dd>
-%% 	</dl>
 %%
 %% @doc Create timeslot mappings.
 %%
@@ -388,10 +318,6 @@ req_tsi_status(ServerRef) ->
 
 
 %% @spec (Channel::port(), LapdId::integer(), ena_proto_data()) -> true
-%%
-%% @type ena_proto_data().  A record which includes the following fields:
-%% 	<dl>
-%% 	</dl>
 %%
 %% @doc Specifies and enables layer 1, 2 &amp; 3 processing on an open channel.
 %%
