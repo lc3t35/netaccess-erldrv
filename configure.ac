@@ -12,7 +12,6 @@ AM_INIT_AUTOMAKE
 ##
 ## Options:  control options to configure, support code for the options
 ##
-AM_MAINTAINER_MODE
 CFLAGS="${CFLAGS} -Wall"
 AC_DISABLE_STATIC
 AC_LIBTOOL_DLOPEN
