@@ -142,6 +142,7 @@
 -define(SIZEOF_IISDN_Q933A_CONFIG, @SIZEOF_IISDN_Q933A_CONFIG@).
 -define(SIZEOF_IISDN_Q933A_PVC_STATUS, @SIZEOF_IISDN_Q933A_PVC_STATUS@).
 -define(SIZEOF_IISDN_ALARM_STATUS, @SIZEOF_IISDN_ALARM_STATUS@).
+-define(SIZEOF_IISDN_PP, @SIZEOF_IISDN_PP@).
 
 
 
@@ -532,6 +533,8 @@
 -record(x25,
 		{cfg_msk=0, t10=0, t11=0, t12=0, t13=0, t28=0, p=0, w=0,
 		max_clr_retry=0, max_svcs=0, max_pvcs=0}).
+-define(IISDNpmmNEAREND,          0).
+-define(IISDNpmmANSI,             1).
 -record(pm,
 		{mode=0, carrier=0, fdl_alert=0, 
 		equipmentid=lists:duplicate(10, 0),
@@ -655,3 +658,61 @@
 		mph_msg = lists:duplicate(?IISDN_MAX_LINES, 0),
 		error_point = 0}).
 -record(alarm_status, {rcv_yellow=0, rcv_blue=0, rcv_red=0, snd_yellow=0}).
+
+-define(L4L3mPM_REQUEST,               16#AA).
+-define(L3L4mPM_RESPONSE,              16#28).
+-define(L3L4mPM_ALERT,                 16#29).
+-define(IISDNpmcGET_THRSHLDS_15MIN,        0).
+-define(IISDNpmcSET_THRSHLDS_15MIN,        1).
+-define(IISDNpmcGET_THRSHLDS_24HR,         2).
+-define(IISDNpmcSET_THRSHLDS_24HR,         3).
+-define(IISDNpmcRESET_PM_COUNTERS,         4).
+-define(IISDNpmcGET_15MIN_DATA,            5).
+-define(IISDNpmcGET_24HR_DATA,             6).
+-define(IISDNpmcPLB_ACTIVATE,              7).
+-define(IISDNpmcPLB_DEACTIVATE,            8).
+-define(IISDNpmcLLB_ACTIVATE,              9).
+-define(IISDNpmcLLB_DEACTIVATE,           10).
+-define(IISDNpmcSEND_FDL_REQUEST,         11).
+-define(IISDN_PP_NUM_INTERVALS_PER_PACKET, 6).
+-define(IISDNpmsSUCCESS,                   0).
+-define(IISDNpmsFAIL_GENERAL,              1).
+-define(IISDNpmsFAIL_UNKNOWN_REQUEST,      2).
+-define(IISDNpmaTHRESHOLD_XING,            0).
+-define(IISDNpmaFDL_RX_MOP,                1).
+-define(IISDNpmaFDL_RX_BOP,                2).
+-define(IISDNpmeNEAR_END,                  0).
+-define(IISDNpmeFAR_END,                   1).
+-define(IISDNpmi15MIN,                     0).
+-define(IISDNpmi24HR,                      1).
+-define(IISDNpmtcmBPV,               16#0001).
+-define(IISDNpmtcmEXZ,               16#0002).
+-define(IISDNpmtcmLCV,               16#0004).
+-define(IISDNpmtcmPCV,               16#0008).
+-define(IISDNpmtcmCS,                16#0010).
+-define(IISDNpmtcmOOFS,              16#0020).
+-define(IISDNpmtcmAISS,              16#0040).
+-define(IISDNpmtcmLES,               16#0080).
+-define(IISDNpmtcmCSS,               16#0100).
+-define(IISDNpmtcmES,                16#0200).
+-define(IISDNpmtcmBES,               16#0400).
+-define(IISDNpmtcmSES,               16#0800).
+-define(IISDNpmtcmSEFS,              16#1000).
+-define(IISDNpmtcmDM,                16#2000).
+-define(IISDNpmtcmUAS,               16#4000).
+-record(pp,
+		{bpv=0, exz=0, lcv=0, pcv=0, cs=0, oofs=0, aiss=0, les=0, css=0, es=0,
+		bes=0, ses=0, sefs=0, dm=0, uas=0}).
+-record(pm_req_data,
+		{line=0, endx=0, pm_cmd=0, fdl_request=0, interval_id=0, num_intervals=0, threshold=#pp{}).
+-record(pm_rsp_data,
+		{line=0, endx=0, pm_cmd=0, requested_interval_id=0, pm_status=0, current_interval_id=0,
+		seconds_in_current_interval=0, num_valid_intervals=0, num_intervals=0, pp=#pp{}).
+-record(pm_threshold_xing_data,
+		{line=0, endx=0, interval_size=0, interval_id=0, threshold_crossing_mask=0,
+		interval=0, threshold=0}).
+-record(pm_fdl_msg_data,
+		{line=0, msg_code=0, data=<<>>}).
+-record(pm_alert_data,
+		{alert_type=0, a=#pm_threshold_xing_data{}).
+
