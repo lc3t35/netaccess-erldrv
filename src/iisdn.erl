@@ -1059,8 +1059,7 @@ relay(Relay) when is_record(Relay, relay) ->
 	<<(Relay#relay.default_dest):?IISDNu8bit,
 			(Relay#relay.default_dest_id):?IISDNu8bit,
 			(Relay#relay.default_root_idx):?IISDNu8bit,
-			0:?IISDNu8bit, 0:?IISDNu8bit,
-			0:Pad/integer-unit:8>>.
+			0:?IISDNu8bit, 0:Pad/integer-unit:8>>.
 
 %% @type dpnss().  Digital Private Network Signaling System (DPNSS) configuration.
 %% 	<p>A record which includes the following fields:</p>
