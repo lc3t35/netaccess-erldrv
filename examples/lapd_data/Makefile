@@ -15,12 +15,12 @@ INCLUDES = -I ../../include
 %.tar.gz:	%.boot
 	${ERL} -noshell -pa ../../ebin -run systools make_tar $* -run init stop
 
-all: lapd 
+all: lapd_data 
 
-lapd:	lapd_app.beam lapd_sup.beam lapd_fsm.beam
+lapd_data:	lapd_data_app.beam lapd_data_sup.beam lapd_data_fsm.beam
 
-release: lapd_data.tar.gz lapd sys.config 
+release: lapd_data.tar.gz lapd_data sys.config 
 
 clean:
-	-rm lapd_app.beam lapd_sup.beam lapd_fsm.beam \
+	-rm lapd_data_app.beam lapd_data_sup.beam lapd_data_fsm.beam \
 			lapd_data.script lapd_data.tar.gz

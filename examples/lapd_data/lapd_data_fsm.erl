@@ -14,7 +14,7 @@
 %%% 		and receives IFRAMES, checking their integrity on reception.
 %%%
          
--module(lapd_fsm).
+-module(lapd_data_fsm).
 -behaviour(netaccess_fsm).
 -include("iisdn.hrl").
 

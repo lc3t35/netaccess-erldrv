@@ -2,7 +2,7 @@
 	[{description,  "LAPD data passing example application"},
 		{id,           "Netaccess LAPD example"},
 		{vsn,          "1.0"},
-		{modules,      [lapd_app, lapd_sup, lapd_fsm]},
+		{modules,      [lapd_data_app, lapd_data_sup, lapd_data_fsm]},
 		{registered,   []},
 		{included_applications, [netaccess]},
 		{applications, [kernel, stdlib, sasl]},
@@ -13,4 +13,4 @@
 			{iframe_interval, 5000},
 			{report_interval, 600000},
 			{lapdids, [0,1,2,3]}]},
-		{mod,          {lapd_app, []}}]}.
+		{mod,          {lapd_data_app, []}}]}.
