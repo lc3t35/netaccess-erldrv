@@ -409,7 +409,7 @@ outputv(ErlDrvData handle, ErlIOVec *ev)
 			(void *)td, (void *)(void *)free_iframe);
 	DBGL("driver_async", td->ref);
 	if (++dd->qsize == dd->highwater) {
-		DBG("SET BUSY");
+		DBGI("SET BUSY", dd->fd);
 		dd->busy = 1;
 		set_busy_port(dd->port, 1);
 	}
@@ -748,16 +748,19 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 		DBGI("errno", errno);
 		driver_event(dd->port, event, 0);
 		driver_failure_posix(dd->port, errno);
+		return;
 	}
 	if (event_data->revents & POLLHUP) {
 		DBGI("POLLHUP", dd->fd);
 		driver_event(dd->port, event, 0);
 		driver_failure_posix(dd->port, errno);
+		return;
 	}
 	if (event_data->revents & POLLNVAL) {
 		DBGI("POLLNVAL", dd->fd);
 		driver_event(dd->port, event, 0);
 		driver_failure_posix(dd->port, errno);
+		return;
 	}
 	if (event_data->revents & (POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI)) {
 		/*  construct a streams buffer for the control message  */
@@ -770,8 +773,8 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 	
 		/*  construct a streams buffer for the data message  */
 		if (!(databin = driver_alloc_binary(dd->maxiframesize))) {
-			driver_failure_posix(dd->port, errno);
 			driver_free_binary(ctrlbin);
+			driver_failure_posix(dd->port, errno);
 			return;
 		}
 		strdata.maxlen = databin->orig_size;
@@ -797,7 +800,7 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 					driver_free_binary(ctrlbin);
 					driver_free_binary(databin);
 			}
-		return;
+			return;
 		}
 	
 		/*  send the control & data messages to the port owner  */
