@@ -2,7 +2,7 @@
 ##
 ## Boilerplate:  standard boilerplate code
 ##
-AC_INIT(netaccess, 0.1, netaccess-bugs@motivity.ca)
+AC_INIT(netaccess, 1.0, netaccess-bugs@motivity.ca)
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_SRCDIR(c_src/netaccess_drv.c)
 AC_CONFIG_HEADERS(config.h)

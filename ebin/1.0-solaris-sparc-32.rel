@@ -1,0 +1,4 @@
+{release, {"Solaris SPARC 32-bit IISDN 7.5", "1.0"}, {erts, "5.3.6.3"},
+	[{kernel, "2.9.6.6"},
+	 {stdlib, "1.12.8"},
+	 {netaccess, "1.0"}]}.
