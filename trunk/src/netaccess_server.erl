@@ -344,7 +344,10 @@ blocking_ioctl(Port, Operation, Data) ->
 	case catch erlang:port_call(Port, Operation, Data) of
 		{ok, Ref} ->
 			receive
-				{Port, {ref, Ref}, Result} -> Result
+				{Port, {ref, Ref}, {error, Reason}} ->
+					Reason;
+				{Port, {ref, Ref}, Result} ->
+					Result
 			after 2000 ->
 				timeout
 			end;
