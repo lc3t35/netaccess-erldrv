@@ -59,11 +59,11 @@ fi
 AC_ARG_WITH(edoc,
 	[  --with-edoc=PATH        load edoc from PATH],
 	[ case "${withval}" in
-		no) ;;
+		no) edoc=false ;;
 		yes) ;;
 		*) EDOCPATH="${EDOCPATH} ${withval}" ;;
 	esac ])
-AM_CONDITIONAL(EDOC, test x"${withval}" != "xno")
+AM_CONDITIONAL(EDOC, test x"${edoc}" != "xfalse")
 
 AC_ARG_WITH(syntax_tools,
 	[  --with-syntax_tools=PATH  load syntax_tools from PATH],
