@@ -56,7 +56,7 @@ init_protocol(StateData) ->
 			num_txbuf = 4, num_rxbuf = 4},
 	L2Parms = #l2_lap_params{mode = ?IISDNl2modLAP_D,
 			dce_dte = ?IISDNdirSYMMETRIC, l2_detail = 1},
-	D = #data_interface{enable = 1},
+	D = #data_interface{enable = 1, data_channel = StateData#state.lapdid},
  	L2 = #level2{par = L2Parms, data_interface = D},
 	ProtoData = #ena_proto_data{level1 = L1, level2 = L2},
 	% send an L4L3mENABLE_PROTOCOL to start LAPD 

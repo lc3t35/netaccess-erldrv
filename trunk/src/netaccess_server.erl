@@ -323,7 +323,9 @@ handle_info({Port, {'L3L4m', L3L4_rec, _DataBin}}, {Port, _Board, _StateData} = 
 		L3L4_rec#l3_to_l4.msgtype == ?L3L4mERROR ->
 	ErrorCode = (catch iisdn:error_code(L3L4_rec#l3_to_l4.data)),
 	error_logger:info_report(["Netaccess server received L3L4mERROR", 
-			{port, Port}, {lapdid, L3L4_rec#l3_to_l4.lapdid}, {error, ErrorCode}]),
+			{port, Port}, {lapdid, L3L4_rec#l3_to_l4.lapdid},
+			{error, ErrorCode#error_code.error_code},
+			{offending_message, ErrorCode#error_code.offending_message}]),
 	{noreply, State};
 % an L3L4 SMI message arrived from the board
 handle_info({Port, {'L3L4m', L3L4, _DataBin}}, {Port, _Board, _StateData} = State) ->
