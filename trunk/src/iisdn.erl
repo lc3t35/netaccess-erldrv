@@ -28,7 +28,8 @@
 %%% TODO:  how do we group these?
 -export(['L3_to_L4_struct'/1, 'L4_to_L3_struct'/1]).
 -export(['IISDN_ENA_PROTO_DATA'/1]).
--export(['IISDN_HARDWARE_DATA'/1, 'IISDN_LINE_DATA'/1]).
+-export([hardware_data/1, line_data/1]).
+-export([tsi_data/1, tsi_map/1]).
 -export(['IISDN_Q931_TIMERS'/1]).
 -export(['IISDN_DATA_INTERFACE_CONFIGURATION'/1]).
 -export(['IISDN_LEVEL1_CNFG'/1, 'IISDN_LEVEL2_CNFG'/1,
@@ -69,9 +70,9 @@
 'L4_to_L3_struct'(_, Header, Data) when is_binary(Data) ->
 	<<0, Header/binary, Data/binary>>;
 'L4_to_L3_struct'(?L4L3mSET_HARDWARE, Header, Data) ->
-	<<0, Header/binary, ('IISDN_HARDWARE_DATA'(Data))/binary>>;
+	<<0, Header/binary, (hardware_data(Data))/binary>>;
 'L4_to_L3_struct'(?L4L3mSET_TSI, Header, Data) ->
-	<<0, Header/binary, ('IISDN_HARDWARE_DATA'(Data))/binary>>;
+	<<0, Header/binary, (tsi_data(Data))/binary>>;
 'L4_to_L3_struct'(?L4L3mENABLE_PROTOCOL, Header, Data) ->
 	<<0, Header/binary, ('IISDN_ENA_PROTO_DATA'(Data))/binary>>;
 'L4_to_L3_struct'(?L4L3mREQ_HW_STATUS, Header, Data) ->
@@ -289,14 +290,14 @@
 
 'IISDN_Q931_CNFG'(Q931) when is_record(Q931, 'IISDN_Q931_CNFG') ->
 	Q931_Timers = 'IISDN_Q931_TIMERS'(Q931#'IISDN_Q931_CNFG'.q931_timers),
-	Digit32 = fun(Digit, Bin) -> <<Digit:?IISDNu32bit, Bin/binary>> end,
-	B_channel_service_state = lists:foldr(Digit32, <<>>,
+	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
+	B_channel_service_state = lists:foldl(Digit32, <<>>,
 			Q931#'IISDN_Q931_CNFG'.b_channel_service_state),
-	Digit8 = fun(Digit, Bin) -> <<Digit:?IISDNu8bit, Bin/binary>> end,
-	Spid = lists:foldr(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.spid),
-	Spid_1 = lists:foldr(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.spid_1),
-	Dn = lists:foldr(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.dn),
-	Dn_1 = lists:foldr(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.dn_1),
+	Digit8 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu8bit>> end,
+	Spid = lists:foldl(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.spid),
+	Spid_1 = lists:foldl(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.spid_1),
+	Dn = lists:foldl(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.dn),
+	Dn_1 = lists:foldl(Digit8, <<>>, Q931#'IISDN_Q931_CNFG'.dn_1),
 	<<(Q931#'IISDN_Q931_CNFG'.switch_type):?IISDNu16bit,
 			(Q931#'IISDN_Q931_CNFG'.variant):?IISDNu16bit,
 			(Q931#'IISDN_Q931_CNFG'.call_filtering):?IISDNu32bit,
@@ -349,8 +350,8 @@
 			0:?IISDNu16bit>>.
 
 'IISDN_BONDING_DATA'(Bond) when is_record(Bond, 'IISDN_BONDING_DATA') ->
-	Digit32 = fun(Digit, Bin) -> <<Digit:?IISDNu32bit, Bin/binary>> end,
-	Directory = lists:foldr(Digit32, <<>>, 
+	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
+	Directory = lists:foldl(Digit32, <<>>, 
 			Bond#'IISDN_BONDING_DATA'.directory),
 	<<(Bond#'IISDN_BONDING_DATA'.mode):?IISDNu16bit,
 			(Bond#'IISDN_BONDING_DATA'.destination):?IISDNu8bit,
@@ -381,12 +382,12 @@
 			(X25#'IISDN_X25_CONFIG'.max_pvcs):?IISDNu8bit>>.
 
 'IISDN_PM_CONFIG'(PM) when is_record(PM, 'IISDN_PM_CONFIG') ->
-	Digit8 = fun(Digit, Bin) -> <<Digit:?IISDNu8bit, Bin/binary>> end,
-	Equipmentid = lists:foldr(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.equipmentid),
-	Locationid = lists:foldr(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.locationid),
-	Frameid = lists:foldr(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.frameid),
-	Unitid = lists:foldr(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.unitid),
-	Facilityid = lists:foldr(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.facilityid),
+	Digit8 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu8bit>> end,
+	Equipmentid = lists:foldl(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.equipmentid),
+	Locationid = lists:foldl(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.locationid),
+	Frameid = lists:foldl(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.frameid),
+	Unitid = lists:foldl(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.unitid),
+	Facilityid = lists:foldl(Digit8, <<>>, PM#'IISDN_PM_CONFIG'.facilityid),
 	<<(PM#'IISDN_PM_CONFIG'.mode):?IISDNu8bit, 
 			(PM#'IISDN_PM_CONFIG'.carrier):?IISDNu8bit,
 			(PM#'IISDN_PM_CONFIG'.fdl_alert):?IISDNu8bit,
@@ -465,30 +466,30 @@
 			(Proto#'IISDN_ENA_PROTO_DATA'.level2)/binary,
 			(Proto#'IISDN_ENA_PROTO_DATA'.level3)/binary>>.
 
-'IISDN_LINE_DATA'(LD) when is_record(LD, 'IISDN_LINE_DATA') ->
-	<<(LD#'IISDN_LINE_DATA'.framing):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.line_code):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.pm_mode):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.line_length):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.term):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.line_type):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.integrate_alarms):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.filter_unsolicited):?IISDNu8bit,
+line_data(LD) when is_record(LD, line_data) ->
+	<<(LD#line_data.framing):?IISDNu8bit,
+			(LD#line_data.line_code):?IISDNu8bit,
+			(LD#line_data.pm_mode):?IISDNu8bit,
+			(LD#line_data.line_length):?IISDNu8bit,
+			(LD#line_data.term):?IISDNu8bit,
+			(LD#line_data.line_type):?IISDNu8bit,
+			(LD#line_data.integrate_alarms):?IISDNu8bit,
+			(LD#line_data.filter_unsolicited):?IISDNu8bit,
 			0:?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.filter_yellow):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.bri_l1mode):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.briL1_cmd):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.bri_loop):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.bril1_t3):?IISDNu8bit,
-			(LD#'IISDN_LINE_DATA'.bril1_t4):?IISDNu16bit>>;
-'IISDN_LINE_DATA'(LD) when is_binary(LD) ->
+			(LD#line_data.filter_yellow):?IISDNu8bit,
+			(LD#line_data.bri_l1mode):?IISDNu8bit,
+			(LD#line_data.briL1_cmd):?IISDNu8bit,
+			(LD#line_data.bri_loop):?IISDNu8bit,
+			(LD#line_data.bril1_t3):?IISDNu8bit,
+			(LD#line_data.bril1_t4):?IISDNu16bit>>;
+line_data(LD) when is_binary(LD) ->
 	<<Framing:?IISDNu8bit, Line_code:?IISDNu8bit, Pm_mode:?IISDNu8bit,
 			Line_length:?IISDNu8bit, Term:?IISDNu8bit, Line_type:?IISDNu8bit,
 			Integrate_alarms:?IISDNu8bit, Filter_unsolicited:?IISDNu8bit,
 			Filter_yellow:?IISDNu8bit, Bri_l1mode:?IISDNu8bit,
 			BriL1_cmd:?IISDNu8bit, Bri_loop:?IISDNu8bit, 
 			Bril1_t3:?IISDNu8bit, Bril1_t4:?IISDNu16bit>> = LD,
-	#'IISDN_LINE_DATA'{framing=Framing, line_code=Line_code,
+	#line_data{framing=Framing, line_code=Line_code,
 			pm_mode=Pm_mode, line_length=Line_length, term=Term,
 			line_type=Line_type, integrate_alarms=Integrate_alarms,
 			filter_unsolicited=Filter_unsolicited, 
@@ -496,29 +497,29 @@
 			briL1_cmd=BriL1_cmd, bri_loop=Bri_loop,
 			bril1_t3=Bril1_t3, bril1_t4=Bril1_t4}.
 
-'IISDN_HARDWARE_DATA'(HW) when is_record(HW, 'IISDN_HARDWARE_DATA'),
-		is_binary(HW#'IISDN_HARDWARE_DATA'.line_data) ->
-	Digit8 = fun(Digit8, Bin) -> <<Digit8:?IISDNu8bit, Bin/binary>> end,
-	Csu = lists:foldr(Digit8, <<>>, HW#'IISDN_HARDWARE_DATA'.csu),
-	<<(HW#'IISDN_HARDWARE_DATA'.clocking):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.clocking2):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.enable_clocking2):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.netref_clocking):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.netref_rate):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.ctbus_mode):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.force_framer_init):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.tdm_rate):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.enable_8370_rliu_monitor):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.dbcount):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.enable_t810x_snap_mode):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.clk_status):?IISDNu8bit,
-			(HW#'IISDN_HARDWARE_DATA'.line_data)/binary, Csu/binary>>;
-'IISDN_HARDWARE_DATA'(HW) when is_record(HW, 'IISDN_HARDWARE_DATA') ->
-	LD = 'IISDN_LINE_DATA'(HW#'IISDN_HARDWARE_DATA'.line_data),
-	NewHW = HW#'IISDN_HARDWARE_DATA'{line_data=LD},
-	'IISDN_HARDWARE_DATA'(NewHW);
-'IISDN_HARDWARE_DATA'(HW) when is_binary(HW) ->
-	Size_line = (?IISDN_MAX_LINES * size('IISDN_LINE_DATA'(#'IISDN_LINE_DATA'{}))),
+hardware_data(HW) when is_record(HW, hardware_data),
+		is_binary(HW#hardware_data.line_data) ->
+	Digit8 = fun(Digit8, Bin) -> <<Bin/binary, Digit8:?IISDNu8bit>> end,
+	Csu = lists:foldl(Digit8, <<>>, HW#hardware_data.csu),
+	<<(HW#hardware_data.clocking):?IISDNu8bit,
+			(HW#hardware_data.clocking2):?IISDNu8bit,
+			(HW#hardware_data.enable_clocking2):?IISDNu8bit,
+			(HW#hardware_data.netref_clocking):?IISDNu8bit,
+			(HW#hardware_data.netref_rate):?IISDNu8bit,
+			(HW#hardware_data.ctbus_mode):?IISDNu8bit,
+			(HW#hardware_data.force_framer_init):?IISDNu8bit,
+			(HW#hardware_data.tdm_rate):?IISDNu8bit,
+			(HW#hardware_data.enable_8370_rliu_monitor):?IISDNu8bit,
+			(HW#hardware_data.dbcount):?IISDNu8bit,
+			(HW#hardware_data.enable_t810x_snap_mode):?IISDNu8bit,
+			(HW#hardware_data.clk_status):?IISDNu8bit,
+			(HW#hardware_data.line_data)/binary, Csu/binary>>;
+hardware_data(HW) when is_record(HW, hardware_data) ->
+	LD = line_data(HW#hardware_data.line_data),
+	NewHW = HW#hardware_data{line_data=LD},
+	hardware_data(NewHW);
+hardware_data(HW) when is_binary(HW) ->
+	Size_line = (?IISDN_MAX_LINES * size(line_data(#line_data{}))),
 	Size_csu = (?IISDN_MAX_LINES * size(<<0:?IISDNu8bit>>)),
 	<<Clocking:?IISDNu8bit, Clocking2:?IISDNu8bit,
 			Enable_clocking2:?IISDNu8bit, Netref_clocking:?IISDNu8bit,
@@ -531,7 +532,7 @@
 			(Iter, <<Digit:?IISDNu8bit, Rest/binary>>, Acc) ->
 				Iter(Iter, Rest, Acc ++ Digit)
 			end,
-	#'IISDN_HARDWARE_DATA'{clocking=Clocking, clocking2=Clocking2,
+	#hardware_data{clocking=Clocking, clocking2=Clocking2,
 			enable_clocking2=Enable_clocking2, 
 			netref_clocking=Netref_clocking, netref_rate=Netref_rate,
 			ctbus_mode=Ctbus_mode, force_framer_init=Force_framer_init,
@@ -540,6 +541,25 @@
 			dbcount=Dbcount, enable_t810x_snap_mode=Enable_t810x_snap_mode,
 			clk_status=Clk_status, line_data=LineData, 
 			csu = U8toL(U8toL, Csu, [])}.
+
+tsi_data(TS) when is_record(TS, tsi_data),
+		is_binary(TS#tsi_data.tsi_map) ->
+	<<(TS#tsi_map.tsi_ack_enable):?IISDNu8bit,
+			(TS#tsi_map.num_mappings):?IISDNu8bit,
+			(TS#tsi_map.granularity):?IISDNu8bit,
+			(TS#tsi_map.last):?IISDNu8bit,
+			(TS#tsi_map.tsi_map)/binary>>;
+tsi_data(TS) when is_record(TS, tsi_data) ->
+	FunMap = fun(M, Bin) -> <<Bin/binary, tsi_map(M))/binary>> end,
+	MAP = lists:foldl(FunMap, <<>>, TS#tsi_data.tsi_map),
+	tsi_data(TS#tsi_data{tsi_map = MAP}).
+
+tsi_map(MAP) when is_record(MAP, tsi_map) ->
+	<<(MAP#tsi_map.destination):?IISDNu16bit,
+			(MAP#tsi_map.source):?IISDNu16bit>>;
+tsi_map(MAP) when is_binary(MAP) ->
+	<<Destination:?IISDNu16bit, Source:?IISDNu16bit>> = MAP,
+	#tsi_map{destination = Destination, source = Source}.
 
 'IISDN_Q931_TIMERS'(T) when is_record(T, 'IISDN_Q931_TIMERS') ->
 	<<(T#'IISDN_Q931_TIMERS'.t302):?IISDNu16bit,

@@ -204,6 +204,9 @@
 %%
 %% defines for set_tsi/2 and req_tsi/1
 %%
+-record(tsi_data, {tsi_ack_enable = 0, num_mappings = 0, 
+		granularity = 0, last = 0, tsi_map = []}).
+-record(tsi_map, {destination = 0, source = 0}).
 -define(L4L3mSET_TSI, 16#A9). 
 -define(L4L3mREQ_TSI_STATUS, 16#D4). 
 -define(L3L4mTSI_STATUS, 16#4A). 
@@ -272,11 +275,6 @@
 -define(IISDNtsiMODEM(X), (16#6000 bor (X bsl 8)).
 -define(IISDNtsiDSP(X), 	(16#7000 bor (X bsl 8)).
 -define(IISDNtsiCTd(X), 	(16#8000 bor (X bsl 10)).
--define(IISDN_TSI_DATA,
-		<<NumMappings:?IISDNu16bit, Granularity:?IISDNu8bit, Last:?IISDNu8bit,
-		TsiMapBins/binary>>).
--define(TsiMapMask, <<Destination:?IISDNu16bit, Source:?IISDNu16bit>>).
--define(TsiMapTerms, [{destination, Destination}, {source, Source}]).
 
 
 %%

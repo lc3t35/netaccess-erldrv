@@ -36,7 +36,7 @@
 -export([select_board/2,boot/2,enable_management_chan/1,
 			reset_board/1,get_version/1, get_driver_info/1]).
 -export([set_hardware/2, set_hardware/3, set_hardware/4, req_hw_status/1]).
--export([set_tsi/3, req_tsi_status/1]).
+-export([set_tsi/2, req_tsi_status/1]).
 -export([enable_protocol/3, enable_protocol/4, enable_protocol/7]).
 
 -include("pridrv.hrl").
@@ -51,7 +51,7 @@
 
 
 %%----------------------------------------------------------------------
-%%  The gen_server call backs
+%%  The API functions
 %%----------------------------------------------------------------------
 
 %% @spec () -> {ok, pid()} | {error, Reason::term()}
@@ -293,59 +293,60 @@ req_hw_status(Port) ->
 				_L4Ref:?IISDNu16bit, _CallRef:?IISDNu16bit, _BChan:?IISDNu8bit,
 				_Iface:?IISDNu8bit, _BChanMask:?IISDNu32bit, _Lli:?IISDNu16bit,
 				_DataChan:?IISDNu16bit, HardwareData/binary>>}} ->
-			iisdn:'IISDN_HARDWARE_DATA'(HardwareData);
+			iisdn:hardware_data(HardwareData);
 		{Port, {error, Reason}} -> {error, Reason}
 	after
 		1000 -> {error, timeout}
 	end.
 	
 	
+%% @spec (Channel:port(), tsi_data()) -> true
 %%
-%% create timeslot mappings
+%% @type tsi_data().  A record which contains the following fields:
+%% 	<dl>
+%% 		<dt>tsi_ack_enable</dt> <dd><code>integer()</code></dd>
+%% 		<dt>num_mappings</dt> <dd><code>integer()</code></dd>
+%% 		<dt>granularity</dt> <dd><code>integer()</code></dd>
+%% 		<dt>last</dt> <dd><code>integer()</code></dd>
+%% 		<dt>tsi_map</dt> <dd><code>[tsi_map()]</code></dd>
+%% 	</dl>
 %%
-set_tsi(Port, Granularity, TsiMapTerms) ->
-	set_tsi(Port, length(TsiMapTerms), Granularity, TsiMapTerms, <<>>).
-set_tsi(Port, NumMappings, Granularity, [], TsiMapBins) ->
-	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mSET_TSI, 16#FFFF, 0, 0),
-	Last = 0,
-	L4_to_L3_struct = concat_binary([L4L3_Bin, ?IISDN_TSI_DATA]),
-	port_command(Port, L4_to_L3_struct),
-	receive 
-		{Port, {error, Reason}} -> {error, Reason};
-		{Port, {?L3L4_Mask(_LapdId, ?L3L4mERROR, _L4Ref, _CallRef,
-				_BChan, _IFace, _BChanMask, _Lli, _DataChan, Rest), _DataBin}} ->
-			<<Error:?IISDNu8bit, _/binary>> = Rest,
-			{error, ?L3L4mErrorMsg(Error)}
-	after
-		100 -> ok
-	end;
-set_tsi(Port, NumMappings, Granularity, [?TsiMapTerms | T], TsiMapBins) ->
-	set_tsi(Port, NumMappings, Granularity, T,
-			concat_binary([TsiMapBins, ?TsiMapMask])).
+%% @type tsi_map().  A record which contains the following fields:
+%% 	<dl>
+%% 		<dt>destination</dt> <dd><code>integer()</code></dd>
+%% 		<dt>source</dt> <dd><code>integer()</code></dd>
+%% 	</dl>
+%%
+%% @doc Create timeslot mappings.
+%%
+set_tsi(Port, MAP) ->
+	L4_to_L3_struct = #'L4_to_L3_struct'{msgtype = ?L4L3mSET_TSI, data = MAP},
+	L4L3_Bin = iisdn:'L4_to_L3_struct'(L4_to_L3_struct),
+	port_command(Port, L4L3_Bin).
 
 
 %%
 %% query the timeslot mappings
 %%
-req_tsi_status(Port) ->
-	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mREQ_TSI_STATUS, 16#FFFF, 0, 0),
-	port_command(Port, L4L3_Bin),
-	receive 
-		{Port, {'L3L4m', ?L3L4_Mask(_LapdId, ?L3L4mTSI_STATUS,
-				_L4Ref, _CallRef, _BChan, _IFace, _BChanMask,
-				_Lli, _DataChan, Rest), _DataBin}} ->
-			?IISDN_TSI_DATA = Rest,
-			{ok, {num_mappings, NumMappings},
-					{granularity, Granularity}, {last, Last},
-					req_tsi_status(TsiMapBins, NumMappings, [])};
-		{Port, {error, Reason}} -> {error, Reason}
-	after
-		1000 -> {error, timeout}
-	end.
-req_tsi_status(TsiMapBins, 0, TsiTerms) -> TsiTerms;
-req_tsi_status(TsiMapBins, NumMaps, TsiTerms) ->
-	<<?TsiMapMask, Rest/binary>> = split_binary(TsiMapBins, 4),
-	req_tsi_status(Rest, NumMaps - 1, TsiTerms ++ ?TsiMapTerms).
+req_tsi_status(Port) -> ok.
+%	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mREQ_TSI_STATUS, 16#FFFF, 0, 0),
+%	port_command(Port, L4L3_Bin),
+%	receive 
+%		{Port, {'L3L4m', ?L3L4_Mask(_LapdId, ?L3L4mTSI_STATUS,
+%				_L4Ref, _CallRef, _BChan, _IFace, _BChanMask,
+%				_Lli, _DataChan, Rest), _DataBin}} ->
+%			?IISDN_TSI_DATA = Rest,
+%			{ok, {num_mappings, NumMappings},
+%					{granularity, Granularity}, {last, Last},
+%					req_tsi_status(TsiMapBins, NumMappings, [])};
+%		{Port, {error, Reason}} -> {error, Reason}
+%	after
+%		1000 -> {error, timeout}
+%	end.
+%req_tsi_status(TsiMapBins, 0, TsiTerms) -> TsiTerms;
+%req_tsi_status(TsiMapBins, NumMaps, TsiTerms) ->
+%	<<?TsiMapMask, Rest/binary>> = split_binary(TsiMapBins, 4),
+%	req_tsi_status(Rest, NumMaps - 1, TsiTerms ++ ?TsiMapTerms).
 	
 
 %%
