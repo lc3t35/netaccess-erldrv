@@ -256,7 +256,7 @@ req_hw_status(Port) ->
 				?L3L4mHARDWARE_STATUS:?IISDNu8bit,
 				_L4Ref:?IISDNu16bit, _CallRef:?IISDNu16bit, _BChan:?IISDNu8bit,
 				_Iface:?IISDNu8bit, _BChanMask:?IISDNu32bit, _Lli:?IISDNu16bit,
-				_DataChan:?IISDNu16bit, HardwareData/binary>>}} ->
+				_DataChan:?IISDNu16bit, HardwareData/binary>>, _DataBin}} ->
 			iisdn:hardware_data(HardwareData);
 		{Port, {error, Reason}} -> {error, Reason}
 	after
@@ -296,15 +296,26 @@ req_tsi_status(Port) ->
 	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mREQ_TSI_STATUS},
 	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
 	port_command(Port, L4L3_bin),
+	receive_tsi_status([]).
+
+receive_tsi_status(Acc) ->
 	receive 
 		{Port, {'L3L4m', <<_LapdId:?IISDNu8bit, ?L3L4mTSI_STATUS:?IISDNu8bit,
 				_L4Ref:?IISDNu16bit, _CallRef:?IISDNu16bit, _BChan:?IISDNu8bit,
             _Iface:?IISDNu8bit, _BChanMask:?IISDNu32bit, _Lli:?IISDNu16bit,
-            _DataChan:?IISDNu16bit, TsiData/binary>>}} ->
-			iisdn:tsi_data(TsiData);
+            _DataChan:?IISDNu16bit, TsiDataBin/binary>>, _DataBin}} ->
+			TsiDataRec = iisdn:tsi_data(TsiDataBin),
+			case TsiDataRec#tsi_data.last of
+				0 ->
+					receive_tsi_status(Acc ++ [TsiDataRec]);
+				1 ->
+					% TODO:  we should agregate these together but
+					%        need to determine how subrates affect it
+					Acc ++ [TsiDataRec]
+			end;
 		{Port, {error, Reason}} -> {error, Reason}
 	after
-		2000 -> {error, timeout}
+		1000 -> {error, timeout}
 	end.
 	
 
@@ -347,6 +358,7 @@ init([]) ->
 handle_call({open, Board}, {Pid, _Tag}, State) ->
 	case catch erlang:open_port({spawn, Board}, [binary]) of
 		Port when is_port(Port) -> 
+			link(Pid),
 			NewState = gb_trees:insert({port, Port}, {Pid, now()}, State),
 			{reply, {ok, Port}, NewState};
 		Error ->
@@ -355,8 +367,7 @@ handle_call({open, Board}, {Pid, _Tag}, State) ->
 
 %% close a port on a netaccess board
 handle_call({close, Port}, _From, State) ->
-	NewState = clean_port(Port, State),
-	{reply, catch erlang:port_close(Port), NewState};
+	{reply, catch erlang:port_close(Port), State};
 
 %% perform an ioctl on an open channel to a netaccess board
 handle_call({ioctl, Operation, Data, Port}, From, State) ->
@@ -403,32 +414,27 @@ handle_info({Port, {ref, Ref}, Result}, State) when is_port(Port) ->
 	gen_server:reply(From, Result),
 	{noreply, NewState};
 
-% an L3L4 SMI control message has arrived from the board
-handle_info({Port, {'L3L4m', <<LapdId:?IISDNu8bit, MsgType:?IISDNu8bit,
-		L4Ref:?IISDNu16bit, CallRef:?IISDNu16bit, BChan:?IISDNu8bit,
-		Iface:?IISDNu8bit, BChanMask:?IISDNu32bit, Lli:?IISDNu16bit,
-		DataChan:?IISDNu16bit, Rest/binary>> = CtrlBin, DataBin}}, State) when is_port(Port) ->
-io:fwrite("Port=~w, MsgType=~.16x, L4Ref=~.16x, CallRef=~.16x, BChan=~w, Iface=~w, BChanMask=~.16x, Lli=~.16x, DataChan=~w, Rest=~w~n", [Port, MsgType,"0x", L4Ref,"0x", CallRef,"0x", BChan, Iface, BChanMask,"0x", Lli,"0x", DataChan, Rest]),
+% an L3L4 SMI message has arrived from the board
+handle_info({Port, {'L3L4m', CtrlBin, DataBin}}, State) ->
 	{Pid, _Time} = gb_trees:get({port, Port}, State),
 	Pid ! {Port, {'L3L4m', CtrlBin, DataBin}},
 	{noreply, State};
 
-% an L3L4 SMI data message has arrived from the board
-handle_info({Port, {'L3L4m', <<>>, DataBin}}, State) ->
-	{Pid, _Time} = gb_trees:get({port, Port}, State),
-	Pid ! {Port, {data, DataBin}},
-	{noreply, State};
-
 % a port has closed normally
-handle_info({'EXIT', Port, normal}, State) ->
+handle_info({'EXIT', Port, normal}, State) when is_port(Port) ->
 	NewState = clean_port(Port, State),
 	{noreply, NewState};
 
 % a port has closed abnormally
-handle_info({'EXIT', Port, Reason}, State) ->
+handle_info({'EXIT', Port, Reason}, State) when is_port(Port) ->
 	error_logger:error_report([{port, Port}, {reason, Reason},
 			"Port closed unexpectedly"]),
 	NewState = clean_port(Port, State),
+	{noreply, NewState};
+
+% a port owner process has exited
+handle_info({'EXIT', Pid, _Reason}, State) when is_pid(Pid) ->
+	NewState = clean_pid(Pid, State),
 	{noreply, NewState};
 
 handle_info(Unknown, State) ->
@@ -462,11 +468,15 @@ do_call(Request) ->
 do_cast(Request) ->
 	gen_server:cast(netaccess_server, Request).
 
+clean_pid(Pid, State) when is_pid(Pid) ->
+	I = gb_trees:iterator(State),
+	clean_state(Pid, State, I).
+
 clean_port(Port, State) when is_port(Port) ->
 	I = gb_trees:iterator(State),
 	clean_state(Port, State, I).
 
-clean_state(Port, State, I) ->
+clean_state(Port, State, I) when is_port(Port) ->
 	case gb_trees:next(I) of
 		{{port, Port}, {_Pid, _Time}, S} ->
 			NewState = gb_trees:delete({port, Port}, State),
@@ -478,4 +488,15 @@ clean_state(Port, State, I) ->
 			clean_state(Port, State, S);
 		none ->
 			State
+	end;
+clean_state(Pid, State, I) when is_pid(Pid) ->
+	case gb_trees:next(I) of
+		{{port, Port}, {Pid, _Time}, S} ->
+			catch erlang:port_close(Port),
+			clean_state(Pid, State, S);
+		{Key, _, S} ->
+			clean_state(Pid, State, S);
+		none ->
+			State
 	end.
+

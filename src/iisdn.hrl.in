@@ -134,7 +134,9 @@
 		netref_clocking=0, netref_rate=0, ctbus_mode=0,
 		force_framer_init=0, tdm_rate=0,
 		enable_8370_rliu_monitor=0, dbcount=0, 
-		enable_t810x_snap_mode=0, clk_status=0, line_data, csu}).
+		enable_t810x_snap_mode=0, clk_status=0,
+		line_data = lists:duplicate(?IISDN_MAX_LINES, #line_data{}),
+		csu = lists:duplicate(?IISDN_MAX_LINES, 0)}.
 -record(line_data,
 		{framing=0, line_code=0, pm_mode=0, line_length=0, term=0,
 		line_type=0, integrate_alarms=0, filter_unsolicited=0,

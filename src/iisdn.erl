@@ -30,7 +30,6 @@
 -export([hardware_data/1, line_data/1]).
 -export([tsi_data/1, tsi_map/1]).
 -export([q931_timers/1]).
--export([data_interface_configuration/1]).
 -export([level1_cnfg/1, level2_cnfg/1, level3_cnfg/1]).
 -export([l2_lap_params/1, l2_ss7_params/1, l2_udpip_params/1,
 		l2_dpnss_params/1, l2_v110_params/1]).
@@ -435,26 +434,6 @@ q933a_config(Q933a) when is_record(Q933a, q933a_config) ->
 			(Q933a#q933a_config.t392):?IISDNu16bit>>.
 
 
-data_interface_configuration(D) 
-			when is_record(D, data_interface_configuration) ->
-	<<(D#data_interface_configuration.dchan_descr_addr):?IISDNp32bit,
-			(D#data_interface_configuration.num_dchan_descr):?IISDNu16bit,
-			0:?IISDNu16bit,
-			(D#data_interface_configuration.dchan_event_queue_addr):?IISDNp16bit,
-			(D#data_interface_configuration.num_l3l4_dchan_events):?IISDNu16bit,
-			(D#data_interface_configuration.num_l4l3_dchan_events):?IISDNu16bit>>;
-data_interface_configuration(DataIf) when is_binary(DataIf) ->
-	<<Dchan_descr_addr:?IISDNp32bit, Num_dchan_descr:?IISDNu16bit,
-			_:?IISDNu16bit,
-			Dchan_event_queue_addr:?IISDNp16bit,
-			Num_l3l4_dchan_events:?IISDNu16bit,
-			Num_l4l3_dchan_events:?IISDNu16bit>> = DataIf,
-	#data_interface_configuration{dchan_descr_addr=Dchan_descr_addr,
-			num_dchan_descr=Num_dchan_descr,
-			dchan_event_queue_addr=Dchan_event_queue_addr,
-			num_l3l4_dchan_events=Num_l3l4_dchan_events,
-			num_l4l3_dchan_events=Num_l4l3_dchan_events}.
-
 ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
 		is_record(Proto#ena_proto_data.level1, level1_cnfg) ->
 	ena_proto_data(Proto#ena_proto_data{
@@ -492,7 +471,8 @@ hardware_data(HW) when is_record(HW, hardware_data),
 			(HW#hardware_data.enable_t810x_snap_mode):?IISDNu8bit,
 			(HW#hardware_data.clk_status):?IISDNu8bit,
 			(HW#hardware_data.line_data)/binary, Csu/binary>>;
-hardware_data(HW) when is_record(HW, hardware_data) ->
+hardware_data(HW) when is_record(HW, hardware_data), 
+		is_list(HW#hardware_data.line_data) ->
 	LD = line_data(HW#hardware_data.line_data),
 	NewHW = HW#hardware_data{line_data=LD},
 	hardware_data(NewHW);
@@ -505,10 +485,10 @@ hardware_data(HW) when is_binary(HW) ->
 			Force_framer_init:?IISDNu8bit, Tdm_rate:?IISDNu8bit,
 			Enable_8370_rliu_monitor:?IISDNu8bit, Dbcount:?IISDNu8bit,
 			Enable_t810x_snap_mode:?IISDNu8bit, Clk_status:?IISDNu8bit,
-			LineData:Size_line/binary, Csu:Size_csu/binary>> = HW,
+			LineData:Size_line/binary, Csu:Size_csu/binary, _Rest/binary>> = HW,
 	U8toL = fun (Iter, <<>>, List) -> List;
 			(Iter, <<Digit:?IISDNu8bit, Rest/binary>>, Acc) ->
-				Iter(Iter, Rest, Acc ++ Digit)
+				Iter(Iter, Rest, Acc ++ [Digit])
 			end,
 	#hardware_data{clocking=Clocking, clocking2=Clocking2,
 			enable_clocking2=Enable_clocking2, 
@@ -519,6 +499,7 @@ hardware_data(HW) when is_binary(HW) ->
 			dbcount=Dbcount, enable_t810x_snap_mode=Enable_t810x_snap_mode,
 			clk_status=Clk_status, line_data=LineData, 
 			csu = U8toL(U8toL, Csu, [])}.
+
 
 line_data(LD) when is_record(LD, line_data) ->
 	<<(LD#line_data.framing):?IISDNu8bit,
@@ -568,16 +549,17 @@ tsi_data(TS) when is_binary(TS) ->
 			Granularity:?IISDNu8bit,
 			Last:?IISDNu8bit,
 			Map/binary>> = TS,
-	MapList = tsi_data(Map, []),
+	MapList = tsi_data(NumMappings, Map, []),
 	#tsi_data{tsi_ack_enable = TsiAckEnable,
 			num_mappings = NumMappings,
 			granularity = Granularity,
 			last = Last,
 			tsi_map = MapList}.
-tsi_data(<<>>, MapList) -> MapList;
-tsi_data(<<Destination:?IISDNu16bit, Source:?IISDNu16bit,
+tsi_data(0, _, MapList) -> MapList;
+tsi_data(_, <<>>, MapList) -> MapList;
+tsi_data(N, <<Destination:?IISDNu16bit, Source:?IISDNu16bit,
 		Rest/binary>>, MapList) ->
-	tsi_data(Rest, MapList ++ [tsi_map(<<Destination:?IISDNu16bit,
+	tsi_data(N - 1, Rest, MapList ++ [tsi_map(<<Destination:?IISDNu16bit,
 			Source:?IISDNu16bit>>)]).
 
 tsi_map(MAP) when is_record(MAP, tsi_map) ->
