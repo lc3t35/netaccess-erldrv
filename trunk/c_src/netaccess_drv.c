@@ -313,15 +313,15 @@ start(ErlDrvPort port, char *command)
 	if((s = (char *) strchr(command, ' ')) != NULL) {
 		s++;
 		/*  open the STREAMS clone device for the Netaccess driver  */
-		if ((dd->fd = open(s, O_RDWR|O_NONBLOCK)) < 0)
+		if ((dd->fd = open(s, O_RDWR)) < 0)
 			return ERL_DRV_ERROR_ERRNO;
 	} else {    /*  when no device name is present we use default  */
-		if ((dd->fd = open(DEV_PATH, O_RDWR|O_NONBLOCK)) < 0)
+		if ((dd->fd = open(DEV_PATH, O_RDWR)) < 0)
 			return ERL_DRV_ERROR_ERRNO;
 	}
 	pd.events = (POLLIN | POLLRDBAND | POLLPRI);
 	driver_event(port, (ErlDrvEvent) dd->fd, (ErlDrvEventData) &pd);
-	fcntl(dd->fd, F_SETFL, (fcntl(dd->fd, F_GETFL, 0) & ~O_NONBLOCK));
+/*	fcntl(dd->fd, F_SETFL, (fcntl(dd->fd, F_GETFL, 0) & ~O_NONBLOCK)); */
 	dd->port = port;	
 	dd->maxiframesize = DEFAULT_MAXIFRAMESIZE;
 	dd->lowwater = DEFAULT_LOWWATER;
