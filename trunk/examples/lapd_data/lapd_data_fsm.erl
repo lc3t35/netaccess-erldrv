@@ -70,11 +70,17 @@ init_protocol(StateData) ->
  	L2 = #level2{par = L2Parms, data_interface = D},
 	ProtoData = #ena_proto_data{level1 = L1, level2 = L2},
 	% send an L4L3mENABLE_PROTOCOL to start LAPD 
-	netaccess:enable_protocol(StateData#state.port, 
-			StateData#state.lapdid, ProtoData),
+	case netaccess:enable_protocol(StateData#state.port, StateData#state.lapdid, ProtoData) of
+		#protocol_stat{status = ?IISDNdsESTABLISHED} ->
+			NextState = establishing;
+		#protocol_stat{status = ?IISDNdsESTABLISHING} ->
+			NextState = established;
+		#protocol_stat{status = ?IISDNdsNOT_ESTABLISHED} ->
+			NextState = not_established
+	end,
 	R_ref = gen_fsm:send_event_after(StateData#state.report_interval, report_timer),
 	NewStateData = StateData#state{report_ref = R_ref},
-	{ok, not_established, NewStateData}.
+	{ok, NextState, NewStateData}.
 
 
 %% waiting to establish multiframe state
