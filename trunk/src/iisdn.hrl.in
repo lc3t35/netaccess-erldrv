@@ -245,8 +245,7 @@
 -record(raw_fillchar, {enable=0, fill_value=0}).
 -record(hdlc_flag_fill, {enable=0, mode=0, value=0}).
 -record(modem, {originate=0, faxClass=0, encoding=0, amf=0,
-		amf_params=#amf_params{}, minBPS=0, maxBPS=0}).
--record(amf_params, {'0'=0, '1'=0, '2'=0, '3'=0}).
+		amf_params=[0,0,0,0], minBPS=0, maxBPS=0}).
 -record(v110, {bit_rate=0, auto_detect=0}).
 
 
