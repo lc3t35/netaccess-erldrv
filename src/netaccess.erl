@@ -37,7 +37,7 @@
 			reset_board/1,get_version/1, get_driver_info/1]).
 -export([set_hardware/2, req_hw_status/1]).
 -export([set_tsi/2, req_tsi_status/1]).
--export([enable_protocol/2]).
+-export([enable_protocol/3]).
 
 -include("pridrv.hrl").
 -include("iisdn.hrl").
@@ -252,7 +252,8 @@ req_hw_status(Port) ->
 	L4L3_bin = iisdn:l4_to_l3(#l4_to_l3{msgtype = ?L4L3mREQ_HW_STATUS}),
 	port_command(Port, L4L3_bin),
 	receive 
-		{Port, {'L3L4m', <<_LapdId:?IISDNu8bit, ?L3L4mHARDWARE_STATUS,
+		{Port, {'L3L4m', <<_LapdId:?IISDNu8bit,
+				?L3L4mHARDWARE_STATUS:?IISDNu8bit,
 				_L4Ref:?IISDNu16bit, _CallRef:?IISDNu16bit, _BChan:?IISDNu8bit,
 				_Iface:?IISDNu8bit, _BChanMask:?IISDNu32bit, _Lli:?IISDNu16bit,
 				_DataChan:?IISDNu16bit, HardwareData/binary>>}} ->
@@ -291,28 +292,23 @@ set_tsi(Port, Data) ->
 %%
 %% query the timeslot mappings
 %%
-req_tsi_status(Port) -> ok.
-%	L4L3_bin = ?L4L3_Mask(0, ?L4L3mREQ_TSI_STATUS, 16#FFFF, 0, 0),
-%	port_command(Port, L4L3_bin),
-%	receive 
-%		{Port, {'L3L4m', ?L3L4_Mask(_LapdId, ?L3L4mTSI_STATUS,
-%				_L4Ref, _CallRef, _BChan, _IFace, _BChanMask,
-%				_Lli, _DataChan, Rest), _DataBin}} ->
-%			?IISDN_TSI_DATA = Rest,
-%			{ok, {num_mappings, NumMappings},
-%					{granularity, Granularity}, {last, Last},
-%					req_tsi_status(TsiMapBins, NumMappings, [])};
-%		{Port, {error, Reason}} -> {error, Reason}
-%	after
-%		1000 -> {error, timeout}
-%	end.
-%req_tsi_status(TsiMapBins, 0, TsiTerms) -> TsiTerms;
-%req_tsi_status(TsiMapBins, NumMaps, TsiTerms) ->
-%	<<?TsiMapMask, Rest/binary>> = split_binary(TsiMapBins, 4),
-%	req_tsi_status(Rest, NumMaps - 1, TsiTerms ++ ?TsiMapTerms).
+req_tsi_status(Port) -> 
+	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mREQ_TSI_STATUS},
+	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
+	port_command(Port, L4L3_bin),
+	receive 
+		{Port, {'L3L4m', <<_LapdId:?IISDNu8bit, ?L3L4mTSI_STATUS:?IISDNu8bit,
+				_L4Ref:?IISDNu16bit, _CallRef:?IISDNu16bit, _BChan:?IISDNu8bit,
+            _Iface:?IISDNu8bit, _BChanMask:?IISDNu32bit, _Lli:?IISDNu16bit,
+            _DataChan:?IISDNu16bit, TsiData/binary>>}} ->
+			iisdn:tsi_data(TsiData);
+		{Port, {error, Reason}} -> {error, Reason}
+	after
+		2000 -> {error, timeout}
+	end.
 	
 
-%% @spec (Channel::port(), ena_proto_data()) ->
+%% @spec (Channel::port(), LapdId::integer(), ena_proto_data()) ->
 %%
 %% @type ena_proto_data().  A record which includes the following fields:
 %% 	<dl>
@@ -320,11 +316,11 @@ req_tsi_status(Port) -> ok.
 %%
 %% @doc Specifies and enables layer 1, 2 & 3 processing on an open channel.
 %%
-enable_protocol(Port, Data) ->
-	L4L3_rec = #l4_to_l3{msgtype = ?L4L3mENABLE_PROTOCOL, data = Data},
+enable_protocol(Port, LapdId, Data) ->
+	L4L3_rec = #l4_to_l3{lapdid = LapdId,
+			msgtype = ?L4L3mENABLE_PROTOCOL, data = Data},
 	L4L3_bin = iisdn:l4_to_l3(L4L3_rec),
 	port_command(Port, L4L3_bin).
-	
 	
 	
 
