@@ -24,6 +24,7 @@
 -export([open/0,open/1,close/1]).
 -export([select_board/2,boot/2,enable_management_chan/1,
 			reset_board/1,get_version/1, get_driver_info/1]).
+-export([set_hardware/2, set_hardware/3, set_hardware/4]).
 
 
 %% ioctl commands
@@ -35,14 +36,16 @@
 -define(SELECT_BOARD, 5).
 -define(CANCEL_ASYNC, 10).
 
--define(PRIs8bit, 8/?ENDIANESS-signed-integer-unit).
--define(PRIu8bit, 8/?ENDIANESS-unsigned-integer-unit).
--define(PRIs16bit, 16/?ENDIANESS-signed-integer-unit).
--define(PRIu16bit, 16/?ENDIANESS-unsigned-integer-unit).
--define(PRIs32bit, 32/?ENDIANESS-signed-integer-unit).
--define(PRIu32bit, 32/?ENDIANESS-unsigned-integer-unit).
+-define(PRIs8bit, 8/?ENDIANESS-signed-integer).
+-define(PRIu8bit, 8/?ENDIANESS-unsigned-integer).
+-define(PRIs16bit, 16/?ENDIANESS-signed-integer).
+-define(PRIu16bit, 16/?ENDIANESS-unsigned-integer).
+-define(PRIs32bit, 32/?ENDIANESS-signed-integer).
+-define(PRIu32bit, 32/?ENDIANESS-unsigned-integer).
 
 -define(PRI_MAX_LINES, 8).
+
+-define(L4L3mSET_HARDWARE, 16#A7). 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -187,42 +190,33 @@ get_driver_info(Port) ->
 	end.
 	
 
-%%
-%% 
-set_hardware([{clk_status,ClkStatus}, {clocking,Clocking},
-		{clocking2,Clocking2}, {ctbus_mode,CtBusMode},
-		{dbcount,DbCount}, {enable_8370_rliu_monitor,Enable8370RliuMonitor},
-		{enable_clocking2,EnableClocking2},
-		{enable_t810x_snap_mode,EnableT810xSnapMode},
-		{force_framer_init,ForceFramerinit},
-		{netref_clocking,NetRefClocking}, {netref_rate,NetRefRate},
-		{tdm_rate,TdmRate}]) ->
 
-	L4L3_CommonHeader =
-			<<LapdId:?PRIu8bit, MsgType:?PRIu8bit, L4Ref:?PRIu8bit,
-					CallRef:?PRIu8bit, Lli:?PRIu8bit>>,
+% may be called without line settings and CSU flags, we'll use defaults
+set_hardware(Port, HardwareSettings) ->
+	set_hardware(Port, HardwareSettings, [{framing, 0}], 0).
 
-	PriHardwareData =
-			<<Clocking:?PRIu8bit, Clocking2:?PRIu8bit,
-			EnableClocking2:?PRIu8bit, NetRefClocking:?PRIu8bit,
-			NetRefRate:?PRIu8bit, CtBusMode:?PRIu8bit,
-			ForceFramerInit:?PRIu8bit, TdmRate:?PRIu8bit,
-			Enable8370RliuMonitor:?PRIu8bit, DbCount:?PRIu8bit,
-			EnableT810xSnapMode:?PRIu8bit, ClkStatus:?PRIu8bit>>
-			++ PriLineData ++ PriCsu,
+% may be called without CSU flags in which case we'll use defaults
+set_hardware(Port, HardwareSettings, LineSettings) ->
+	set_hardware(Port, HardwareSettings, LineSettings, 0).
 
-	PriLineData =
-			<<Framing:?PRIu8bit, LineCode:?PRIu8bit, PmMode:?PRIu8bit,
-			LineLength:?PRIu8bit, Term:?PRIu8bit, LineType:?PRIu8bit,
-			IntegrateAlarms:?PRIu8bit, FilterUnsolicited:?PRIu8bit,
-			Pad:?PRIu8bit, FilterYellow:?PRIu8bit, BriL1Mode:?PRIu8bit,
-			BriL1Cmd:?PRIu8bit, BriLoop:?PRIu8bit, BriL1T3:?PRIu8bit,
-			BriL1T4:?PRIu16bit>>
+% may be called with only one CSU flag in which case we will
+% use this setting for all spans
+set_hardware(Port, HardwareSettings, LineSettings, CsuFlag)
+		when integer(CsuFlag) ->
+	set_hardware(Port, HardwareSettings, LineSettings,
+			lists:duplicate(?PRI_MAX_LINES, CsuFlag));
 
-	PriCsu = 
+% may be called with only one list of line settings in which
+% case we will use these settings for all spans
+set_hardware(Port, HardwareSettings, LineSettings, CsuFlags) 
+		when list(LineSettings), tuple(hd(LineSettings)) ->
+	set_hardware(Port, HardwareSettings,
+			lists:duplicate(?PRI_MAX_LINES, LineSettings), CsuFlags);
 
 % may be called with an unordered subset of settings
-set_hardware(HardwareSettings, LineSettings, CsuFlags) ->
+set_hardware(Port, HardwareSettings, LineSettings, CsuFlags) 
+		when list(LineSettings), size(LineSettings) == ?PRI_MAX_LINES,
+		list(CsuFlags), size(CsuFlags) == ?PRI_MAX_LINES ->
 	HardwareDefaults = [{clocking,0}, {clocking2,0}, {enable_clocking2,0},
 			{netref_clocking,0}, {netref_rate,0},
 			{ctbus_mode,0}, {force_framer_init,0}, {tdm_rate,0},
@@ -234,16 +228,50 @@ set_hardware(HardwareSettings, LineSettings, CsuFlags) ->
 			{filter_yellow, 0}, {bri_l1mode, 0}, {briL1_cmd, 0},
 			{bri_loop, 0}, {briL1_T3, 0}, {briL1_T4, 0}],
 	HardwareMerged = mergeopts(HardwareSettings, HardwareDefaults),
-	LineMerged = mergeopts(LineSettings, LineDefaults),
-	set_hardware(lists:kersort(1, HardwareMerged),
-			lists:kersort(1, LineMerged), CsuFlags).
-set_hardware(HardwareSettings, LineSettings) ->
-	set_hardware(HardwareSettings, LineSettings,
-			lists:duplicate(?PRI_MAX_LINES, 0)).
-set_hardware(HardwareSettings) ->
-	set_hardware(HardwareSettings, lists:duplicate(?PRI_MAX_LINES, 
-			,
-			lists:duplicate(?PRI_MAX_LINES, 0)).
+	LineMerged = [mergeopts(A, B) || A <- LineSettings,
+			B <- lists:duplicate(?PRI_MAX_LINES, LineDefaults)],
+	do_set_hardware(Port, lists:keysort(1, HardwareMerged),
+			lists:keysort(1, LineMerged), CsuFlags).
+	
+%%
+%% internal function to set the hardware options
+%%
+do_set_hardware(Port, [{clk_status,ClkStatus}, {clocking,Clocking},
+		{clocking2,Clocking2}, {ctbus_mode,CtBusMode},
+		{dbcount,DbCount}, {enable_8370_rliu_monitor,Enable8370RliuMonitor},
+		{enable_clocking2,EnableClocking2},
+		{enable_t810x_snap_mode,EnableT810xSnapMode},
+		{force_framer_init,ForceFramerInit},
+		{netref_clocking,NetRefClocking}, {netref_rate,NetRefRate},
+		{tdm_rate,TdmRate}], LineSettings, CsuFlags) ->
+	HardwareBin = <<Clocking:?PRIu8bit, Clocking2:?PRIu8bit,
+			EnableClocking2:?PRIu8bit, NetRefClocking:?PRIu8bit,
+			NetRefRate:?PRIu8bit, CtBusMode:?PRIu8bit,
+			ForceFramerInit:?PRIu8bit, TdmRate:?PRIu8bit,
+			Enable8370RliuMonitor:?PRIu8bit, DbCount:?PRIu8bit,
+			EnableT810xSnapMode:?PRIu8bit, ClkStatus:?PRIu8bit>>,
+	MakeLineBin = fun({briL1_T3, BriL1T3}, {briL1_T4, BriL1T4},
+			{briL1_cmd, BriL1Cmd}, {bri_l1mode, BriL1Mode},
+			{bri_loop, BriLoop}, {filter_unsolicited, FilterUnsolicited},
+			{filter_yellow, FilterYellow}, {framing, Framing},
+			{integrate_alarms, IntegrateAlarms}, {line_code, LineCode},
+			{line_length, LineLength}, {line_type, LineType},
+			{pm_mode, PmMode}, {term, Term}) ->
+			<<Framing:?PRIu8bit, LineCode:?PRIu8bit, PmMode:?PRIu8bit,
+			LineLength:?PRIu8bit, Term:?PRIu8bit, LineType:?PRIu8bit,
+			IntegrateAlarms:?PRIu8bit, FilterUnsolicited:?PRIu8bit,
+			0:?PRIu8bit, FilterYellow:?PRIu8bit, BriL1Mode:?PRIu8bit,
+			BriL1Cmd:?PRIu8bit, BriLoop:?PRIu8bit, BriL1T3:?PRIu8bit,
+			BriL1T4:?PRIu16bit>>
+			end,
+	LineBins = [MakeLineBin(A) || A <- LineSettings],
+	CsuBin = list_to_binary(CsuFlags),
+	L4L3_CommonHeader = <<0:?PRIu8bit, ?L4L3mSET_HARDWARE:?PRIu8bit,
+			0:?PRIu8bit, 0:?PRIu8bit, 0:?PRIu8bit>>,
+	L4_to_L3_struct = concat_binary([L4L3_CommonHeader, HardwareBin]
+			++ LineBins ++ [CsuBin]),	
+	port_command(Port, L4_to_L3_struct).
+
 	
 
 %%----------------------------------------------------------------------
