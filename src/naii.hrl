@@ -1,60 +1,74 @@
+%%% src/naii.hrl.  Generated from naii.hrl.in by configure.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% naii.hrl   Erlang header file defining the structures in naii.h     %%%
 %%%                                                                     %%%
+%%%             This file defines the SMI interface.                    %%%
 %%%---------------------------------------------------------------------%%%
-%%% Copyright Motivity Telecom Inc. 2001, 2002, 2003
-%%%
-%%% All rights reserved. No part of this computer program(s) may be
-%%% used, reproduced, stored in any retrieval system, or transmitted,
-%%% in any form or by any means, electronic, mechanical, photocopying,
-%%% recording, or otherwise without prior written permission of
-%%% Motivity Telecom Inc.
-%%%---------------------------------------------------------------------
+%%% Copyright Motivity Telecom Inc. 2001, 2002, 2003                    %%%
+%%%                                                                     %%%
+%%% All rights reserved. No part of this computer program(s) may be     %%%
+%%% used, reproduced, stored in any retrieval system, or transmitted,   %%%
+%%% in any form or by any means, electronic, mechanical, photocopying,  %%%
+%%% recording, or otherwise without prior written permission of         %%%
+%%% Motivity Telecom Inc.                                               %%%
+%%%---------------------------------------------------------------------%%%
+%%%                                                                     %%%
+%%%  The Netaccess driver API header file <naii.h> defines the format   %%%
+%%%  of the binary interface to the embedded processor on the card.     %%%
+%%%  When we receive an incoming SMI control message from the driver    %%%
+%%%  we want to parse out all the elements of the message.  The         %%%
+%%%  <naii.h> header file defines how this is done.                     %%%
+%%%                                                                     %%%
+%%%  The full message received is matched against the L3L4 SMI Common   %%%
+%%%  message structure:                                                 %%%
+%%%                                                                     %%%
+%%%      <<CommonHeader/binary, MessageSpecificData/binary>>            %%%
+%%%                                                                     %%%
+%%%      [Note:  determining size is left out of current discussion]    %%%
+%%%                                                                     %%%
+%%%  CommonHeader is matched against the L3L4 Message Common Header:    %%%
+%%%                                                                     %%%
+%%%    <<Lapdid, Msgtype, L4_ref, Call_ref, Bchannel, Interface,        %%%
+%%%                    Bchannel_mask, Lli, Data_channel>>               %%%
+%%%                                                                     %%%
+%%%  Inspecting Msgtype we discover the appropriate mask to use for     %%%
+%%%  matching the MessageSpecificData.                                  %%%
+%%%                                                                     %%%
+%%%  The L3L4 Message Common Header is defined in the typedef for a     %%%
+%%%  structure in <naii.h> named L3_to_L4_struct.  In this file the     %%%
+%%%  function 'L3_to_L4_struct'/1 defines the unpacking of that         %%%
+%%%  structure into a record of the same name.  Similiarly a record     %%%
+%%%  of type #'L4_to_L3_struct'{} is passed to the function             %%%
+%%%  'L4_to_L3_struct'/1 to create a binary suitable to be sent to      %%%
+%%%  board.                                                             %%%
+%%%                                                                     %%%
+%%%  Most structures which appear in <naii.h> should have in this       %%%
+%%%  file both a corresponding record definition and a function with    %%%
+%%%  arity one which accepts a record or a binary and returns a         %%%
+%%%  record or a binary.                                                %%%
+%%%                                                                     %%%
 
 
-%% ioctl commands
--define(BOOT_BOARD, 0).
--define(ENABLE_MANAGEMENT_CHAN, 1).
--define(RESET_BOARD,  2).
--define(GET_VERSION,  3).
--define(GET_DRIVER_INFO, 4).
--define(SELECT_BOARD, 5).
--define(CANCEL_ASYNC, 10).
+For each structure in the                                                                    %%%
 
--define(PRIs8bit, 8/native-signed-integer).
--define(PRIu8bit, 8/native-unsigned-integer).
--define(PRIs16bit, 16/native-signed-integer).
--define(PRIu16bit, 16/native-unsigned-integer).
--define(PRIs32bit, 32/native-signed-integer).
--define(PRIu32bit, 32/native-unsigned-integer).
 
+%% basic types
+-define(PRIu8bit,  /native-unsigned-integer-unit:8).
+-define(PRIs8bit,  /native-signed-integer-unit:8).
+-define(PRIu16bit, /native-unsigned-integer-unit:8).
+-define(PRIs16bit, /native-signed-integer-unit:8).
+-define(PRIu32bit, /native-unsigned-integer-unit:8).
+-define(PRIs32bit, /native-signed-integer-unit:8).
+-define(PRIp16bit, /native-signed-integer-unit:8).
+-define(PRIp32bit, /native-signed-integer-unit:8).
+
+%% array sizes
 -define(PRI_MAX_LINES, 8).
+-define(PRI_NUM_DS1_INTERFACES, 20).
+-define(PRI_MAX_SPID_LEN, 20).
+-define(PRI_MAX_DN_LEN, 20).
+-define(PRI_MAX_BOND_CHAN, 20).
 
-%%
-%% defines for get_driver_info/2
-%%
--define(DriverInfoMask,
-		<<BoardType:?SIZEINT/native-signed-integer-unit:8,
-		HangUpOnRedAlarm:?SIZEINT/native-signed-integer-unit:8,
-		FlowControlBoard:?SIZEINT/native-signed-integer-unit:8,
-		FlowControlWsrv:?SIZEINT/native-signed-integer-unit:8,
-		FlowControlRsrv:?SIZEINT/native-signed-integer-unit:8,
-		HDrops:?SIZEINT/native-signed-integer-unit:8,
-		SDrops:?SIZEINT/native-signed-integer-unit:8,
-		TxMsgSize:?SIZEINT/native-signed-integer-unit:8,
-		RxMsgSize:?SIZEINT/native-signed-integer-unit:8,
-		TxNumBufs:?SIZEUSHORT/native-unsigned-integer-unit:8,
-		RxNumBufs:?SIZEUSHORT/native-unsigned-integer-unit:8,
-		MaxDataChannels:?SIZEUINT/native-unsigned-integer-unit:8>>).
--define(DriverInfoTerms,
-		[{board_type, BoardType}, {hangup_on_red_alarm, HangUpOnRedAlarm},
-		{flow_control_board, FlowControlBoard},
-		{flow_control_wsrv, FlowControlWsrv},
-		{flow_control_rsrv, FlowControlRsrv},
-		{hdrops, HDrops}, {sdrops, SDrops},
-		{tx_msg_size, TxMsgSize}, {rx_msg_size, RxMsgSize},
-		{tx_num_bufs, TxNumBufs},	{rx_num_bufs, RxNumBufs},
-		{max_data_channels, MaxDataChannels}]).
 
 %%
 %% defines for the L4L3 & L3L4 Common Headers 
@@ -239,13 +253,145 @@
 -define(TsiMapMask, <<Destination:?PRIu16bit, Source:?PRIu16bit>>).
 -define(TsiMapTerms, [{destination, Destination}, {source, Source}]).
 
-%%
-%% defines for enable_protocol/
-%%
--define(L4L3mENABLE_PROTOCOL, 16#B6).
--define(PRI_ENA_PROTO_DATA, 
-		<<Command:?PRIu16bit, CommandParameter:?PRIu16bit,
-		  Level1:?PRI_LEVEL1_CNFG, Level2:?PRI_LEVEL2_CNFG,
-		  Level3:?PRI_LEVEL3_CNFG>>).
 
 
+%%
+%% PRI_LEVEL1_CNFG
+%%
+-record('PRI_LEVEL1_CNFG',
+      {l1_mode=0, invert_hdlc=0, num_txbuf=0, num_rxbuf=0,
+      buffsz=0, chain=0, device=0, bit_reverse=0, vme_lock=0, 
+      hdlc_channels=0, chan_kbit_rate=0, crc_bytes=0, 
+      crc_ignore_errs=0,
+		rate_adapt = #rate_adapt{},
+		raw_fillchar=#raw_fillchar{},
+		hdlc_flag_fill=#hdlc_flag_fill{},
+		modem=#modem{},
+		v110=#v110{}}).
+-record(rate_adapt, {enable=0, rate_adapt_value=0}).
+-record(raw_fillchar, {enable=0, fill_value=0}).
+-record(hdlc_flag_fill, {enable=0, mode=0, value=0}).
+-record(modem, {originate=0, faxClass=0, encoding=0, amf=0,
+		amf_params=#amf_params{}, minBPS=0, maxBPS=0}).
+-record(amf_params, {'0'=0, '1'=0, '2'=0, '3'=0}).
+-record(v110, {bit_rate=0, auto_detect=0}).
+
+
+%%
+%% PRI_LEVEL2_CNFG
+%%
+-define(PRIl2modLAP_D,       0).
+-define(PRIl2modDISABLED,    1).
+-define(PRIl2modLAP_B,       2).
+-define(PRIl2modBONDING,     3).
+-define(PRIl2modLAP_F,       4).
+-define(PRIl2modDPNSS,       5).
+-define(PRIl2modLAP_D_EFA,   6).
+-define(PRIl2modPM,          7).
+-define(PRIl2modSS7,         8).
+-define(PRIl2modUDP_IP,      9).
+-define(PRIl2modDASS,       10).
+-define(PRIl2modV110,       11).
+-define(PRIl2modV120,       12).
+-define(PRIl2modLAP_F_CORE, 13).
+-define(PRIl2modSS7_MON,    14).
+-define(PRIdirUSER_SIDE,     0).
+-define(PRIdirNETWORK_SIDE,  1).
+-define(PRIdirSYMMETRIC,     2).
+
+-record('PRI_LEVEL2_CNFG',
+		{par=#'PRI_L2_LAP_PARAMS'{},
+		data_interface=#'PRI_DATA_INTERFACE'{},
+		consts=#'PRI_L2_LAP_CONSTS'{}}).
+-record('PRI_L2_LAP_PARAMS',
+		{mode=?PRIl2modLAP_D, dce_dte=0, tei_mode=0, no_sabme=0,
+		l2_detail=0, timestamp=0, ui_mode=0, priority=0, no_reestab=0,
+		mode_1tr6=0, mode_tei_1=0, no_piggyback=0}).
+-record('PRI_L2_LAP_CONSTS',
+		{t200=0, t201=0, t202=0, t203=0, n200=0, n201=0, n202=0, k=0}).
+-record('PRI_L2_SS7_PARAMS',
+		{mode=?PRIl2modSS7, variant=0}).
+-record('PRI_L2_SS7_CONSTS', 
+		{t1=0, t2=0, t3=0, t4n=0, t4e=0, t5=0, t6=0, t7=0}).
+-record('PRI_L2_UDPIP_PARAMS',
+		{mode=?PRIl2modUDP_IP, dstport=0, dstipaddr=0}).
+-record('PRI_L2_IP_CONSTS',
+		{no_dhcp=0, ipaddr=0, gwaddr=0, subnet_mask=0}).
+-record('PRI_L2_DPNSS_PARAMS',
+		{mode=?PRIl2modDPNSS, pbx_b=0, sabmr_as_ack=0, tie_line_mode=0}).
+-record('PRI_L2_DPNSS_CONSTS',
+		{nl=0, nt1=0, nt2=0}).
+-record('PRI_L2_V110_PARAMS',
+		{mode=?PRIl2modV110, ebits=0, flow_control=0, 
+		nine_byte_rx_frames=0, num_tx_idle_frames=0, max_rx_frame_size=0,
+		stale_rx_data_timer=0, filter_status_messages=0}).
+-record('PRI_DATA_INTERFACE',
+		{enable=0, data_channel=0, fillandspill=0, allow_buffer_preload=0}).
+
+%%
+%% PRI_LEVEL3_CNFG
+%%
+-define(PRIl3modDISABLED,     0).
+-define(PRIl3modQ931,         1).
+-define(PRIl3modX25_PKT,      2).
+-define(PRIl3modQ933,         3).
+-define(PRIl3modBONDING,      4).
+-define(PRIl3modPM,           5).
+-define(PRIl3modRELAY,        6).
+-define(PRIl3modDPNSS,        7).
+-define(PRIl3modDASS,         8).
+-define(PRIl3modQ933_ANNEX_A, 9).
+
+-record('PRI_LEVEL3_CNFG',
+		{l3_mode=0, cnfg=#'PRI_Q931_CNFG'{}}).
+-record('PRI_Q931_CNFG',
+		{switch_type=0, variant=0, call_filtering=0,
+		q931_timers=#'PRI_Q931_TIMERS'{},
+		b_channel_service_state=lists:duplicate(?PRI_NUM_DS1_INTERFACES, 0),
+		nfas=0, e1_30_bchan=0, basic_rate=0, net_side_emul=0, 
+		b_chan_negot=0, proc_on_exclusv=0, chanid_slot_map=0,
+		sprs_chanid_callproc=0, no_chanid_callproc=0, append_raw_qmsg=0,
+		ccitt_mode=0, raw_qmsg=0, no_ie_errcheck=0, user_ie_encode=0,
+		overlap_rcv=0, send_l3l4_callproc=0, sending_cmplt=0, 
+		require_send_complete=0, report_incoming_callproc=0,
+		no_tx_conn_ack=0, no_rx_conn_ack=0, sprs_chanid_setupack=0,
+		no_chanid_setupack=0, no_canned_spid_rej=0, call_reject_notify=0,
+		advice_of_charge=0, message_segmentation=0, no_bc_user_info=0,
+		incoming_call_slot_map=0, release_complete_control=0,
+		primary_lapdid=0, backup_lapdid=0, primary_ifnum=0,
+		backup_ifnum=0, backup_control=0, spid_len=0, spid_1_len=0,
+		dn_len=0, dn_1_len=0, 
+		spid=lists:duplicate(?PRI_MAX_SPID_LEN, 0),
+		spid_1=lists:duplicate(?PRI_MAX_SPID_LEN, 0),
+		dn=lists:duplicate(?PRI_MAX_DN_LEN, 0),
+		dn_1=lists:duplicate(?PRI_MAX_DN_LEN, 0),
+		chan_id_high_bit=0, att_cust_bri_ekts=0, subscribe_connack=0,
+		suppress_auto_spid=0, accept_all_bri_calls=0}).
+-record('PRI_Q931_TIMERS',
+		{t302=0, t305=0, t308=0, t313=0, t314=0, t316=0, t318=0, t319=0,
+		t3m1=0, t321=0}).
+-record('PRI_BONDING_DATA',
+		{mode=0, destination=0, num_tx_buf=0, num_rx_buf=0,
+		data_channel=0, txinit=0, txadd01=0, txfa=0, txdisc=0,
+		txdeq=0, tcid=0, tanull=0, channels=0, 
+		directory=lists:duplicate(?PRI_MAX_BOND_CHAN, 0)}).
+-record('PRI_X25_CONFIG',
+		{cfg_msk=0, t10=0, t11=0, t12=0, t13=0, t28=0, p=0, w=0,
+		max_clr_retry=0, max_svcs=0, max_pvcs=0}).
+-record('PRI_PM_CONFIG',
+		{mode=0, carrier=0, fdl_alert=0, 
+		equipmentid=lists:duplicate(10, 0),
+		locationid=lists:duplicate(11, 0),
+		frameid=lists:duplicate(10, 0),
+		unitid=lists:duplicate(6, 0),
+		facilityid=lists:duplicate(38, 0)}).
+-record('PRI_RELAY_CONFIG',
+		{default_dest=0, default_dest_id=0, default_root_idx=0}).
+-record('PRI_DPNSSCC_CONFIG',
+		{pbx_y=0, no_virtual_channels=0, dest_addr_len=0, 
+		b_channel_service_state=0, v_channel_service_state=0,
+		t_i_msg=0, t_guard=0}).
+-record('PRI_DASSCC_CONFIG',
+		{b_channel_service_state=0, t_digit_racking=0, n_clear_retries=0}).
+-record('PRI_Q933A_CONFIG',
+		{network_side=0, n391=0, n392=0, n393=0, t391=0, t392=0}).

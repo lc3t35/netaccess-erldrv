@@ -151,37 +151,64 @@ do
 done
 	
 
+
 ##
 ## Typedefs & Structures:  check for typedefs, structures, 
 ##                         and compiler characteristics.
 ##
-AC_CHECK_SIZEOF(char)
-AC_CHECK_SIZEOF(unsigned char)
-AC_CHECK_SIZEOF(short)
-AC_CHECK_SIZEOF(unsigned short)
 AC_CHECK_SIZEOF(int)
-AC_CHECK_SIZEOF(unsigned int)
-AC_CHECK_SIZEOF(long)
-AC_CHECK_SIZEOF(unsigned long)
-AC_CHECK_SIZEOF(char *)
-SIZECHAR=$ac_cv_sizeof_char
-SIZEUCHAR=$ac_cv_sizeof_unsigned_char
-SIZESHORT=$ac_cv_sizeof_short
-SIZEUSHORT=$ac_cv_sizeof_unsigned_short
-SIZEINT=$ac_cv_sizeof_int
-SIZEUINT=$ac_cv_sizeof_unsigned_int
-SIZELONG=$ac_cv_sizeof_long
-SIZEULONG=$ac_cv_sizeof_unsigned_long
-SIZEPOINTER=$ac_cv_sizeof_char_p
-AC_SUBST(SIZECHAR)
-AC_SUBST(SIZEUCHAR)
-AC_SUBST(SIZESHORT)
-AC_SUBST(SIZEUSHORT)
-AC_SUBST(SIZEINT)
-AC_SUBST(SIZEUINT)
-AC_SUBST(SIZELONG)
-AC_SUBST(SIZEULONG)
-AC_SUBST(SIZEPOINTER)
+AC_CHECK_SIZEOF(ushort)
+AC_CHECK_SIZEOF(uint)
+naii_includes="#include <stdio.h>
+		#include <naii.h>"
+AC_CHECK_SIZEOF(PRIu8bit, [], [${naii_includes}])
+AC_CHECK_SIZEOF(PRIs8bit, [], [${naii_includes}])
+AC_CHECK_SIZEOF(PRIu16bit, [], [${naii_includes}])
+AC_CHECK_SIZEOF(PRIs16bit, [], [${naii_includes}])
+AC_CHECK_SIZEOF(PRIu32bit, [], [${naii_includes}])
+AC_CHECK_SIZEOF(PRIs32bit, [], [${naii_includes}])
+AC_CHECK_SIZEOF(PRIp16bit, [], [${naii_includes}])
+AC_CHECK_SIZEOF(PRIp32bit, [], [${naii_includes}])
+AC_SUBST(SIZEOF_INT)
+AC_SUBST(SIZEOF_USHORT)
+AC_SUBST(SIZEOF_UINT)
+AC_SUBST(SIZEOF_PRIU8BIT)
+AC_SUBST(SIZEOF_PRIS8BIT)
+AC_SUBST(SIZEOF_PRIU16BIT)
+AC_SUBST(SIZEOF_PRIS16BIT)
+AC_SUBST(SIZEOF_PRIU32BIT)
+AC_SUBST(SIZEOF_PRIS32BIT)
+AC_SUBST(SIZEOF_PRIP16BIT)
+AC_SUBST(SIZEOF_PRIP32BIT)
+
+## use the preprocessor to determine which values these #define's
+## get in this environment and export them for building corresponding
+## macros in the .hrl files 
+AC_MSG_CHECKING([for defined value of PRI_MAX_LINES])
+		_AC_COMPUTE_INT([PRI_MAX_LINES], [PRI_MAX_LINES], [${naii_includes}],
+				[AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$PRI_MAX_LINES])
+		AC_SUBST(PRI_MAX_LINES)
+AC_MSG_CHECKING([for defined value of PRI_NUM_DS1_INTERFACES])
+		_AC_COMPUTE_INT([PRI_NUM_DS1_INTERFACES], [PRI_NUM_DS1_INTERFACES],
+				[${naii_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$PRI_NUM_DS1_INTERFACES])
+		AC_SUBST(PRI_NUM_DS1_INTERFACES)
+AC_MSG_CHECKING([for defined value of PRI_MAX_SPID_LEN])
+		_AC_COMPUTE_INT([PRI_MAX_SPID_LEN], [PRI_MAX_SPID_LEN],
+				[${naii_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$PRI_MAX_SPID_LEN])
+		AC_SUBST(PRI_MAX_SPID_LEN)
+AC_MSG_CHECKING([for defined value of PRI_MAX_DN_LEN])
+		_AC_COMPUTE_INT([PRI_MAX_DN_LEN], [PRI_MAX_DN_LEN],
+				[${naii_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$PRI_MAX_DN_LEN])
+		AC_SUBST(PRI_MAX_DN_LEN)
+AC_MSG_CHECKING([for defined value of PRI_MAX_BOND_CHAN])
+		_AC_COMPUTE_INT([PRI_MAX_BOND_CHAN], [PRI_MAX_BOND_CHAN],
+				[${naii_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$PRI_MAX_BOND_CHAN])
+		AC_SUBST(PRI_MAX_BOND_CHAN)
 
 
 ##
@@ -198,4 +225,5 @@ AC_CHECK_LIB(ei, ei_x_new)
 ##
 ## Output:  create output files
 ##
+AC_OUTPUT([src/naii.hrl src/pridrv.hrl])
 AC_OUTPUT([Makefile src/Makefile])
