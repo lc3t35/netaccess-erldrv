@@ -1,4 +1,4 @@
--module(lapd_app).
+-module(lapd_data_app).
 -behaviour(application).
 -export([start/2, stop/1]).
 
@@ -11,6 +11,6 @@ start(normal, _Args) ->
 	{ok, LapdIds} = application:get_env(lapdids),
 	StartArgs = [ServerName, DeviceName, BoardNumber, IframeInterval,
 			ReportInterval, LapdIds],
-	supervisor:start_link(lapd_sup, StartArgs).
+	supervisor:start_link(lapd_data_sup, StartArgs).
 	
 stop(_State) -> ok.
