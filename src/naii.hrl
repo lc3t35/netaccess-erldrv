@@ -49,18 +49,16 @@
 %%%                                                                     %%%
 
 
-For each structure in the                                                                    %%%
-
 
 %% basic types
--define(PRIu8bit,  /native-unsigned-integer-unit:8).
--define(PRIs8bit,  /native-signed-integer-unit:8).
--define(PRIu16bit, /native-unsigned-integer-unit:8).
--define(PRIs16bit, /native-signed-integer-unit:8).
--define(PRIu32bit, /native-unsigned-integer-unit:8).
--define(PRIs32bit, /native-signed-integer-unit:8).
--define(PRIp16bit, /native-signed-integer-unit:8).
--define(PRIp32bit, /native-signed-integer-unit:8).
+-define(PRIu8bit,  1/native-unsigned-integer-unit:8).
+-define(PRIs8bit,  1/native-signed-integer-unit:8).
+-define(PRIu16bit, 2/native-unsigned-integer-unit:8).
+-define(PRIs16bit, 2/native-signed-integer-unit:8).
+-define(PRIu32bit, 4/native-unsigned-integer-unit:8).
+-define(PRIs32bit, 4/native-signed-integer-unit:8).
+-define(PRIp16bit, 4/native-signed-integer-unit:8).
+-define(PRIp32bit, 4/native-signed-integer-unit:8).
 
 %% array sizes
 -define(PRI_MAX_LINES, 8).
@@ -69,7 +67,20 @@ For each structure in the                                                       
 -define(PRI_MAX_DN_LEN, 20).
 -define(PRI_MAX_BOND_CHAN, 20).
 
+%%
+%% L4L3 Common Headers 
+%%
+-record('L4_to_L3_struct',
+		{lapdid=0, msgtype=0, l4_ref=0, call_ref=0, lli=0, data=undefined}).
 
+%%
+%% L3L4 Common Headers 
+%%
+-record('L3_to_L4_struct',
+		{lapdid=0, msgtype=0, l4_ref=0, call_ref=0, bchanel=0,
+		iface=0, bchannel_mask=0, lli=0, data_channel=0, data=0}).
+
+%%% TODO:  deprecate these macros?
 %%
 %% defines for the L4L3 & L3L4 Common Headers 
 %%
@@ -82,6 +93,14 @@ For each structure in the                                                       
 		CallRef:?PRIu16bit, BChan:?PRIu8bit, Iface:?PRIu8bit,
 		BChanMask:?PRIu32bit, Lli:?PRIu16bit, DataChan:?PRIu16bit,
 		Data/binary>>).
+
+%%% TODO:  how to organize these macros/records/functions
+-define(L3mENABLE_PROTOCOL,  16#B6).
+
+
+-record('PRI_ENA_PROTO_DATA',
+	{command=0, command_parameter=0, level1, level2, level3}).
+
 
 %%
 %% error in response to L4L3mXXXXX
@@ -129,6 +148,17 @@ For each structure in the                                                       
 %%
 %% defines for set_hardware/2 and req_hw_status/1
 %%
+-record('PRI_LINE_DATA',
+		{framing=0, line_code=0, pm_mode=0, line_length=0, term=0,
+		line_type=0, integrate_alarms=0, filter_unsolicited=0,
+		filter_yellow=0, bri_l1mode=0, briL1_cmd=0, bri_loop=0, 
+		bril1_t3=0, bril1_t4=0}).
+-record('PRI_HARDWARE_DATA',
+		{clocking=0, clocking2=0, enable_clocking2=0, 
+		netref_clocking=0, netref_rate=0, ctbus_mode=0,
+		force_framer_init=0, tdm_rate=0,
+		enable_8370_rliu_monitor=0, dbcount=0, 
+		enable_t810x_snap_mode=0, clk_status=0, line_data, csu}).
 -define(L4L3mSET_HARDWARE, 16#A7). 
 -define(L4L3mREQ_HW_STATUS, 16#A8). 
 -define(L3L4mHARDWARE_STATUS, 16#24). 
@@ -395,3 +425,9 @@ For each structure in the                                                       
 		{b_channel_service_state=0, t_digit_racking=0, n_clear_retries=0}).
 -record('PRI_Q933A_CONFIG',
 		{network_side=0, n391=0, n392=0, n393=0, t391=0, t392=0}).
+
+
+-record('PRI_DATA_INTERFACE_CONFIGURATION',
+		{dchan_descr_addr=0, num_dchan_descr=0,
+				dchan_event_queue_addr=0, num_l3l4_dchan_events=0,
+				num_l4l3_dchan_events=0}).

@@ -24,6 +24,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(naii).
+
+%%% TODO:  how do we group these?
+-export(['L3_to_L4_struct'/1, 'L4_to_L3_struct'/1]).
+-export(['PRI_ENA_PROTO_DATA'/1]).
+-export(['PRI_HARDWARE_DATA'/1, 'PRI_LINE_DATA'/1]).
+-export(['PRI_Q931_TIMERS'/1]).
+-export(['PRI_DATA_INTERFACE_CONFIGURATION'/1]).
 -export(['PRI_LEVEL1_CNFG'/1, 'PRI_LEVEL2_CNFG'/1, 'PRI_LEVEL3_CNFG'/1]).
 -export(['PRI_L2_LAP_PARAMS'/1, 'PRI_L2_SS7_PARAMS'/1, 
 		'PRI_L2_UDPIP_PARAMS'/1, 'PRI_L2_DPNSS_PARAMS'/1,
@@ -36,6 +43,50 @@
 		'PRI_L2_IP_CONSTS'/1, 'PRI_L2_DPNSS_CONSTS'/1]).
 
 -include("naii.hrl").
+
+
+%%
+%% L4_to_L3_struct
+%%
+%% This function takes a record of the same name and returns a binary
+%% repsentaion of an entire SMI L4L3 message suitable for sending to
+%% the boards.  If the data member is assigned a binary it will be sent
+%% as is.  If it is undefined a default record of the type associated
+%% with msgtype is used.  If data is a record of the appropriate type
+%% it will be used to build the binary.
+%%
+'L4_to_L3_struct'(R) when is_record(R, 'L4_to_L3_struct') ->
+	MessageType = R#'L4_to_L3_struct'.msgtype, 
+	CommonHeader = <<(R#'L4_to_L3_struct'.lapdid):?PRIu8bit, 
+			(R#'L4_to_L3_struct'.msgtype):?PRIu8bit,
+			(R#'L4_to_L3_struct'.l4_ref):?PRIu16bit,
+			(R#'L4_to_L3_struct'.call_ref):?PRIu16bit,
+			(R#'L4_to_L3_struct'.lli):?PRIu16bit>>,
+	MessageSpecificData = R#'L4_to_L3_struct'.data,
+	'L4_to_L3_struct'(MessageType, CommonHeader, MessageSpecificData).
+
+'L4_to_L3_struct'(_, Header, Data) when is_binary(Data) ->
+	<<0, Header/binary, Data/binary>>;
+'L4_to_L3_struct'(?L4L3mSET_HARDWARE, Header, Data) ->
+	<<0, Header/binary, ('PRI_HARDWARE_DATA'(Data))/binary>>;
+'L4_to_L3_struct'(?L4L3mSET_TSI, Header, Data) ->
+	<<0, Header/binary, ('PRI_HARDWARE_DATA'(Data))/binary>>;
+'L4_to_L3_struct'(?L3mENABLE_PROTOCOL, Header, Data) ->
+	<<0, Header/binary, ('PRI_ENA_PROTO_DATA'(Data))/binary>>;
+'L4_to_L3_struct'(?L4L3mREQ_HW_STATUS, Header, Data) ->
+	<<0, Header/binary>>;
+'L4_to_L3_struct'(?L4L3mREQ_TSI_STATUS, Header, Data) ->
+	<<0, Header/binary>>.
+
+'L3_to_L4_struct'(Bin) when is_binary(Bin) ->
+	<<Lapdid:?PRIu8bit, Msgtype:?PRIu8bit, L4_ref:?PRIu16bit,
+		Call_ref:?PRIu16bit, Bchanel:?PRIu8bit, Iface:?PRIu8bit,
+		Bchannel_mask:?PRIu32bit, Lli:?PRIu16bit, Data_channel:?PRIu16bit,
+		Data/binary>> = Bin,
+	#'L3_to_L4_struct'{lapdid=Lapdid, msgtype=Msgtype, l4_ref=L4_ref,
+			call_ref=Call_ref, bchanel=Bchanel, iface=Iface,
+			bchannel_mask=Bchannel_mask, lli=Lli, 
+			data_channel=Data_channel, data=Data}.
 
 
 
@@ -154,24 +205,25 @@
 	<<Par:Size_params/binary, Data_interface:Size_datint/binary,
 			Consts:Size_consts/binary>> = L2,
 	if
-		Mode=?PRIl2modLAP_B; Mode=?PRIl2modLAP_D; Mode=?PRIl2modLAP_D_EFA
-				Mode=?PRIl2modLAP_F; Mode=?PRIl2modLAP_F_CORE; ->
+		Mode == ?PRIl2modLAP_B; Mode == ?PRIl2modLAP_D; 
+				Mode == ?PRIl2modLAP_D_EFA; Mode == ?PRIl2modLAP_F;
+				Mode == ?PRIl2modLAP_F_CORE ->
 			#'PRI_LEVEL2_CNFG'{par='PRI_L2_LAP_PARAMS'(Par),
 					data_interface='PRI_DATA_INTERFACE'(Data_interface),
 					consts='PRI_L2_LAP_CONSTS'(Consts)};
-		Mode=?PRIl2modSS7; Mode=?PRIl2modSS7_MON ->
+		Mode == ?PRIl2modSS7; Mode == ?PRIl2modSS7_MON ->
 			#'PRI_LEVEL2_CNFG'{par='PRI_L2_SS7_PARAMS'(Par),
 					data_interface='PRI_DATA_INTERFACE'(Data_interface),
 					consts='PRI_L2_SS7_CONSTS'(Consts)};
-		Mode=?PRIl2modDPNSS; Mode=?PRIl2modDASS ->
+		Mode == ?PRIl2modDPNSS; Mode == ?PRIl2modDASS ->
 			#'PRI_LEVEL2_CNFG'{par='PRI_L2_DPNSS_PARAMS'(Par),
 					data_interface='PRI_DATA_INTERFACE'(Data_interface),
 					consts='PRI_L2_DPNSS_CONSTS'(Consts)};
-		Mode=?PRIl2modUDP_IP ->
+		Mode == ?PRIl2modUDP_IP ->
 			#'PRI_LEVEL2_CNFG'{par='PRI_L2_UDPIP_PARAMS'(Par),
 					data_interface='PRI_DATA_INTERFACE'(Data_interface),
 					consts='PRI_L2_IP_CONSTS'(Consts)};
-		Mode=?PRIl2modV110; Mode=?PRIl2modV110 ->
+		Mode == ?PRIl2modV110; Mode == ?PRIl2modV110 ->
 			#'PRI_LEVEL2_CNFG'{par='PRI_L2_V110_PARAMS'(Par),
 					data_interface='PRI_DATA_INTERFACE'(Data_interface),
 					consts=undefined};
@@ -179,26 +231,20 @@
 			#'PRI_LEVEL2_CNFG'{par=undefined,
 					data_interface='PRI_DATA_INTERFACE'(Data_interface),
 					consts=undefined}
-	end;
+	end.
+
 
 'PRI_DATA_INTERFACE'(DataIf) when is_record(DataIf, 'PRI_DATA_INTERFACE') ->
-	<<(DataIf#'PRI_DATA_INTERFACE'.dchan_descr_addr):?PRIp32bit,
-			(DataIf#'PRI_DATA_INTERFACE'.num_dchan_descr):?PRIu16bit,
-			0:?PRIu16bit,
-			(DataIf#'PRI_DATA_INTERFACE'.dchan_event_queue_addr):?PRIp16bit,
-			(DataIf#'PRI_DATA_INTERFACE'.num_l3l4_dchan_events):?PRIu16bit,
-			(DataIf#'PRI_DATA_INTERFACE'.num_l4l3_dchan_events):?PRIu16bit>>;
+	<<(DataIf#'PRI_DATA_INTERFACE'.enable):?PRIu8bit,
+			(DataIf#'PRI_DATA_INTERFACE'.data_channel):?PRIu8bit,
+			(DataIf#'PRI_DATA_INTERFACE'.fillandspill):?PRIu8bit,
+			(DataIf#'PRI_DATA_INTERFACE'.allow_buffer_preload):?PRIu8bit>>;
 'PRI_DATA_INTERFACE'(DataIf) when is_binary(DataIf) ->
-	<<Dchan_descr_addr:?PRIp32bit, Num_dchan_descr:?PRIu16bit,
-			_:?PRIu16bit,
-			Dchan_event_queue_addr:?PRIp16bit,
-			Num_l3l4_dchan_events:?PRIu16bit,
-			Num_l4l3_dchan_events:?PRIu16bit>> = DataIf,
-	#'PRI_DATA_INTERFACE'{dchan_descr_addr=Dchan_descr_addr,
-			num_dchan_descr=Num_dchan_descr,
-			dchan_event_queue_addr=Dchan_event_queue_addr,
-			num_l3l4_dchan_events=Num_l3l4_dchan_events,
-			num_l4l3_dchan_events=Num_l4l3_dchan_events}.
+	<<Enable:?PRIu8bit, Data_channel:?PRIu8bit, Fillandspill:?PRIu8bit,
+			Allow_buffer_preload:?PRIu8bit>> = DataIf,
+	#'PRI_DATA_INTERFACE'{enable=Enable, data_channel=Data_channel,
+			fillandspill=Fillandspill,
+			allow_buffer_preload=Allow_buffer_preload}.
 			
 
 'PRI_L2_LAP_PARAMS'(Lap) when is_record(Lap, 'PRI_L2_LAP_PARAMS') ->
@@ -503,7 +549,7 @@
 			_:?PRIu16bit>> = Q931,
 	U8toL = fun (Iter, <<>>, List) -> List;
 			(Iter, <<Digit:?PRIu8bit, Rest/binary>>, Acc) ->
-			Iter(Iter, Rest, Acc ++ Digit)
+				Iter(Iter, Rest, Acc ++ Digit)
 	end,
 	#'PRI_Q931_CNFG'{switch_type=Switch_type, variant=Variant,
 			b_channel_service_state=B_channel_service_state,
@@ -547,7 +593,7 @@
 
 'PRI_BONDING_DATA'(Bond) when is_record(Bond, 'PRI_BONDING_DATA') ->
 	Digit32 = fun(Digit, Bin) -> <<Digit:?PRIu32bit, Bin/binary>> end,
-	Directory = lists(foldr, Digit32, <<>>, 
+	Directory = lists:foldr(Digit32, <<>>, 
 			Bond#'PRI_BONDING_DATA'.directory),
 	<<(Bond#'PRI_BONDING_DATA'.mode):?PRIu16bit,
 			(Bond#'PRI_BONDING_DATA'.destination):?PRIu8bit,
@@ -562,13 +608,13 @@
 			(Bond#'PRI_BONDING_DATA'.tcid):?PRIu16bit,
 			(Bond#'PRI_BONDING_DATA'.tanull):?PRIu16bit,
 			(Bond#'PRI_BONDING_DATA'.channels):?PRIu16bit,
-			Directory:Size_dn/binary>>;
+			Directory/binary>>;
 'PRI_BONDING_DATA'(Bond) when is_binary(Bond) ->
-	Size_dir = (?PRI_MAX_BOND_CHAN * size(<<0:?PRIu32bit/binary>>),
-	<<Mode=:?PRIu16bit, Destination:?PRIu8bit, 
+	Size_dir = (?PRI_MAX_BOND_CHAN * size(<<0:?PRIu32bit>>)),
+	<<Mode:?PRIu16bit, Destination:?PRIu8bit, 
 			Num_tx_buf:?PRIu8bit, Num_rx_buf:?PRIu8bit,
 			Data_channel:?PRIu8bit, Txinit:?PRIu16bit, Txadd01:?PRIu16bit,
-			T:?PRIu16bit, Txdisc:?PRIu16bit, Txdeq:?PRIu16bit,
+			Txfa:?PRIu16bit, Txdisc:?PRIu16bit, Txdeq:?PRIu16bit,
 			Tcid:?PRIu16bit, Tanull:?PRIu16bit, Channels:?PRIu16bit,
 			Directory:Size_dir/binary>> = Bond,
 	U32toL = fun (Iter, <<>>, List) -> List;
@@ -578,7 +624,7 @@
 	#'PRI_BONDING_DATA'{mode=Mode, destination=Destination,
 			num_tx_buf=Num_tx_buf, num_rx_buf=Num_rx_buf,
 			data_channel=Data_channel, txinit=Txinit, txadd01=Txadd01,
-			t=T, txdisc=Txdisc, txdeq=Txdeq, tcid=Tcid, tanull=Tanull,
+			txfa=Txfa, txdisc=Txdisc, txdeq=Txdeq, tcid=Tcid, tanull=Tanull,
 			channels=Channels, directory=U32toL(U32toL, Directory, [])}.
 	
 'PRI_X25_CONFIG'(X25) when is_record(X25, 'PRI_X25_CONFIG') ->
@@ -604,11 +650,11 @@
 
 'PRI_PM_CONFIG'(PM) when is_record(PM, 'PRI_PM_CONFIG') ->
 	Digit8 = fun(Digit, Bin) -> <<Digit:?PRIu8bit, Bin/binary>> end,
-	Equipmentid = lists(foldr, Digit8, <<>>, PM#'PRI_PM_CONFIG'.equipmentid),
-	Locationid = lists(foldr, Digit8, <<>>, PM#'PRI_PM_CONFIG'.locationid),
-	Frameid = lists(foldr, Digit8, <<>>, PM#'PRI_PM_CONFIG'.frameid),
-	Unitid = lists(foldr, Digit8, <<>>, PM#'PRI_PM_CONFIG'.unitid),
-	Facilityid = lists(foldr, Digit8, <<>>, PM#'PRI_PM_CONFIG'.facilityid),
+	Equipmentid = lists:foldr(Digit8, <<>>, PM#'PRI_PM_CONFIG'.equipmentid),
+	Locationid = lists:foldr(Digit8, <<>>, PM#'PRI_PM_CONFIG'.locationid),
+	Frameid = lists:foldr(Digit8, <<>>, PM#'PRI_PM_CONFIG'.frameid),
+	Unitid = lists:foldr(Digit8, <<>>, PM#'PRI_PM_CONFIG'.unitid),
+	Facilityid = lists:foldr(Digit8, <<>>, PM#'PRI_PM_CONFIG'.facilityid),
 	<<(PM#'PRI_PM_CONFIG'.mode):?PRIu8bit, 
 			(PM#'PRI_PM_CONFIG'.carrier):?PRIu8bit,
 			(PM#'PRI_PM_CONFIG'.fdl_alert):?PRIu8bit,
@@ -629,7 +675,7 @@
 			Facilityid:Size_fac/binary>> = PM,
 	U8toL = fun (Iter, <<>>, List) -> List;
 			(Iter, <<Digit:?PRIu8bit, Rest/binary>>, Acc) ->
-			Iter(Iter, Rest, Acc ++ Digit)
+				Iter(Iter, Rest, Acc ++ Digit)
 	end,
 	#'PRI_PM_CONFIG'{mode=Mode, carrier=Carrier, fdl_alert=Fdl_alert,
 			equipmentid = U8toL(U8toL, Equipmentid, []),
@@ -698,3 +744,138 @@
 	#'PRI_Q933A_CONFIG'{network_side=Network_side, n391=N391, n392=N392,
 			n393=N393, t391=T391, t392=T392}.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% TODO:  where does this stuff go?
+
+
+'PRI_DATA_INTERFACE_CONFIGURATION'(D) 
+			when is_record(D, 'PRI_DATA_INTERFACE_CONFIGURATION') ->
+	<<(D#'PRI_DATA_INTERFACE_CONFIGURATION'.dchan_descr_addr):?PRIp32bit,
+			(D#'PRI_DATA_INTERFACE_CONFIGURATION'.num_dchan_descr):?PRIu16bit,
+			0:?PRIu16bit,
+			(D#'PRI_DATA_INTERFACE_CONFIGURATION'.dchan_event_queue_addr):?PRIp16bit,
+			(D#'PRI_DATA_INTERFACE_CONFIGURATION'.num_l3l4_dchan_events):?PRIu16bit,
+			(D#'PRI_DATA_INTERFACE_CONFIGURATION'.num_l4l3_dchan_events):?PRIu16bit>>;
+'PRI_DATA_INTERFACE_CONFIGURATION'(DataIf) when is_binary(DataIf) ->
+	<<Dchan_descr_addr:?PRIp32bit, Num_dchan_descr:?PRIu16bit,
+			_:?PRIu16bit,
+			Dchan_event_queue_addr:?PRIp16bit,
+			Num_l3l4_dchan_events:?PRIu16bit,
+			Num_l4l3_dchan_events:?PRIu16bit>> = DataIf,
+	#'PRI_DATA_INTERFACE_CONFIGURATION'{dchan_descr_addr=Dchan_descr_addr,
+			num_dchan_descr=Num_dchan_descr,
+			dchan_event_queue_addr=Dchan_event_queue_addr,
+			num_l3l4_dchan_events=Num_l3l4_dchan_events,
+			num_l4l3_dchan_events=Num_l4l3_dchan_events}.
+
+'PRI_ENA_PROTO_DATA'(Proto) when is_record(Proto, 'PRI_ENA_PROTO_DATA') ->
+   <<(Proto#'PRI_ENA_PROTO_DATA'.command):?PRIu16bit,
+			(Proto#'PRI_ENA_PROTO_DATA'.command_parameter):?PRIu16bit,
+			('PRI_LEVEL1_CNFG'(Proto#'PRI_ENA_PROTO_DATA'.level1))/binary,
+			('PRI_LEVEL2_CNFG'(Proto#'PRI_ENA_PROTO_DATA'.level2))/binary,
+			('PRI_LEVEL3_CNFG'(Proto#'PRI_ENA_PROTO_DATA'.level3))/binary>>;
+'PRI_ENA_PROTO_DATA'(Proto) when is_binary(Proto) ->
+	Size_level1 = size('PRI_LEVEL1_CNFG'(#'PRI_LEVEL1_CNFG'{})),
+	Size_level2 = size('PRI_LEVEL2_CNFG'(#'PRI_LEVEL2_CNFG'{})),
+	Size_level3 = size('PRI_LEVEL3_CNFG'(#'PRI_LEVEL3_CNFG'{})),
+	<<Command:?PRIu16bit, Command_parameter:?PRIu16bit,
+			Level1:Size_level1/binary, Level2:Size_level2/binary,
+			Level3:Size_level3/binary>> = Proto,
+	#'PRI_ENA_PROTO_DATA'{command=Command, 
+			command_parameter=Command_parameter, level1=Level1,
+			level2=Level2, level3=Level3}.
+
+'PRI_LINE_DATA'(LD) when is_record(LD, 'PRI_LINE_DATA') ->
+	<<(LD#'PRI_LINE_DATA'.framing):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.line_code):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.pm_mode):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.line_length):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.term):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.line_type):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.integrate_alarms):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.filter_unsolicited):?PRIu8bit,
+			0:?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.filter_yellow):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.bri_l1mode):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.briL1_cmd):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.bri_loop):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.bril1_t3):?PRIu8bit,
+			(LD#'PRI_LINE_DATA'.bril1_t4):?PRIu16bit>>;
+'PRI_LINE_DATA'(LD) when is_binary(LD) ->
+	<<Framing:?PRIu8bit, Line_code:?PRIu8bit, Pm_mode:?PRIu8bit,
+			Line_length:?PRIu8bit, Term:?PRIu8bit, Line_type:?PRIu8bit,
+			Integrate_alarms:?PRIu8bit, Filter_unsolicited:?PRIu8bit,
+			Filter_yellow:?PRIu8bit, Bri_l1mode:?PRIu8bit,
+			BriL1_cmd:?PRIu8bit, Bri_loop:?PRIu8bit, 
+			Bril1_t3:?PRIu8bit, Bril1_t4:?PRIu16bit>> = LD,
+	#'PRI_LINE_DATA'{framing=Framing, line_code=Line_code,
+			pm_mode=Pm_mode, line_length=Line_length, term=Term,
+			line_type=Line_type, integrate_alarms=Integrate_alarms,
+			filter_unsolicited=Filter_unsolicited, 
+			filter_yellow=Filter_yellow, bri_l1mode=Bri_l1mode,
+			briL1_cmd=BriL1_cmd, bri_loop=Bri_loop,
+			bril1_t3=Bril1_t3, bril1_t4=Bril1_t4}.
+
+'PRI_HARDWARE_DATA'(HW) when is_record(HW, 'PRI_HARDWARE_DATA');
+		is_binary(HW#'PRI_HARDWARE_DATA'.line_data) ->
+	Digit8 = fun(Digit8, Bin) -> <<Digit8:?PRIu8bit, Bin/binary>> end,
+	Csu = lists:foldr(Digit8, <<>>, HW#'PRI_HARDWARE_DATA'.csu),
+	<<(HW#'PRI_HARDWARE_DATA'.clocking):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.clocking2):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.enable_clocking2):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.netref_clocking):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.netref_rate):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.ctbus_mode):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.force_framer_init):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.tdm_rate):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.enable_8370_rliu_monitor):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.dbcount):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.enable_t810x_snap_mode):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.clk_status):?PRIu8bit,
+			(HW#'PRI_HARDWARE_DATA'.line_data)/binary, Csu/binary>>;
+'PRI_HARDWARE_DATA'(HW) when is_record(HW, 'PRI_HARDWARE_DATA') ->
+	LD = 'PRI_LINE_DATA'(HW#'PRI_HARDWARE_DATA'.line_data),
+	NewHW = HW#'PRI_HARDWARE_DATA'{line_data=LD},
+	'PRI_HARDWARE_DATA'(NewHW);
+'PRI_HARDWARE_DATA'(HW) when is_binary(HW) ->
+	Size_line = (?PRI_MAX_LINES * size('PRI_LINE_DATA'(undef))),
+	Size_csu = (?PRI_MAX_LINES * size(<<0:?PRIu8bit>>)),
+	<<Clocking:?PRIu8bit, Clocking2:?PRIu8bit,
+			Enable_clocking2:?PRIu8bit, Netref_clocking:?PRIu8bit,
+			Netref_rate:?PRIu8bit, Ctbus_mode:?PRIu8bit,
+			Force_framer_init:?PRIu8bit, Tdm_rate:?PRIu8bit,
+			Enable_8370_rliu_monitor:?PRIu8bit, Dbcount:?PRIu8bit,
+			Enable_t810x_snap_mode:?PRIu8bit, Clk_status:?PRIu8bit,
+			LineData:Size_line/binary, Csu:Size_csu/binary>> = HW,
+	U8toL = fun (Iter, <<>>, List) -> List;
+			(Iter, <<Digit:?PRIu8bit, Rest/binary>>, Acc) ->
+				Iter(Iter, Rest, Acc ++ Digit)
+			end,
+	#'PRI_HARDWARE_DATA'{clocking=Clocking, clocking2=Clocking2,
+			enable_clocking2=Enable_clocking2, 
+			netref_clocking=Netref_clocking, netref_rate=Netref_rate,
+			ctbus_mode=Ctbus_mode, force_framer_init=Force_framer_init,
+			tdm_rate=Tdm_rate,
+			enable_8370_rliu_monitor=Enable_8370_rliu_monitor,
+			dbcount=Dbcount, enable_t810x_snap_mode=Enable_t810x_snap_mode,
+			clk_status=Clk_status, line_data=LineData, 
+			csu = U8toL(U8toL, Csu, [])}.
+
+'PRI_Q931_TIMERS'(T) when is_record(T, 'PRI_Q931_TIMERS') ->
+	<<(T#'PRI_Q931_TIMERS'.t302):?PRIu16bit,
+			(T#'PRI_Q931_TIMERS'.t305):?PRIu16bit,
+			(T#'PRI_Q931_TIMERS'.t308):?PRIu16bit,
+			(T#'PRI_Q931_TIMERS'.t313):?PRIu16bit,
+			(T#'PRI_Q931_TIMERS'.t314):?PRIu16bit,
+			(T#'PRI_Q931_TIMERS'.t316):?PRIu16bit,
+			(T#'PRI_Q931_TIMERS'.t318):?PRIu16bit,
+			(T#'PRI_Q931_TIMERS'.t319):?PRIu16bit,
+			(T#'PRI_Q931_TIMERS'.t3m1):?PRIu16bit,
+			(T#'PRI_Q931_TIMERS'.t321):?PRIu16bit>>;
+'PRI_Q931_TIMERS'(T) when is_binary(T) ->
+	<<T302:?PRIu16bit, T305:?PRIu16bit, T308:?PRIu16bit, T313:?PRIu16bit,
+			T314:?PRIu16bit, T316:?PRIu16bit, T318:?PRIu16bit,
+			T319:?PRIu16bit, T3m1:?PRIu16bit, T321:?PRIu16bit>> = T,
+	#'PRI_Q931_TIMERS'{t302=T302, t305=T305, t308=T308, t313=T313,
+			t314=T314, t316=T316, t318=T318, t319=T319, t3m1=T3m1,
+			t321=T321}.

@@ -296,7 +296,7 @@ req_tsi_status(TsiMapBins, NumMaps, TsiTerms) ->
 %%
 enable_protocol(Port, Command, CommandParameter,
 		Level1, Level2, Level3) -> ok.
-
+	
 
 %%----------------------------------------------------------------------
 %%  The gen_server call backs
