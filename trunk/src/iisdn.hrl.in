@@ -70,18 +70,19 @@
 -define(IISDN_MAX_HDLC_CHANNEL, @IISDN_MAX_HDLC_CHANNEL@).
 -define(IISDN_MAX_LINES, @IISDN_MAX_LINES@).
 
+
 %%
 %% general structure of a board to host message
 %%
 -record(l4_to_l3,
-		{lapdid=0, msgtype=0, l4_ref=0, call_ref=0, lli=0, data=undefined}).
+		{lapdid=0, msgtype=0, l4_ref=0, call_ref=0, lli=0, data = <<>>}).
 
 %%
 %% general structure of a host to board message
 %%
 -record(l3_to_l4,
 		{lapdid=0, msgtype=0, l4_ref=0, call_ref=0, bchanel=0,
-		iface=0, bchannel_mask=0, lli=0, data_channel=0, data=0}).
+		iface=0, bchannel_mask=0, lli=0, data_channel=0, data = <<>>}).
 
 %%
 %% error in response to L4L3mXXXXX
@@ -216,8 +217,18 @@
 
 -define(L4L3mENABLE_PROTOCOL,  16#B6).
 -record(ena_proto_data,
-	{command=0, command_parameter=0, level1, level2, level3}).
+		{command=0, command_parameter=0, level1 = #level1_cnfg{},
+		level2 = #level2_cnfg{}, level3 = #level3_cnfg{}}).
 
+-define(IISDNl1modHDLC,         0).
+-define(IISDNl1modRAW,          1).
+-define(IISDNl1modV110,         2).
+-define(IISDNl1modRAW_SPECIAL1, 4).
+-define(IISDNl1modISLP,         5).
+-define(IISDNl1modMODEM,        6).
+-define(IISDNl1modSIGNALING,    7).
+-define(IISDNl1modETHERNET,     8).
+-define(IISDNl1modBULK_RAW,     9).
 -record(level1_cnfg,
       {l1_mode=0, invert_hdlc=0, num_txbuf=0, num_rxbuf=0,
       buffsz=0, chain=0, device=0, bit_reverse=0, vme_lock=0, 
