@@ -1,5 +1,7 @@
+%%% $Id$
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2001-2005
+%%% @copyright 2001-2005 Motivity Telecom Inc.
+%%% @author Vance Shipley <vances@motivity.ca>
 %%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
@@ -9,9 +11,8 @@
 %%% Motivity Telecom Inc.
 %%%---------------------------------------------------------------------
 %%%
-%%% @author Vance Shipley <vances@motivity.ca>
-%%%
 %%% @doc Conversion routines for the driver of the netaccess application.
+%%%
 %%%	<p>This module provides functions which convert the binary 
 %%% 	format of data passed with IOCTL calls by the linked in driver
 %%% 	to the records which are used in the erlang API.  The C language
@@ -31,6 +32,7 @@
 -module(pridrv).
 -copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
+-vsn('$Revision$').
 
 -export([driver_info/1]).
 

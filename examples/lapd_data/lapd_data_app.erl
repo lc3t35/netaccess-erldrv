@@ -1,7 +1,10 @@
+%%% $Id$
+
 -module(lapd_data_app).
--copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
+
 -behaviour(application).
+
 -export([start/2, stop/1]).
 
 start(normal, _Args) ->
@@ -16,3 +19,4 @@ start(normal, _Args) ->
 	supervisor:start_link(lapd_data_sup, StartArgs).
 	
 stop(_State) -> ok.
+

@@ -1,5 +1,8 @@
+%%% $Id$
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2004,2005
+%%% @copyright 2004-2005 Motivity Telecom Inc.
+%%% @author Vance Shipley <vances@motivity.ca>
+%%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
 %%% used, reproduced, stored in any retrieval system, or transmitted,
@@ -8,14 +11,13 @@
 %%% Motivity Telecom Inc.
 %%%---------------------------------------------------------------------
 %%%
-%%% @author Vance Shipley <vances@motivity.ca>
-%%%
 %%% @doc A simple test application which sets up a TSI mapping.
 %%%
          
 -module(tsi_test).
 -copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
+-vsn('$Revision$').
 
 -include("iisdn.hrl").
 

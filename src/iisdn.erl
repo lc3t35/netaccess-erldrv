@@ -1,5 +1,7 @@
+%%% $Id$
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2001-2005
+%%% @copyright 2001-2005 Motivity Telecom Inc.
+%%% @author Vance Shipley <vances@motivity.ca>
 %%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
@@ -8,9 +10,6 @@
 %%% recording, or otherwise without prior written permission of
 %%% Motivity Telecom Inc.
 %%%---------------------------------------------------------------------
-%%%
-%%% @author Vance Shipley <vances@motivity.ca>
-%%%
 %%% @doc Conversion routines for the API of the netaccess application.
 %%%
 %%%	<p>This module provides functions which convert the records used
@@ -47,6 +46,7 @@
 -module(iisdn).
 -copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
+-vsn('$Revision$').
 
 -export([l3_to_l4/1, l4_to_l3/1]).
 -export([error_code/1]).

@@ -1,4 +1,6 @@
-# README.maintainer
+## $Id$
+##
+## README.maintainer
 
 This package is built with the GNU Build System.  A good reference
 for the whole process is at:
@@ -13,29 +15,8 @@ The manuals are here:
 
 Requirements:
 
-	You'll need the following GNU tools:
+	You'll need recent versions of the following GNU tools:
 		autoconf, automake, libtool, make, m4, perl, gcc
-
-	Get the latest config.guess & config.sub from:
-		 ftp://ftp.gnu.org/gnu/config
-	Put them in the config directory.
-
-	Copy the m4 macros included with the libtool distribution
-	into our local m4 includes:
-		cp /usr/local/share/aclocal/libtool.m4 ./acinclude.m4
-
-	To build the documentation you will need the edoc package and
-	it's required applications syntax_tools and xmerl.  If these
-	are not installed in the regular code loading path you can  
-	supply the paths required with configure options:
-
-		--with-edoc=/tmp/edoc/ebin
-		--with-syntax_tools=/tmp/syntax_tools/ebin
-		--with-xmerl=/tmp/xmerl/ebin
-
-	To skip building documentation use:
-
-		--without-edoc
 
 
 Making changes:
@@ -63,15 +44,16 @@ Options to configure:
   --enable-debug          Turn on debugging
   --enable-threads        build for a threaded emulator
   --enable-select         use the select() system call
-  --with-edoc=PATH        load edoc from PATH
-  --with-syntax_tools=PATH  load syntax_tools from PATH
-  --with-xmerl=PATH       load xmerl from PATH
+
+  --enable-maintainer-mode       Maintain/build distribution.
 
 Environment variables:
   ERL_TOP     Erlang top level directory
   ERLC        Erlang compiler command
+  ERLCFLAGS   Erlang compiler flags
   ERL         Erlang emulator command
   NETACC_TOP  Netaccess driver package top level directory
 
 
 Report bugs to <netaccess-bugs@motivity.ca>.
+

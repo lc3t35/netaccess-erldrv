@@ -1,5 +1,7 @@
+%%% $Id$
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2001-2005
+%%% @copyright 2001-2005 Motivity Telecom Inc.
+%%% @author Vance Shipley <vances@motivity.ca>
 %%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
@@ -9,7 +11,6 @@
 %%% Motivity Telecom Inc.
 %%%---------------------------------------------------------------------
 %%%
-%%% @author Vance Shipley <vances@motivity.ca>
 %%%
 %%% @doc Main API of the netaccess application.
 %%%	<p>This module provides the main application programming interface
@@ -30,6 +31,7 @@
 -module(netaccess).
 -copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
+-vsn('$Revision$').
 
 %% our published API functions
 -export([start/0, start/2, start/3]).

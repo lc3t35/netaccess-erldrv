@@ -1,5 +1,7 @@
+%%% $Id$
 %%%---------------------------------------------------------------------
-%%% @copyright Motivity Telecom Inc. 2004
+%%% @copyright 2004-2005 Motivity Telecom Inc.
+%%% @author Vance Shipley <vances@motivity.ca>
 %%% @end
 %%%
 %%% All rights reserved. No part of this computer program(s) may be
@@ -8,8 +10,6 @@
 %%% recording, or otherwise without prior written permission of
 %%% Motivity Telecom Inc.
 %%%---------------------------------------------------------------------
-%%%
-%%% @author Vance Shipley <vances@motivity.ca>
 %%%
 %%% @doc A gen_fsm based behaviour for users of the netaccess application.
 %%%
@@ -45,8 +45,9 @@
 %%%
          
 -module(netaccess_fsm).
--copyright('Copyright (c) 2004,2005 Motivity Telecom Inc.').
+-copyright('Copyright (c) 2004-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
+-vsn('$Revision$').
 
 -behaviour(gen_fsm).
 

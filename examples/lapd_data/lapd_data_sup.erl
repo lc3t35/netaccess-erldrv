@@ -1,7 +1,11 @@
+%%% $Id$
+
 -module(lapd_data_sup).
--copyright('Copyright (c) 2001-2005 Motivity Telecom Inc.').
 -author('vances@motivity.ca').
+-bsn('$Revsions$').
+
 -behaviour(supervisor).
+
 -export([init/1]).
 
 init([ServerName, DeviceName, BoardNumber, IframeInterval, ReportInterval, LapdIds]) ->

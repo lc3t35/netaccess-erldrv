@@ -1,10 +1,12 @@
+%%% $Id$
 %%% @configure_input@                                                   %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% pridrv.hrl  Erlang header file defining the structures in pridrv.h  %%%
 %%%                                                                     %%%
 %%%             This file defines the IOCTL interface                   %%%
 %%%---------------------------------------------------------------------%%%
-%%% Copyright Motivity Telecom Inc. 2003, 2004                          %%%
+%%% Copyright Motivity Telecom Inc. 2003-2005                           %%%
+%%% Author Vance Shipley <vances@motivity.ca>                           %%%
 %%%                                                                     %%%
 %%% All rights reserved. No part of this computer program(s) may be     %%%
 %%% used, reproduced, stored in any retrieval system, or transmitted,   %%%
