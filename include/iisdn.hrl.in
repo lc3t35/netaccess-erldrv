@@ -205,6 +205,8 @@
 -define(L3L4errSTATUS_IGNORED,           100).
 -define(L3L4errBAD_CALL_REF,             101).
 -define(L3L4errGLARE,                    102).
+-record(error_code,
+	{error_code, offending_message}).
 
 
 -define(L4L3mREQ_BOARD_ID,   16#C1).

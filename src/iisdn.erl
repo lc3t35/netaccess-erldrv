@@ -150,36 +150,39 @@ l3_to_l4(Bin) when is_binary(Bin) ->
 			data_channel=Data_channel, data=Data}.
 
 %% @type error_code().  L3L4mERROR error code.
-%% 	<p><tt>
-%% 	error_code() = no_error | lapdid_out_of_range | lapdid_not_established | invalid_called_number
-%% 		| no_crv_available | no_crstruct_available | call_ref_error | invalid_b_channel 
-%% 		| b_chanel_restarting | b_chanel_oos | invalid_call_type | invalid_conn_type
-%% 		| protocol_not_disabled invalid_hdlc_maping | invalid_data_queue | invalid_comand_args
-%% 		| invalid_msg_for_state | data_packet_lost | pm_not_esf | invalid_interface
-%% 		| b_channel_inuse | invalid_lli | vc_table_full | lli_not_found | blocked
-%% 		| no_hardware | invalid_spid_len | non_nfas | invalid_state | service_not_offered 
-%% 		| dchan_temp_unavail | too_many_q931_stacks | service_not_offered 
-%% 		| data_interface_required data_interface_invalid | sym_mode_not_supported
-%% 		| invalid_bufsz | bond_chan_not_cnfg | bond_chan_bit_conflict
-%% 		| bond_wrong_spyder_chip | bond_too_many_channels | bond_dup_addon_chan
-%% 		| dchan_odd_pointer_error | dchan_too_few_buffers | dchan_too_many_buffers
-%% 		| dchan_give_take_nonzero | dchan_zero_rxbuf_len | sym_mode_required
-%% 		| dlci_manditory | chan_kbit_rate_bad | invalid_mem_size | not_enough_memory 
-%% 		| tx_buffer_misaligned | x_buffer_misaligned | too_many_dlcis | bond_bad_state
-%% 		| spid_rejected | tei_ident_remove_req | spid2_rejected | invalid_smi_msgid 
-%% 		| invalid_clock_mode | no_overflow_queue | too_many_cas_dest | segment_too_large 
-%% 		| segment_message_expected | segment_message_invalid | segment_timer_expired 
-%% 		| invalid_download_msg | protocol_disabled | invalid_variant | too_many_links 
-%% 		| too_many_headers | fatal_error | hot_swap_extraction | dchan_out_of_range 
-%% 		| ether_already_configured | tsi_verification_failed | status_ignored 
-%% 		| bad_call_ref | glare | integer()</tt></p>
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>error_code</tt></dt> <dd><tt>no_error | lapdid_out_of_range | lapdid_not_established | invalid_called_number
+%% 			| no_crv_available | no_crstruct_available | call_ref_error | invalid_b_channel 
+%% 			| b_chanel_restarting | b_chanel_oos | invalid_call_type | invalid_conn_type
+%% 			| protocol_not_disabled invalid_hdlc_maping | invalid_data_queue | invalid_comand_args
+%% 			| invalid_msg_for_state | data_packet_lost | pm_not_esf | invalid_interface
+%% 			| b_channel_inuse | invalid_lli | vc_table_full | lli_not_found | blocked
+%% 			| no_hardware | invalid_spid_len | non_nfas | invalid_state | service_not_offered 
+%% 			| dchan_temp_unavail | too_many_q931_stacks | service_not_offered 
+%% 			| data_interface_required data_interface_invalid | sym_mode_not_supported
+%% 			| invalid_bufsz | bond_chan_not_cnfg | bond_chan_bit_conflict
+%% 			| bond_wrong_spyder_chip | bond_too_many_channels | bond_dup_addon_chan
+%% 			| dchan_odd_pointer_error | dchan_too_few_buffers | dchan_too_many_buffers
+%% 			| dchan_give_take_nonzero | dchan_zero_rxbuf_len | sym_mode_required
+%% 			| dlci_manditory | chan_kbit_rate_bad | invalid_mem_size | not_enough_memory 
+%% 			| tx_buffer_misaligned | x_buffer_misaligned | too_many_dlcis | bond_bad_state
+%% 			| spid_rejected | tei_ident_remove_req | spid2_rejected | invalid_smi_msgid 
+%% 			| invalid_clock_mode | no_overflow_queue | too_many_cas_dest | segment_too_large 
+%% 			| segment_message_expected | segment_message_invalid | segment_timer_expired 
+%% 			| invalid_download_msg | protocol_disabled | invalid_variant | too_many_links 
+%% 			| too_many_headers | fatal_error | hot_swap_extraction | dchan_out_of_range 
+%% 			| ether_already_configured | tsi_verification_failed | status_ignored 
+%% 			| bad_call_ref | glare | integer()</tt></dd>
+%% 		<dt><tt>offending_message</tt></dt> <dd>Msgtype value of the offending L3L4 message</dd>
+%% 	</dl>
 %%
-%% @spec (ErrorCodeBin) -> ErrorCode
+%% @spec (ErrorCodeBin) -> ErrorCodeRec
 %% 	ErrorCodeBin = binary()
-%% 	ErrorCode = error_code()
+%% 	ErrorCodeRec = error_code()
 %%
 error_code(B) when is_binary(B) ->
-	<<ErrorCode:?IISDNu8bit, _Rest/binary>> = B,
+	<<ErrorCode:?IISDNu8bit, OffendingMessage:?IISDNu8bit, _Rest/binary>> = B,
 	ErrorCodes = [{0, no_error}, {1, lapdid_out_of_range},
 			{2, lapdid_not_established}, {3, invalid_called_number},
 			{4, no_crv_available}, {5, no_crstruct_available},
@@ -219,12 +222,13 @@ error_code(B) when is_binary(B) ->
 			{76, tsi_verification_failed},
 			{100, status_ignored}, {101, bad_call_ref},
 			{102, glare}],
-	case element(2, element(2, lists:keysearch(ErrorCode, 1, ErrorCodes))) of
+	ErrorName = case element(2, element(2, lists:keysearch(ErrorCode, 1, ErrorCodes))) of
 		Atom when is_atom(Atom) ->
 			Atom;
 		false ->
 			ErrorCode
-	end.
+	end,
+	#error_code{error_code = ErrorName, offending_message = OffendingMessage}.
 
 
 %% @type board_id(). Board identification.
