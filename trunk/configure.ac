@@ -2,10 +2,10 @@
 ##
 ## Boilerplate:  standard boilerplate code
 ##
-AC_INIT(netaccess, 0.1, netaccessbugs@motivity.ca)
+AC_INIT(netaccess, 0.1, netaccess-bugs@motivity.ca)
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_SRCDIR(src/netaccess_drv.c)
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS(config.h)
 AM_INIT_AUTOMAKE
 
 
@@ -132,10 +132,6 @@ do
 			[AC_DEFINE(HAVE_WANDRV_H, 1,
 			[Define to 1 if you have the <wandrv.h> header file.])
 			path_valid=yes])
-	AC_CHECK_HEADER([$netaccdir/naii.h],
-			[AC_DEFINE(HAVE_NAII_H, 1,
-			[Define to 1 if you have the <naii.h> header file.])
-			path_valid=yes])
 	AC_CHECK_HEADER([$netaccdir/iisdn.h],
 			[AC_DEFINE(HAVE_IISDN_H, 1,
 			[Define to 1 if you have the <iisdn.h> header file.])
@@ -159,67 +155,72 @@ done
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(ushort)
 AC_CHECK_SIZEOF(uint)
-naii_includes="#include <stdio.h>
-		#include <naii.h>"
-AC_CHECK_SIZEOF(PRIu8bit, [], [${naii_includes}])
-AC_CHECK_SIZEOF(PRIs8bit, [], [${naii_includes}])
-AC_CHECK_SIZEOF(PRIu16bit, [], [${naii_includes}])
-AC_CHECK_SIZEOF(PRIs16bit, [], [${naii_includes}])
-AC_CHECK_SIZEOF(PRIu32bit, [], [${naii_includes}])
-AC_CHECK_SIZEOF(PRIs32bit, [], [${naii_includes}])
-AC_CHECK_SIZEOF(PRIp16bit, [], [${naii_includes}])
-AC_CHECK_SIZEOF(PRIp32bit, [], [${naii_includes}])
+iisdn_includes="#include <stdio.h>
+		#include <iisdn.h>"
+AC_CHECK_SIZEOF(IISDNu8bit, [], [${iisdn_includes}])
+AC_CHECK_SIZEOF(IISDNs8bit, [], [${iisdn_includes}])
+AC_CHECK_SIZEOF(IISDNu16bit, [], [${iisdn_includes}])
+AC_CHECK_SIZEOF(IISDNs16bit, [], [${iisdn_includes}])
+AC_CHECK_SIZEOF(IISDNu32bit, [], [${iisdn_includes}])
+AC_CHECK_SIZEOF(IISDNs32bit, [], [${iisdn_includes}])
+AC_CHECK_SIZEOF(IISDNp16bit, [], [${iisdn_includes}])
+AC_CHECK_SIZEOF(IISDNp32bit, [], [${iisdn_includes}])
 SIZEOF_INT=$ac_cv_sizeof_int
 SIZEOF_USHORT=$ac_cv_sizeof_ushort
 SIZEOF_UINT=$ac_cv_sizeof_uint
-SIZEOF_PRIU8BIT=$ac_cv_sizeof_PRIu8bit
-SIZEOF_PRIS8BIT=$ac_cv_sizeof_PRIs8bit
-SIZEOF_PRIU16BIT=$ac_cv_sizeof_PRIu16bit
-SIZEOF_PRIS16BIT=$ac_cv_sizeof_PRIs16bit
-SIZEOF_PRIU32BIT=$ac_cv_sizeof_PRIu32bit
-SIZEOF_PRIS32BIT=$ac_cv_sizeof_PRIs32bit
-SIZEOF_PRIP16BIT=$ac_cv_sizeof_PRIp16bit
-SIZEOF_PRIP32BIT=$ac_cv_sizeof_PRIp32bit
+SIZEOF_IISDNU8BIT=$ac_cv_sizeof_IISDNu8bit
+SIZEOF_IISDNS8BIT=$ac_cv_sizeof_IISDNs8bit
+SIZEOF_IISDNU16BIT=$ac_cv_sizeof_IISDNu16bit
+SIZEOF_IISDNS16BIT=$ac_cv_sizeof_IISDNs16bit
+SIZEOF_IISDNU32BIT=$ac_cv_sizeof_IISDNu32bit
+SIZEOF_IISDNS32BIT=$ac_cv_sizeof_IISDNs32bit
+SIZEOF_IISDNP16BIT=$ac_cv_sizeof_IISDNp16bit
+SIZEOF_IISDNP32BIT=$ac_cv_sizeof_IISDNp32bit
 AC_SUBST(SIZEOF_INT)
 AC_SUBST(SIZEOF_USHORT)
 AC_SUBST(SIZEOF_UINT)
-AC_SUBST(SIZEOF_PRIU8BIT)
-AC_SUBST(SIZEOF_PRIS8BIT)
-AC_SUBST(SIZEOF_PRIU16BIT)
-AC_SUBST(SIZEOF_PRIS16BIT)
-AC_SUBST(SIZEOF_PRIU32BIT)
-AC_SUBST(SIZEOF_PRIS32BIT)
-AC_SUBST(SIZEOF_PRIP16BIT)
-AC_SUBST(SIZEOF_PRIP32BIT)
+AC_SUBST(SIZEOF_IISDNU8BIT)
+AC_SUBST(SIZEOF_IISDNS8BIT)
+AC_SUBST(SIZEOF_IISDNU16BIT)
+AC_SUBST(SIZEOF_IISDNS16BIT)
+AC_SUBST(SIZEOF_IISDNU32BIT)
+AC_SUBST(SIZEOF_IISDNS32BIT)
+AC_SUBST(SIZEOF_IISDNP16BIT)
+AC_SUBST(SIZEOF_IISDNP32BIT)
 
 ## use the preprocessor to determine which values these #define's
 ## get in this environment and export them for building corresponding
 ## macros in the .hrl files 
-AC_MSG_CHECKING([for defined value of PRI_MAX_LINES])
-		_AC_COMPUTE_INT([PRI_MAX_LINES], [PRI_MAX_LINES], [${naii_includes}],
+AC_MSG_CHECKING([for defined value of IISDN_VERSION])
+		_AC_COMPUTE_INT([IISDN_VERSION], [IISDN_VERSION], [${iisdn_includes}],
 				[AC_MSG_ERROR([undefined.])])
-		AC_MSG_RESULT([$PRI_MAX_LINES])
-		AC_SUBST(PRI_MAX_LINES)
-AC_MSG_CHECKING([for defined value of PRI_NUM_DS1_INTERFACES])
-		_AC_COMPUTE_INT([PRI_NUM_DS1_INTERFACES], [PRI_NUM_DS1_INTERFACES],
-				[${naii_includes}], [AC_MSG_ERROR([undefined.])])
-		AC_MSG_RESULT([$PRI_NUM_DS1_INTERFACES])
-		AC_SUBST(PRI_NUM_DS1_INTERFACES)
-AC_MSG_CHECKING([for defined value of PRI_MAX_SPID_LEN])
-		_AC_COMPUTE_INT([PRI_MAX_SPID_LEN], [PRI_MAX_SPID_LEN],
-				[${naii_includes}], [AC_MSG_ERROR([undefined.])])
-		AC_MSG_RESULT([$PRI_MAX_SPID_LEN])
-		AC_SUBST(PRI_MAX_SPID_LEN)
-AC_MSG_CHECKING([for defined value of PRI_MAX_DN_LEN])
-		_AC_COMPUTE_INT([PRI_MAX_DN_LEN], [PRI_MAX_DN_LEN],
-				[${naii_includes}], [AC_MSG_ERROR([undefined.])])
-		AC_MSG_RESULT([$PRI_MAX_DN_LEN])
-		AC_SUBST(PRI_MAX_DN_LEN)
-AC_MSG_CHECKING([for defined value of PRI_MAX_BOND_CHAN])
-		_AC_COMPUTE_INT([PRI_MAX_BOND_CHAN], [PRI_MAX_BOND_CHAN],
-				[${naii_includes}], [AC_MSG_ERROR([undefined.])])
-		AC_MSG_RESULT([$PRI_MAX_BOND_CHAN])
-		AC_SUBST(PRI_MAX_BOND_CHAN)
+		AC_MSG_RESULT([$IISDN_VERSION])
+		AC_SUBST(IISDN_VERSION)
+AC_MSG_CHECKING([for defined value of IISDN_MAX_LINES])
+		_AC_COMPUTE_INT([IISDN_MAX_LINES], [IISDN_MAX_LINES], [${iisdn_includes}],
+				[AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_MAX_LINES])
+		AC_SUBST(IISDN_MAX_LINES)
+AC_MSG_CHECKING([for defined value of IISDN_NUM_DS1_INTERFACES])
+		_AC_COMPUTE_INT([IISDN_NUM_DS1_INTERFACES], [IISDN_NUM_DS1_INTERFACES],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_NUM_DS1_INTERFACES])
+		AC_SUBST(IISDN_NUM_DS1_INTERFACES)
+AC_MSG_CHECKING([for defined value of IISDN_MAX_SPID_LEN])
+		_AC_COMPUTE_INT([IISDN_MAX_SPID_LEN], [IISDN_MAX_SPID_LEN],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_MAX_SPID_LEN])
+		AC_SUBST(IISDN_MAX_SPID_LEN)
+AC_MSG_CHECKING([for defined value of IISDN_MAX_DN_LEN])
+		_AC_COMPUTE_INT([IISDN_MAX_DN_LEN], [IISDN_MAX_DN_LEN],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_MAX_DN_LEN])
+		AC_SUBST(IISDN_MAX_DN_LEN)
+AC_MSG_CHECKING([for defined value of IISDN_MAX_BOND_CHAN])
+		_AC_COMPUTE_INT([IISDN_MAX_BOND_CHAN], [IISDN_MAX_BOND_CHAN],
+				[${iisdn_includes}], [AC_MSG_ERROR([undefined.])])
+		AC_MSG_RESULT([$IISDN_MAX_BOND_CHAN])
+		AC_SUBST(IISDN_MAX_BOND_CHAN)
 
 
 ##
@@ -236,5 +237,5 @@ AC_CHECK_LIB(ei, ei_x_new)
 ##
 ## Output:  create output files
 ##
-AC_OUTPUT([src/naii.hrl src/pridrv.hrl])
+AC_OUTPUT([src/iisdn.hrl src/pridrv.hrl])
 AC_OUTPUT([Makefile src/Makefile])

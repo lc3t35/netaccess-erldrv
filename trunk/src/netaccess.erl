@@ -29,7 +29,7 @@
 -export([enable_protocol/3, enable_protocol/4, enable_protocol/7]).
 
 -include("pridrv.hrl").
--include("naii.hrl").
+-include("iisdn.hrl").
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

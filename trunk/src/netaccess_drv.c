@@ -80,12 +80,8 @@
 #  include <wandrv.h>
 # endif
 #endif
-#if HAVE_NAII_H
-#  include <naii.h>
-#else
-# if HAVE_IISDN_H
-#  include <iisdn.h>
-# endif
+#if HAVE_IISDN_H
+# include <iisdn.h>
 #endif
 
 #define DEV_PATH "/dev/pri0"
@@ -151,7 +147,7 @@ static ErlDrvEntry  driver_entry;
 
 
 /*  This is passed to most of the driver routines, it is our global data  */
-typedef struct dd {
+typedef struct {
 	int fd;                         /* File descriptor */
 	ErlDrvPort port;                /* The port identifier */
 	int low;                        /* low water mark */
@@ -159,7 +155,7 @@ typedef struct dd {
 } DriverData;
 
 /*  This data is passed around for asynchronous requests  */
-typedef struct td {
+typedef struct {
 	int fd;                         /* File descriptor             */
 	int command;                    /* ioctl command               */
 	long ref;                       /* handle to async task        */
@@ -397,7 +393,7 @@ finish(void)
 static void
 timeout(ErlDrvData handle)
 {
-	DriverData *dd = (DriverData *) handle;
+	/*  DriverData *dd = (DriverData *) handle;  */
 	DBG("timeout");
 
 }
@@ -490,7 +486,7 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 				ret[8] = ERL_DRV_ATOM;
 				ret[9] = driver_mk_atom("ok");
 				ret[10] = ERL_DRV_STRING;
-				(char *) ret[11] = td->ctlp->ic_dp;
+				ret[11] = (ErlDrvTermData) td->ctlp->ic_dp;
 				ret[12] = strlen(td->ctlp->ic_dp);
 				ret[13] = ERL_DRV_TUPLE;
 				ret[14] = 2;
@@ -517,7 +513,7 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 				ret[8] = ERL_DRV_ATOM;
 				ret[9] = driver_mk_atom("ok");
 				ret[10] = ERL_DRV_BINARY;
-				(ErlDrvBinary *) ret[11] = td->bin;
+				ret[11] = (ErlDrvTermData) td->bin;
 				ret[12] = td->ctlp->ic_len;
 				ret[13] = 0;
 				ret[14] = ERL_DRV_TUPLE;
@@ -542,7 +538,7 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 static void
 flush(ErlDrvData handle)
 {
-	DriverData *dd = (DriverData *) handle;
+	/*  DriverData *dd = (DriverData *) handle;  */
 
 	DBG("flush");
 }
@@ -565,7 +561,7 @@ call(ErlDrvData handle, unsigned int command,
 	int qsize;
 	ThreadData *td;
 	struct strioctl *cntl_ptr;
-	int version, index, rindex, type, size;
+	int version, index, rindex, size;
 
 	DBG("call");
 	index = rindex = size = 0;
@@ -663,8 +659,8 @@ call(ErlDrvData handle, unsigned int command,
 			case GET_VERSION:
 				DBG("GET_VERSION");
 				cntl_ptr->ic_cmd = PRIDRViocGET_VERSION;
-				cntl_ptr->ic_len = PRI_VERSION_STRING_LEN;
-				cntl_ptr->ic_dp = (char *) driver_alloc(PRI_VERSION_STRING_LEN);
+				cntl_ptr->ic_len = IISDN_VERSION_STRING_LEN;
+				cntl_ptr->ic_dp = (char *) driver_alloc(IISDN_VERSION_STRING_LEN);
 				break;
 			case GET_DRIVER_INFO:
 				DBG("GET_DRIVER_INFO");
