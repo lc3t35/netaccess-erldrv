@@ -139,9 +139,12 @@ handle_call({'L4L3m', L4L3_Rec, _Data}, From, State) when
 		is_record(L4L3_Rec, l4_to_l3), L4L3_Rec#l4_to_l3.msgtype == ?L4L3mREQ_BOARD_ID;
 		is_record(L4L3_Rec, l4_to_l3), L4L3_Rec#l4_to_l3.msgtype == ?L4L3mREQ_HW_STATUS;
 		is_record(L4L3_Rec, l4_to_l3), L4L3_Rec#l4_to_l3.msgtype == ?L4L3mREQ_TSI_STATUS ->
-	handle_call_sync(L4L3_Rec, From, State);
+	% we need to set the lapdid value to one which is not in use otherwise
+	% the responses will be delivered on the stream which has specified that
+	% lapdid in an L4L3mENABLE_PROTOCOL messages!
+	handle_call_sync(L4L3_Rec#l4_to_l3{lapdid = 16#ff}, From, State);
 handle_call({'L4L3m', L4L3_Rec, _Data}, From, State) ->
-	handle_call_async(L4L3_Rec, From, State);
+	handle_call_async(L4L3_Rec#l4_to_l3{lapdid = 16#ff}, From, State);
 
 %% ignore unknown requests
 handle_call(_, _, State) ->
