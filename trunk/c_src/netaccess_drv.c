@@ -92,7 +92,7 @@
 #define DEV_PATH "/dev/pri0"
 #define DEFAULT_MAXIFRAMESIZE  260
 #define DEFAULT_LOWWATER       0
-#define DEFAULT_HIGHWATER      8
+#define DEFAULT_HIGHWATER      4
 
 #define BOOT_BOARD             0
 #define ENABLE_MANAGEMENT_CHAN 1
@@ -326,7 +326,6 @@ start(ErlDrvPort port, char *command)
 	}
 	pd.events = (POLLIN | POLLRDBAND | POLLPRI);
 	driver_event(port, (ErlDrvEvent) dd->fd, (ErlDrvEventData) &pd);
-/*	fcntl(dd->fd, F_SETFL, (fcntl(dd->fd, F_GETFL, 0) & ~O_NONBLOCK)); */
 	dd->port = port;	
 	dd->maxiframesize = DEFAULT_MAXIFRAMESIZE;
 	dd->lowwater = DEFAULT_LOWWATER;
@@ -815,12 +814,6 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 	if (event_data->revents & POLLWRBAND) {
 		DBGI("POLLWRBAND", dd->fd);
 	}
-	if (event_data->revents & POLLNVAL) {
-		DBGI("UNKNOWN EVENT!", dd->fd);
-		DBGI("event:", event_data->revents);
-		driver_event(dd->port, event, 0);
-		driver_failure_posix(dd->port, errno);
-	}
 }
 
 
@@ -1050,7 +1043,9 @@ done_iframe(DriverData *dd, ThreadData *td)
 {
 	DBGL("done_iframe", td->ref);
 	if (td->tresult < 0)
+{
 		driver_failure_posix(dd->port, td->terrno);
+}
 	free_iframe(td);
 }
 
