@@ -1,3 +1,8 @@
+2002-9-17  Vance Shipley <vances@motivity.ca>
+
+        * updated for Brooktrout Netaccess Driver Version 7.5 (BRKTS7864)
+
+
 2002-9-13  Vance Shipley <vances@motivity.ca>
 
         * created checks for Erlang headers

@@ -100,6 +100,15 @@ select_board(Port, Board) when integer(Board) ->
 
 
 %%
+%% enable a management channel on an open netaccess board
+%%
+%% returns {ok, done} or {error, Reason}
+%%
+enable_management_chan(Port) ->
+	do_ioctl({ioctl, ?ENABLE_MANAGEMENT_CHAN, [], Port}).
+
+
+%%
 %% boot an open netaccess board
 %%
 %% returns {ok, done} or {error, Reason}
@@ -113,15 +122,6 @@ boot(Port, Filename) when list(Filename) ->
 		{error, Reason} ->
 			{error, Reason}
 	end.
-
-
-%%
-%% enable a management channel on an open netaccess board
-%%
-%% returns {ok, done} or {error, Reason}
-%%
-enable_management_chan(Port) ->
-	do_ioctl({ioctl, ?ENABLE_MANAGEMENT_CHAN, [], Port}).
 
 
 %%
@@ -159,7 +159,8 @@ get_driver_info(Port) ->
 				TxMsgSize:32/?ENDIANESS-signed-integer,
 				RxMsgSize:32/?ENDIANESS-signed-integer,
 				TxNumBufs:16/?ENDIANESS-unsigned-integer,
-				RxNumBufs:16/?ENDIANESS-unsigned-integer>>} ->
+				RxNumBufs:16/?ENDIANESS-unsigned-integer,
+				MaxDataChannels:32/?ENDIANESS-unsigned-integer>>} ->
 			{ok, [{board_type, BoardType}, 
 					{hangup_on_red_alarm, HangUpOnRedAlarm},
 					{flow_control_board, FlowControlBoard},
@@ -170,7 +171,8 @@ get_driver_info(Port) ->
 					{tx_msg_size, TxMsgSize},
 					{rx_msg_size, RxMsgSize},
 					{tx_num_bufs, TxNumBufs},	
-					{rx_num_bufs, RxNumBufs}]};
+					{rx_num_bufs, RxNumBufs},
+					{max_data_channels, MaxDataChannels}]};
 		Return -> 
 			Return
 	end.
