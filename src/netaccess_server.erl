@@ -70,7 +70,7 @@ init_driver({error, ErrorDescriptor}, BoardName, BoardNumber) ->
 init_driver(ok, BoardName, BoardNumber) ->
 	Command = list_to_atom("netaccess_drv " ++ BoardName),
 	Result = (catch erlang:open_port({spawn, Command}, [binary])),
-	init_port(Result, BoardName, BoardNumber).
+	init_port(Result, Command, BoardNumber).
 
 init_port(Port, BoardName, BoardNumber) when is_port(Port) ->
 	Result = blocking_ioctl(Port, ?SELECT_BOARD, BoardNumber),
@@ -100,7 +100,8 @@ handle_call(stop, _From, State) ->
 %% open a port to the netaccess board
 handle_call(open, {Pid, _Tag} = From, {Port, {BoardName, BoardNumber} = Board, StateData} = State)
 		when node(Pid) == node() ->
-	case catch erlang:open_port({spawn, BoardName}, [binary]) of
+	Command = list_to_atom("netaccess_drv " ++ BoardName),
+	case catch erlang:open_port({spawn, Command}, [binary]) of
 		Port when is_port(Port) -> 
 			case catch erlang:port_call(Port, ?SELECT_BOARD, BoardNumber) of
 				{ok, Ref} ->
