@@ -148,7 +148,6 @@ static void event(ErlDrvData handle, ErlDrvEvent event,
 
 static ErlDrvEntry  driver_entry;
 
-
 /*  This is passed to most of the driver routines, it is our global data  */
 typedef struct {
 	int fd;                         /* File descriptor */
@@ -157,16 +156,39 @@ typedef struct {
 	int high;                       /* high water mark */
 } DriverData;
 
+/*  This data is needed for a thread executing an ioctl request  */
+typedef struct {
+	struct strioctl *ctlp;          /* streams control data        */
+	download_t *bp;                 /* structure to hold boot file */
+	ErlDrvBinary *bin;              /* driver binary for result    */
+} ThreadIoctlData;
+
+/*  This data is needed for a thread sending an L4L3 SMI message  */
+typedef struct {
+	SysIOVec ctrlbin;
+} ThreadL4L3Data;
+
+/*  This data is needed for a thread sending an IFRAME message    */
+typedef struct {
+	SysIOVec databin;
+} ThreadIframeData;
+
 /*  This data is passed around for asynchronous requests  */
 typedef struct {
+#define TD_IOCTL  0
+#define TD_L4L3   1
+#define TD_IFRAME 2
+	int type;                       /* ioctl, l4l3 or iframe       */
 	int fd;                         /* File descriptor             */
 	int command;                    /* ioctl command               */
 	long ref;                       /* handle to async task        */
-	struct strioctl *ctlp;          /* streams control data        */ 
-	download_t *bp;                 /* structure to hold boot file */
 	int result;                     /* return from async function  */
 	int terrno;                     /* errno from async function   */
-	ErlDrvBinary *bin;              /* driver binary for result    */
+	union {
+		ThreadIoctlData ioctl;       /* iotctl specific data        */
+		ThreadL4L3Data l3l4;         /* L4L3 SMI message data       */
+		ThreadIframeData iframe;     /* IFRAME message data         */
+	} data;
 } ThreadData;
 
 extern int erts_async_max_threads;
@@ -492,8 +514,8 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 				ret[8] = ERL_DRV_ATOM;
 				ret[9] = driver_mk_atom("ok");
 				ret[10] = ERL_DRV_STRING;
-				ret[11] = (ErlDrvTermData) td->ctlp->ic_dp;
-				ret[12] = strlen(td->ctlp->ic_dp);
+				ret[11] = (ErlDrvTermData) td->data.ioctl.ctlp->ic_dp;
+				ret[12] = strlen(td->data.ioctl.ctlp->ic_dp);
 				ret[13] = ERL_DRV_TUPLE;
 				ret[14] = 2;
 				ret[15] = ERL_DRV_TUPLE;
@@ -519,8 +541,8 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 				ret[8] = ERL_DRV_ATOM;
 				ret[9] = driver_mk_atom("ok");
 				ret[10] = ERL_DRV_BINARY;
-				ret[11] = (ErlDrvTermData) td->bin;
-				ret[12] = td->ctlp->ic_len;
+				ret[11] = (ErlDrvTermData) td->data.ioctl.bin;
+				ret[12] = td->data.ioctl.ctlp->ic_len;
 				ret[13] = 0;
 				ret[14] = ERL_DRV_TUPLE;
 				ret[15] = 2;
@@ -614,7 +636,7 @@ call(ErlDrvData handle, unsigned int command,
 		td->command = command;
 		cntl_ptr = (struct strioctl *) driver_alloc(sizeof(struct strioctl));
 		memset(cntl_ptr, 0, sizeof(struct strioctl));
-		td->ctlp = cntl_ptr;
+		td->data.ioctl.ctlp = cntl_ptr;
 
 		switch(command) {
 			case SELECT_BOARD:
@@ -638,18 +660,18 @@ call(ErlDrvData handle, unsigned int command,
 				/* allocate more space for the binary image and copy the       */
 				/* binary image into that space and pass a pointer to the      */
 				/* bootparam structure as the data for the ioctl (free later)  */
-				td->bp = (download_t *) driver_alloc(sizeof(download_t));
-				memset(td->bp, 0, sizeof(download_t));
+				td->data.ioctl.bp = (download_t *) driver_alloc(sizeof(download_t));
+				memset(td->data.ioctl.bp, 0, sizeof(download_t));
 				cntl_ptr->ic_len = sizeof(download_t);
-				cntl_ptr->ic_dp = (char *) td->bp;
+				cntl_ptr->ic_dp = (char *) td->data.ioctl.bp;
 				if (ei_get_type(buf, &index, &type, &size)
 						|| (type != ERL_BINARY_EXT)
-						|| !(td->bp->outptr = (char *) driver_alloc(count))) {
+						|| !(td->data.ioctl.bp->outptr = (char *) driver_alloc(count))) {
 					free_tdata(td);
 					return((int) ERL_DRV_ERROR_ERRNO);
 				} else {
-					if (ei_decode_binary(buf, &index, td->bp->outptr, 
-							&td->bp->len))
+					if (ei_decode_binary(buf, &index, td->data.ioctl.bp->outptr, 
+							&td->data.ioctl.bp->len))
 						return((int) ERL_DRV_ERROR_BADARG);
 				}
 				break;
@@ -672,11 +694,11 @@ call(ErlDrvData handle, unsigned int command,
 				DBG("GET_DRIVER_INFO");
 				cntl_ptr->ic_cmd = PRIDRViocGET_DRIVER_INFO;
 				cntl_ptr->ic_len = sizeof(driver_info_t);
-				if (!(td->bin = driver_alloc_binary(sizeof(driver_info_t)))) {
+				if (!(td->data.ioctl.bin = driver_alloc_binary(sizeof(driver_info_t)))) {
 					free_tdata(td);
 					return((int) ERL_DRV_ERROR_ERRNO);
 				}
-				cntl_ptr->ic_dp = (char *) td->bin->orig_bytes;
+				cntl_ptr->ic_dp = (char *) td->data.ioctl.bin->orig_bytes;
 				break;
 			default:
 				DBG("unknown command");
@@ -793,6 +815,7 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 	}
 	if (event_data->revents & POLLERR) {
 		DBG("POLLERR");
+fprintf(stderr, "POLLERR encountered, errno = %d, revents = 0x%x\n", errno, event_data->revents);
 		driver_event(dd->port, event, 0);
 		driver_failure_posix(dd->port, errno);
 	}
@@ -832,7 +855,7 @@ do_ioctl(void *t_data)
 	ThreadData *td = (ThreadData *) t_data;
 
 	DBG("do_iotcl");
-	td->result = ioctl(td->fd, I_STR, (struct strioctl *) td->ctlp);
+	td->result = ioctl(td->fd, I_STR, (struct strioctl *) td->data.ioctl.ctlp);
 	if (td->result < 0) 
 		td->terrno = errno;
 }
@@ -851,17 +874,17 @@ free_tdata(void *t_data)
 	ThreadData *td = (ThreadData *) t_data;
 
 	DBG("free_tdata");
-	if (td->bin != NULL)
-		driver_free_binary(td->bin);
-	if (td->bp != NULL) {
-		if (td->bp->outptr != NULL)
-			driver_free(td->bp->outptr);
-		driver_free(td->bp);
+	if (td->data.ioctl.bin != NULL)
+		driver_free_binary(td->data.ioctl.bin);
+	if (td->data.ioctl.bp != NULL) {
+		if (td->data.ioctl.bp->outptr != NULL)
+			driver_free(td->data.ioctl.bp->outptr);
+		driver_free(td->data.ioctl.bp);
 	}
-	if (td->ctlp != NULL) {
-		if (td->ctlp->ic_dp != NULL)
-			driver_free(td->ctlp->ic_dp);
-		driver_free(td->ctlp);
+	if (td->data.ioctl.ctlp != NULL) {
+		if (td->data.ioctl.ctlp->ic_dp != NULL)
+			driver_free(td->data.ioctl.ctlp->ic_dp);
+		driver_free(td->data.ioctl.ctlp);
 	}
 	if (t_data != NULL)
 		driver_free(t_data);
