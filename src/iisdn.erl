@@ -61,6 +61,7 @@
 		q933a/1]).
 -export([l2_lap_consts/1, l2_ss7_consts/1, l2_ip_consts/1,
 	 	l2_dpnss_consts/1]).
+-export([match/1, relay_rule/1]).
 -export([protocol_stat/1, q933a_pvc_status/1]).
 -export([board_id/1]).
 -export([l2_stats/1, mtp2_stats/1, l2_mtp2_stats/1]).
@@ -1208,6 +1209,61 @@ ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
 			(Proto#ena_proto_data.level2)/binary,
 			(Proto#ena_proto_data.level3)/binary>>.
 
+%% @type match().  On board packet relay and routing match specification.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>idx</tt></dt><dd><tt>integer()</tt>Offset into packet at which comparison is performed.</dd>
+%%			<dt><tt>msk</tt></dt><dd><tt>integer()</tt>Bit mask to apply on octet at the idx offset. 0 ends list.</dd>
+%%			<dt><tt>val</tt></dt><dd><tt>integer()</tt>Value to expect in octet at idx offset.</dd>
+%% 	</dl>
+%%
+%% @spec(MatchRec) -> MatchBin
+%% 	MatchRec = match()
+%% 	MatchBin = binary()
+%%
+%% @see relay_rule().
+%%
+match(MatchRec) when is_record(MatchRec, match) ->
+	<<(MatchRec#match.idx):?IISDNu8bit, (MatchRec#match.msk):?IISDNu8bit,
+			(MatchRec#match.val):?IISDNu8bit, 0:?IISDNu8bit>>.
+
+%% @type relay_rule().  On board packet relay and routing rule.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%%			<dt><tt>match</tt></dt><dd><tt>[match()]</tt>List of match specifications.</dd>
+%%			<dt><tt>dest</tt></dt><dd><tt>integer()</tt>Delivery behaviour when match is successful.</dd>
+%%			<dt><tt>dest_id</tt></dt><dd><tt>integer()</tt>Destination lapdid or data_channel.</dd>
+%%			<dt><tt>delBytes</tt></dt><dd><tt>integer()</tt>Number of bytes to delete from head of packet.</dd>
+%%			<dt><tt>insBytes</tt></dt><dd><tt>integer()</tt>Number of bytes to insert at head of packet 0..16.</dd>
+%%			<dt><tt>insHeader</tt></dt><dd><tt>[integer()]</tt>Bytes to insert when insBytes > 0.</dd>
+%%			<dt><tt>insTimeStamp</tt></dt><dd><tt>integer()</tt>0 for no timestamp, 1, 2, 4 bytes wide.</dd>
+%%			<dt><tt>insTimeStampOffset</tt></dt><dd><tt>integer()</tt>Offset into final packet for timestamp insertion.</dd>
+%% 	</dl>
+%%
+%% @spec(RelayRuleRec) -> RelayRuleBin
+%% 	RelayRuleRec = relay_rule()
+%% 	RelayRuleBin = binary()
+%%
+relay_rule(RelayRuleRec) when is_record(RelayRuleRec, relay_rule),
+		is_list(RelayRuleRec#relay_rule.match) ->
+	LtoBin = fun(MatchRec, Bin) ->
+				B = match(MatchRec),
+				<<Bin/binary, B/binary>>
+			end,
+	MatchBin = lists:foldl(LtoBin, <<>>, RelayRuleRec#relay_rule.match),
+	NewRelayRuleRec = RelayRuleRec#relay_rule{match = MatchBin},
+	relay_rule(NewRelayRuleRec);
+relay_rule(RelayRuleRec) when is_record(RelayRuleRec, relay_rule),
+		is_binary(RelayRuleRec#relay_rule.match) ->
+	Digit8 = fun(Digit8, Bin) -> <<Bin/binary, Digit8:?IISDNu8bit>> end,
+	InsHeader = lists:foldl(Digit8, <<>>, RelayRuleRec#relay_rule.insHeader),
+	<<(RelayRuleRec#relay_rule.match)/binary, (RelayRuleRec#relay_rule.dest):?IISDNu8bit, 
+			(RelayRuleRec#relay_rule.dest_id):?IISDNu8bit, 0:?IISDNu16bit,
+			(RelayRuleRec#relay_rule.delBytes):?IISDNu8bit,
+			(RelayRuleRec#relay_rule.insBytes):?IISDNu8bit, InsHeader/binary,
+			(RelayRuleRec#relay_rule.insTimeStamp):?IISDNu8bit,
+			(RelayRuleRec#relay_rule.insTimeStampOffset):?IISDNu8bit>>.
+
 %% @type hardware_data().  A record which includes the following fields:
 %% 	<dl>
 %% 		<dt><tt>clocking</tt></dt> <dd><tt>integer()</tt></dd>
@@ -1228,7 +1284,6 @@ ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
 %%
 %% @spec(HardwareData) -> HardwareData
 %% 	HardwareData = hardware_data() | binary()
-
 %%
 hardware_data(HW) when is_record(HW, hardware_data),
 		is_binary(HW#hardware_data.line_data) ->
