@@ -1,0 +1,6 @@
+{release, {"LAPD data example for netaccess", "1.0"}, {erts, "5.3.6.3"},
+	[{kernel, "2.9.6.6"},
+	 {stdlib, "1.12.8"},
+	 {sasl, "1.10"},
+	 {netaccess, "1.0"},
+	 {lapd_data, "1.0"}]}.
