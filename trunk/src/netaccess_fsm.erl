@@ -21,8 +21,8 @@
 %%% 	binaries but are also received as events.</p>
 %%%
 %%% 	<p>Examples:</p>
-%%% 	<p><code>idle(L3L4mSETUP_IND, StateData)
-%%% 			when is_record(L3L4mSETUP_IND, setup_ind) -> </code></p>
+%%% 	<p><code>idle(L3L4m, StateData) when is_record(L3L4m, l3_l4),
+%%% 			L3L4m#l3_l4.msgtype == L3L4mSETUP_IND -> </code></p>
 %%% 	<p><code>connected(IFRAME, StateData)
 %%% 			when is_binary(IFRAME) -> </code></p>
 %%%
