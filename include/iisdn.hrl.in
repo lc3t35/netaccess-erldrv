@@ -266,6 +266,22 @@
 		enable_t810x_snap_mode=0, clk_status=0,
 		line_data = lists:duplicate(?IISDN_MAX_LINES, #line_data{}),
 		csu = lists:duplicate(?IISDN_MAX_LINES, 0)}).
+-define(IISDNfrmESF,             0).
+-define(IISDNfrmRESRVD,          1).
+-define(IISDNfrmSF_SLC96,        2).
+-define(IISDNfrmSF,              3).
+-define(IISDNfrmFEBE,            0).
+-define(IISDNfrmCRC4,            0).
+-define(IISDNfrmBASIC,           2).
+-define(IISDNfrmFEBE_CAS,        3).
+-define(IISDNfrmCRC4_CAS,        3).
+-define(IISDNfrmBASIC_CAS,       5).
+-define(IISDNfrmDISABLED,        6).
+-define(IISDNfrmTS014_FEBE,      7).
+-define(IISDNcodB8ZS,            0).
+-define(IISDNcodB7ZS,            1).
+-define(IISDNcodHDB3,            0).
+-define(IISDNcodTRANSPARENT,     2).
 -record(line_data,
 		{framing=0, line_code=0, pm_mode=0, line_length=0, term=0,
 		line_type=0, integrate_alarms=0, filter_unsolicited=0,
