@@ -24,7 +24,7 @@
 
 -define(MAXIFRAMESZ, 260).
 
--record(state, {server, port, lapdid, interval, interval_ref, hourly_ref}).
+-record(state, {server, port, lapdid, iframe, interval, interval_ref, hourly_ref}).
 
 init([ServerRef, LapdId, Interval]) ->
 	case ServerRef of
@@ -42,6 +42,7 @@ init([ServerRef, LapdId, Interval]) ->
 		Port when is_port(Port) ->
 			StateData = #state{server = ServerPid,
 					port = Port, lapdid = LapdId,
+					iframe = iframe(),
 					interval = Interval},
 			init_protocol(StateData);
 		{'EXIT', Reason} ->
@@ -91,7 +92,7 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
 establishing({timeout, _Ref, hourly}, StateData) ->
-	netaccess:req_l2_stats(StateData#state.server, StateData#state.lapdid),
+	netaccess:req_l2_stats(StateData#state.port, StateData#state.lapdid),
 	H_ref = gen_fsm:start_timer(3600000, hourly),
 	{next_state, establishing, StateData#state{hourly_ref = H_ref}};
 establishing(Other, StateData) ->
@@ -127,11 +128,11 @@ established({Channel, <<Hash:8/unit:8, Data/binary>>}, StateData) ->
 	end;	
 established({timeout, _Ref, interval}, StateData) ->
 	% send an IFRAME
-	netaccess:send(StateData#state.port, iframe()),
+	netaccess:send(StateData#state.port, StateData#state.iframe),
 	I_ref = gen_fsm:start_timer(StateData#state.interval, interval),
 	{next_state, established, StateData#state{interval_ref = I_ref}};
 established({timeout, _Ref, hourly}, StateData) ->
-	netaccess:req_l2_stats(StateData#state.server, StateData#state.lapdid),
+	netaccess:req_l2_stats(StateData#state.port, StateData#state.lapdid),
 	H_ref = gen_fsm:start_timer(3600000, hourly),
 	{next_state, establishing, StateData#state{hourly_ref = H_ref}};
 established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
@@ -173,7 +174,7 @@ not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
 not_established({timeout, _Ref, hourly}, StateData) ->
-	netaccess:req_l2_stats(StateData#state.server, StateData#state.lapdid),
+	netaccess:req_l2_stats(StateData#state.port, StateData#state.lapdid),
 	H_ref = gen_fsm:start_timer(3600000, hourly),
 	{next_state, establishing, StateData#state{hourly_ref = H_ref}};
 not_established(Other, StateData) ->
