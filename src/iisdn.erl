@@ -13,9 +13,9 @@
 %%%                                                                     %%%
 %%% For every structure definition in iisdn.h there should be here:     %%%
 %%%                                                                     %%%
-%%%        - a record definition (e.g. #q931_cnfg{})                    %%%
+%%%        - a record definition (e.g. #q931{})                         %%%
 %%%                                                                     %%%
-%%%        - a function (e.g. #q931_cnfg(Q931) -> binary())             %%%
+%%%        - a function (e.g. #q931(Q931) -> binary())                  %%%
 %%%                                                                     %%%
 %%% A received binary is decoded to a record, or a record is encoded    %%%
 %%% to a binary with the function of the same name as the structure     %%%
@@ -30,11 +30,11 @@
 -export([hardware_data/1, line_data/1]).
 -export([tsi_data/1, tsi_map/1]).
 -export([q931_timers/1]).
--export([level1_cnfg/1, level2_cnfg/1, level3_cnfg/1]).
+-export([level1/1, level2/1, level3/1]).
 -export([l2_lap_params/1, l2_ss7_params/1, l2_udpip_params/1,
 		l2_dpnss_params/1, l2_v110_params/1]).
 -export([data_interface/1]).
--export([q931_cnfg/1, bonding_data/1, x25_config/1, pm_config/1,
+-export([q931/1, bonding_data/1, x25_config/1, pm_config/1,
 		relay_config/1, dpnsscc_config/1, dasscc_config/1,
 		q933a_config/1]).
 -export([l2_lap_consts/1, l2_ss7_consts/1, l2_ip_consts/1,
@@ -85,92 +85,92 @@ l3_to_l4(Bin) when is_binary(Bin) ->
 			bchannel_mask=Bchannel_mask, lli=Lli, 
 			data_channel=Data_channel, data=Data}.
 
-level1_cnfg(L1) when is_record(L1, level1_cnfg) ->
-	<<(L1#level1_cnfg.l1_mode):?IISDNu8bit,
-			(L1#level1_cnfg.invert_hdlc):?IISDNu8bit,
-	      (L1#level1_cnfg.num_txbuf):?IISDNu16bit,
-	      (L1#level1_cnfg.num_rxbuf):?IISDNu16bit,
-	      (L1#level1_cnfg.buffsz):?IISDNu16bit,
-	      (L1#level1_cnfg.chain):?IISDNu8bit,
-	      (L1#level1_cnfg.device):?IISDNu8bit,
-	      (L1#level1_cnfg.bit_reverse):?IISDNu8bit,
-	      (L1#level1_cnfg.vme_lock):?IISDNu8bit,
-	      (L1#level1_cnfg.hdlc_channels):?IISDNu32bit,
-	      (L1#level1_cnfg.chan_kbit_rate):?IISDNu16bit,
-	      (L1#level1_cnfg.crc_bytes):?IISDNu8bit,
-	      (L1#level1_cnfg.crc_ignore_errs):?IISDNu8bit,
-			((L1#level1_cnfg.rate_adapt)#rate_adapt.enable):?IISDNu8bit,
-			((L1#level1_cnfg.rate_adapt)#rate_adapt.rate_adapt_value):?IISDNu8bit,
+level1(L1) when is_record(L1, level1) ->
+	<<(L1#level1.l1_mode):?IISDNu8bit,
+			(L1#level1.invert_hdlc):?IISDNu8bit,
+	      (L1#level1.num_txbuf):?IISDNu16bit,
+	      (L1#level1.num_rxbuf):?IISDNu16bit,
+	      (L1#level1.buffsz):?IISDNu16bit,
+	      (L1#level1.chain):?IISDNu8bit,
+	      (L1#level1.device):?IISDNu8bit,
+	      (L1#level1.bit_reverse):?IISDNu8bit,
+	      (L1#level1.vme_lock):?IISDNu8bit,
+	      (L1#level1.hdlc_channels):?IISDNu32bit,
+	      (L1#level1.chan_kbit_rate):?IISDNu16bit,
+	      (L1#level1.crc_bytes):?IISDNu8bit,
+	      (L1#level1.crc_ignore_errs):?IISDNu8bit,
+			((L1#level1.rate_adapt)#rate_adapt.enable):?IISDNu8bit,
+			((L1#level1.rate_adapt)#rate_adapt.rate_adapt_value):?IISDNu8bit,
 			0:?IISDNu16bit,
-			((L1#level1_cnfg.raw_fillchar)#raw_fillchar.enable):?IISDNu8bit,
-			((L1#level1_cnfg.raw_fillchar)#raw_fillchar.fill_value):?IISDNu8bit,
+			((L1#level1.raw_fillchar)#raw_fillchar.enable):?IISDNu8bit,
+			((L1#level1.raw_fillchar)#raw_fillchar.fill_value):?IISDNu8bit,
 			0:?IISDNu16bit,
-			((L1#level1_cnfg.hdlc_flag_fill)#hdlc_flag_fill.enable):?IISDNu8bit,
-			((L1#level1_cnfg.hdlc_flag_fill)#hdlc_flag_fill.mode):?IISDNu8bit,
-			((L1#level1_cnfg.hdlc_flag_fill)#hdlc_flag_fill.value):?IISDNu16bit,
-			((L1#level1_cnfg.modem)#modem.originate):?IISDNu8bit,
-			((L1#level1_cnfg.modem)#modem.faxClass):?IISDNu8bit,
-			((L1#level1_cnfg.modem)#modem.encoding):?IISDNu8bit,
-			((L1#level1_cnfg.modem)#modem.amf):?IISDNu8bit,
-			(((L1#level1_cnfg.modem)#modem.amf_params)#amf_params.'0'):?IISDNu32bit,
-			(((L1#level1_cnfg.modem)#modem.amf_params)#amf_params.'1'):?IISDNu32bit,
-			(((L1#level1_cnfg.modem)#modem.amf_params)#amf_params.'2'):?IISDNu32bit,
-			(((L1#level1_cnfg.modem)#modem.amf_params)#amf_params.'3'):?IISDNu32bit,
-			((L1#level1_cnfg.modem)#modem.minBPS):?IISDNu32bit,
-			((L1#level1_cnfg.modem)#modem.maxBPS):?IISDNu32bit,
-			((L1#level1_cnfg.v110)#v110.bit_rate):?IISDNu32bit,
-			((L1#level1_cnfg.v110)#v110.auto_detect):?IISDNu8bit,
+			((L1#level1.hdlc_flag_fill)#hdlc_flag_fill.enable):?IISDNu8bit,
+			((L1#level1.hdlc_flag_fill)#hdlc_flag_fill.mode):?IISDNu8bit,
+			((L1#level1.hdlc_flag_fill)#hdlc_flag_fill.value):?IISDNu16bit,
+			((L1#level1.modem)#modem.originate):?IISDNu8bit,
+			((L1#level1.modem)#modem.faxClass):?IISDNu8bit,
+			((L1#level1.modem)#modem.encoding):?IISDNu8bit,
+			((L1#level1.modem)#modem.amf):?IISDNu8bit,
+			(((L1#level1.modem)#modem.amf_params)#amf_params.'0'):?IISDNu32bit,
+			(((L1#level1.modem)#modem.amf_params)#amf_params.'1'):?IISDNu32bit,
+			(((L1#level1.modem)#modem.amf_params)#amf_params.'2'):?IISDNu32bit,
+			(((L1#level1.modem)#modem.amf_params)#amf_params.'3'):?IISDNu32bit,
+			((L1#level1.modem)#modem.minBPS):?IISDNu32bit,
+			((L1#level1.modem)#modem.maxBPS):?IISDNu32bit,
+			((L1#level1.v110)#v110.bit_rate):?IISDNu32bit,
+			((L1#level1.v110)#v110.auto_detect):?IISDNu8bit,
 			0:?IISDNu8bit, 0:?IISDNu8bit, 0:?IISDNu8bit>>.
 			
 
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_record(L2#level2_cnfg.par, l2_lap_params) ->
-	level2_cnfg(L2#level2_cnfg{
-			par = l2_lap_params(L2#level2_cnfg.par)});
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_record(L2#level2_cnfg.par, l2_ss7_params) ->
-	level2_cnfg(L2#level2_cnfg{
-			par = l2_ss7_params(L2#level2_cnfg.par)});
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_record(L2#level2_cnfg.par, l2_udpip_params) ->
-	level2_cnfg(L2#level2_cnfg{
-			par = l2_udpip_params(L2#level2_cnfg.par)});
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_record(L2#level2_cnfg.par, l2_dpnss_params) ->
-	level2_cnfg(L2#level2_cnfg{
-			par = l2_dpnss_params(L2#level2_cnfg.par)});
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_record(L2#level2_cnfg.par, l2_v110_params) ->
-	level2_cnfg(L2#level2_cnfg{
-			par = l2_v110_params(L2#level2_cnfg.par)});
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_record(L2#level2_cnfg.data_interface, data_interface) ->
-	level2_cnfg(L2#level2_cnfg{
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.par, l2_lap_params) ->
+	level2(L2#level2{
+			par = l2_lap_params(L2#level2.par)});
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.par, l2_ss7_params) ->
+	level2(L2#level2{
+			par = l2_ss7_params(L2#level2.par)});
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.par, l2_udpip_params) ->
+	level2(L2#level2{
+			par = l2_udpip_params(L2#level2.par)});
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.par, l2_dpnss_params) ->
+	level2(L2#level2{
+			par = l2_dpnss_params(L2#level2.par)});
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.par, l2_v110_params) ->
+	level2(L2#level2{
+			par = l2_v110_params(L2#level2.par)});
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.data_interface, data_interface) ->
+	level2(L2#level2{
 			data_interface = 
-					data_interface(L2#level2_cnfg.data_interface)});
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_record(L2#level2_cnfg.consts, l2_lap_consts) ->
-	level2_cnfg(L2#level2_cnfg{
-			consts = l2_lap_consts(L2#level2_cnfg.consts)});
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_record(L2#level2_cnfg.consts, l2_ss7_consts) ->
-	level2_cnfg(L2#level2_cnfg{
-			consts = l2_ss7_consts(L2#level2_cnfg.consts)});
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_record(L2#level2_cnfg.consts, l2_ip_consts) ->
-	level2_cnfg(L2#level2_cnfg{
-			consts = l2_ip_consts(L2#level2_cnfg.consts)});
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_record(L2#level2_cnfg.consts, l2_dpnss_consts) ->
-	level2_cnfg(L2#level2_cnfg{
-			consts = l2_dpnss_consts(L2#level2_cnfg.consts)});
-level2_cnfg(L2) when is_record(L2, level2_cnfg),
-		is_binary(L2#level2_cnfg.par);
-		is_binary(L2#level2_cnfg.data_interface);
-		is_binary(L2#level2_cnfg.consts) ->
-	<<(L2#level2_cnfg.par)/binary, 
-			(L2#level2_cnfg.data_interface)/binary,
-			(L2#level2_cnfg.consts)/binary>>.
+					data_interface(L2#level2.data_interface)});
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.consts, l2_lap_consts) ->
+	level2(L2#level2{
+			consts = l2_lap_consts(L2#level2.consts)});
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.consts, l2_ss7_consts) ->
+	level2(L2#level2{
+			consts = l2_ss7_consts(L2#level2.consts)});
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.consts, l2_ip_consts) ->
+	level2(L2#level2{
+			consts = l2_ip_consts(L2#level2.consts)});
+level2(L2) when is_record(L2, level2),
+		is_record(L2#level2.consts, l2_dpnss_consts) ->
+	level2(L2#level2{
+			consts = l2_dpnss_consts(L2#level2.consts)});
+level2(L2) when is_record(L2, level2),
+		is_binary(L2#level2.par);
+		is_binary(L2#level2.data_interface);
+		is_binary(L2#level2.consts) ->
+	<<(L2#level2.par)/binary, 
+			(L2#level2.data_interface)/binary,
+			(L2#level2.consts)/binary>>.
 
 
 data_interface(DataIf) when is_record(DataIf, data_interface) ->
@@ -258,103 +258,103 @@ l2_dpnss_consts(Dpnss) when is_record(Dpnss, l2_dpnss_consts) ->
 			(Dpnss#l2_dpnss_consts.nt2):?IISDNu32bit>>.
 
 
-level3_cnfg(L3) when is_record(L3, level3_cnfg),
-		is_record(L3#level3_cnfg.cnfg, q931_cnfg) ->
-	Bin = q931_cnfg(L3#level3_cnfg.cnfg),
-	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
-level3_cnfg(L3) when is_record(L3, level3_cnfg),
-		is_record(L3#level3_cnfg.cnfg, bonding_data) ->
-	Bin = bonding_data(L3#level3_cnfg.cnfg),
-	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
-level3_cnfg(L3) when is_record(L3, level3_cnfg),
-		is_record(L3#level3_cnfg.cnfg, x25_config) ->
-	Bin = x25_config(L3#level3_cnfg.cnfg),
-	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
-level3_cnfg(L3) when is_record(L3, level3_cnfg),
-		is_record(L3#level3_cnfg.cnfg, pm_config) ->
-	Bin = pm_config(L3#level3_cnfg.cnfg),
-	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
-level3_cnfg(L3) when is_record(L3, level3_cnfg),
-		is_record(L3#level3_cnfg.cnfg, relay_config) ->
-	Bin = relay_config(L3#level3_cnfg.cnfg),
-	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
-level3_cnfg(L3) when is_record(L3, level3_cnfg),
-		is_record(L3#level3_cnfg.cnfg, dpnsscc_config) ->
-	Bin = dpnsscc_config(L3#level3_cnfg.cnfg),
-	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
-level3_cnfg(L3) when is_record(L3, level3_cnfg),
-		is_record(L3#level3_cnfg.cnfg, dasscc_config) ->
-	Bin = dasscc_config(L3#level3_cnfg.cnfg),
-	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
-level3_cnfg(L3) when is_record(L3, level3_cnfg),
-		is_record(L3#level3_cnfg.cnfg, q933a_config) ->
-	Bin = q933a_config(L3#level3_cnfg.cnfg),
-	level3_cnfg(L3#level3_cnfg{cnfg = Bin});
-level3_cnfg(L3) when is_record(L3, level3_cnfg),
-		is_binary(L3#level3_cnfg.cnfg) ->
-	<<(L3#level3_cnfg.l3_mode):?IISDNu8bit, 0:?IISDNu8bit,
-			0:?IISDNu16bit, (L3#level3_cnfg.cnfg)/binary>>.
+level3(L3) when is_record(L3, level3),
+		is_record(L3#level3.cnfg, q931) ->
+	Bin = q931(L3#level3.cnfg),
+	level3(L3#level3{cnfg = Bin});
+level3(L3) when is_record(L3, level3),
+		is_record(L3#level3.cnfg, bonding_data) ->
+	Bin = bonding_data(L3#level3.cnfg),
+	level3(L3#level3{cnfg = Bin});
+level3(L3) when is_record(L3, level3),
+		is_record(L3#level3.cnfg, x25_config) ->
+	Bin = x25_config(L3#level3.cnfg),
+	level3(L3#level3{cnfg = Bin});
+level3(L3) when is_record(L3, level3),
+		is_record(L3#level3.cnfg, pm_config) ->
+	Bin = pm_config(L3#level3.cnfg),
+	level3(L3#level3{cnfg = Bin});
+level3(L3) when is_record(L3, level3),
+		is_record(L3#level3.cnfg, relay_config) ->
+	Bin = relay_config(L3#level3.cnfg),
+	level3(L3#level3{cnfg = Bin});
+level3(L3) when is_record(L3, level3),
+		is_record(L3#level3.cnfg, dpnsscc_config) ->
+	Bin = dpnsscc_config(L3#level3.cnfg),
+	level3(L3#level3{cnfg = Bin});
+level3(L3) when is_record(L3, level3),
+		is_record(L3#level3.cnfg, dasscc_config) ->
+	Bin = dasscc_config(L3#level3.cnfg),
+	level3(L3#level3{cnfg = Bin});
+level3(L3) when is_record(L3, level3),
+		is_record(L3#level3.cnfg, q933a_config) ->
+	Bin = q933a_config(L3#level3.cnfg),
+	level3(L3#level3{cnfg = Bin});
+level3(L3) when is_record(L3, level3),
+		is_binary(L3#level3.cnfg) ->
+	<<(L3#level3.l3_mode):?IISDNu8bit, 0:?IISDNu8bit,
+			0:?IISDNu16bit, (L3#level3.cnfg)/binary>>.
 
 
-q931_cnfg(Q931) when is_record(Q931, q931_cnfg) ->
-	Q931_Timers = q931_timers(Q931#q931_cnfg.q931_timers),
+q931(Q931) when is_record(Q931, q931) ->
+	Q931_Timers = q931_timers(Q931#q931.q931_timers),
 	Digit32 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu32bit>> end,
 	B_channel_service_state = lists:foldl(Digit32, <<>>,
-			Q931#q931_cnfg.b_channel_service_state),
+			Q931#q931.b_channel_service_state),
 	Digit8 = fun(Digit, Bin) -> <<Bin/binary, Digit:?IISDNu8bit>> end,
-	Spid = lists:foldl(Digit8, <<>>, Q931#q931_cnfg.spid),
-	Spid_1 = lists:foldl(Digit8, <<>>, Q931#q931_cnfg.spid_1),
-	Dn = lists:foldl(Digit8, <<>>, Q931#q931_cnfg.dn),
-	Dn_1 = lists:foldl(Digit8, <<>>, Q931#q931_cnfg.dn_1),
-	<<(Q931#q931_cnfg.switch_type):?IISDNu16bit,
-			(Q931#q931_cnfg.variant):?IISDNu16bit,
-			(Q931#q931_cnfg.call_filtering):?IISDNu32bit,
+	Spid = lists:foldl(Digit8, <<>>, Q931#q931.spid),
+	Spid_1 = lists:foldl(Digit8, <<>>, Q931#q931.spid_1),
+	Dn = lists:foldl(Digit8, <<>>, Q931#q931.dn),
+	Dn_1 = lists:foldl(Digit8, <<>>, Q931#q931.dn_1),
+	<<(Q931#q931.switch_type):?IISDNu16bit,
+			(Q931#q931.variant):?IISDNu16bit,
+			(Q931#q931.call_filtering):?IISDNu32bit,
 			B_channel_service_state/binary,
-			(Q931#q931_cnfg.nfas):?IISDNu8bit,
-			(Q931#q931_cnfg.e1_30_bchan):?IISDNu8bit,
-			(Q931#q931_cnfg.basic_rate):?IISDNu8bit,
-			(Q931#q931_cnfg.net_side_emul):?IISDNu8bit,
-			(Q931#q931_cnfg.b_chan_negot):?IISDNu8bit,
-			(Q931#q931_cnfg.proc_on_exclusv):?IISDNu8bit,
-			(Q931#q931_cnfg.chanid_slot_map):?IISDNu8bit,
-			(Q931#q931_cnfg.sprs_chanid_callproc):?IISDNu8bit,
-			(Q931#q931_cnfg.no_chanid_callproc):?IISDNu8bit,
-			(Q931#q931_cnfg.append_raw_qmsg):?IISDNu8bit,
-			(Q931#q931_cnfg.ccitt_mode):?IISDNu8bit,
-			(Q931#q931_cnfg.raw_qmsg):?IISDNu8bit,
-			(Q931#q931_cnfg.no_ie_errcheck):?IISDNu8bit,
-			(Q931#q931_cnfg.user_ie_encode):?IISDNu8bit,
-			(Q931#q931_cnfg.overlap_rcv):?IISDNu8bit,
-			(Q931#q931_cnfg.send_l3l4_callproc):?IISDNu8bit,
-			(Q931#q931_cnfg.sending_cmplt):?IISDNu8bit,
-			(Q931#q931_cnfg.require_send_complete):?IISDNu8bit,
-			(Q931#q931_cnfg.report_incoming_callproc):?IISDNu8bit,
-			(Q931#q931_cnfg.no_tx_conn_ack):?IISDNu8bit,
-			(Q931#q931_cnfg.no_rx_conn_ack):?IISDNu8bit,
-			(Q931#q931_cnfg.sprs_chanid_setupack):?IISDNu8bit,
-			(Q931#q931_cnfg.no_chanid_setupack):?IISDNu8bit,
-			(Q931#q931_cnfg.no_canned_spid_rej):?IISDNu8bit,
-			(Q931#q931_cnfg.call_reject_notify):?IISDNu8bit,
-			(Q931#q931_cnfg.advice_of_charge):?IISDNu8bit,
-			(Q931#q931_cnfg.message_segmentation):?IISDNu8bit,
-			(Q931#q931_cnfg.no_bc_user_info):?IISDNu8bit,
-			(Q931#q931_cnfg.incoming_call_slot_map):?IISDNu8bit,
-			(Q931#q931_cnfg.release_complete_control):?IISDNu8bit,
-			(Q931#q931_cnfg.primary_lapdid):?IISDNu8bit,
-			(Q931#q931_cnfg.backup_lapdid):?IISDNu8bit,
+			(Q931#q931.nfas):?IISDNu8bit,
+			(Q931#q931.e1_30_bchan):?IISDNu8bit,
+			(Q931#q931.basic_rate):?IISDNu8bit,
+			(Q931#q931.net_side_emul):?IISDNu8bit,
+			(Q931#q931.b_chan_negot):?IISDNu8bit,
+			(Q931#q931.proc_on_exclusv):?IISDNu8bit,
+			(Q931#q931.chanid_slot_map):?IISDNu8bit,
+			(Q931#q931.sprs_chanid_callproc):?IISDNu8bit,
+			(Q931#q931.no_chanid_callproc):?IISDNu8bit,
+			(Q931#q931.append_raw_qmsg):?IISDNu8bit,
+			(Q931#q931.ccitt_mode):?IISDNu8bit,
+			(Q931#q931.raw_qmsg):?IISDNu8bit,
+			(Q931#q931.no_ie_errcheck):?IISDNu8bit,
+			(Q931#q931.user_ie_encode):?IISDNu8bit,
+			(Q931#q931.overlap_rcv):?IISDNu8bit,
+			(Q931#q931.send_l3l4_callproc):?IISDNu8bit,
+			(Q931#q931.sending_cmplt):?IISDNu8bit,
+			(Q931#q931.require_send_complete):?IISDNu8bit,
+			(Q931#q931.report_incoming_callproc):?IISDNu8bit,
+			(Q931#q931.no_tx_conn_ack):?IISDNu8bit,
+			(Q931#q931.no_rx_conn_ack):?IISDNu8bit,
+			(Q931#q931.sprs_chanid_setupack):?IISDNu8bit,
+			(Q931#q931.no_chanid_setupack):?IISDNu8bit,
+			(Q931#q931.no_canned_spid_rej):?IISDNu8bit,
+			(Q931#q931.call_reject_notify):?IISDNu8bit,
+			(Q931#q931.advice_of_charge):?IISDNu8bit,
+			(Q931#q931.message_segmentation):?IISDNu8bit,
+			(Q931#q931.no_bc_user_info):?IISDNu8bit,
+			(Q931#q931.incoming_call_slot_map):?IISDNu8bit,
+			(Q931#q931.release_complete_control):?IISDNu8bit,
+			(Q931#q931.primary_lapdid):?IISDNu8bit,
+			(Q931#q931.backup_lapdid):?IISDNu8bit,
 			0:?IISDNu16bit,
-			(Q931#q931_cnfg.primary_ifnum):?IISDNu8bit,
-			(Q931#q931_cnfg.backup_ifnum):?IISDNu8bit,
-			(Q931#q931_cnfg.backup_control):?IISDNu8bit,
-			(Q931#q931_cnfg.spid_len):?IISDNu8bit,
-			(Q931#q931_cnfg.spid_1_len):?IISDNu8bit,
-			(Q931#q931_cnfg.dn_len):?IISDNu8bit,
+			(Q931#q931.primary_ifnum):?IISDNu8bit,
+			(Q931#q931.backup_ifnum):?IISDNu8bit,
+			(Q931#q931.backup_control):?IISDNu8bit,
+			(Q931#q931.spid_len):?IISDNu8bit,
+			(Q931#q931.spid_1_len):?IISDNu8bit,
+			(Q931#q931.dn_len):?IISDNu8bit,
 			Spid/binary, Spid_1/binary, Dn/binary, Dn_1/binary,
-			(Q931#q931_cnfg.chan_id_high_bit):?IISDNu8bit,
-			(Q931#q931_cnfg.att_cust_bri_ekts):?IISDNu8bit,
-			(Q931#q931_cnfg.subscribe_connack):?IISDNu8bit,
-			(Q931#q931_cnfg.suppress_auto_spid):?IISDNu8bit,
-			(Q931#q931_cnfg.accept_all_bri_calls):?IISDNu8bit,
+			(Q931#q931.chan_id_high_bit):?IISDNu8bit,
+			(Q931#q931.att_cust_bri_ekts):?IISDNu8bit,
+			(Q931#q931.subscribe_connack):?IISDNu8bit,
+			(Q931#q931.suppress_auto_spid):?IISDNu8bit,
+			(Q931#q931.accept_all_bri_calls):?IISDNu8bit,
 			0:?IISDNu16bit>>.
 
 bonding_data(Bond) when is_record(Bond, bonding_data) ->
@@ -435,17 +435,17 @@ q933a_config(Q933a) when is_record(Q933a, q933a_config) ->
 
 
 ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
-		is_record(Proto#ena_proto_data.level1, level1_cnfg) ->
+		is_record(Proto#ena_proto_data.level1, level1) ->
 	ena_proto_data(Proto#ena_proto_data{
-			level1 = level1_cnfg(Proto#ena_proto_data.level1)});
+			level1 = level1(Proto#ena_proto_data.level1)});
 ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
-		is_record(Proto#ena_proto_data.level2, level2_cnfg) ->
+		is_record(Proto#ena_proto_data.level2, level2) ->
 	ena_proto_data(Proto#ena_proto_data{
-			level2 = level2_cnfg(Proto#ena_proto_data.level2)});
+			level2 = level2(Proto#ena_proto_data.level2)});
 ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
-		is_record(Proto#ena_proto_data.level3, level3_cnfg) ->
+		is_record(Proto#ena_proto_data.level3, level3) ->
 	ena_proto_data(Proto#ena_proto_data{
-			level3 = level3_cnfg(Proto#ena_proto_data.level3)});
+			level3 = level3(Proto#ena_proto_data.level3)});
 ena_proto_data(Proto) when is_record(Proto, ena_proto_data),
 		is_binary(Proto#ena_proto_data.level1);
 		is_binary(Proto#ena_proto_data.level2);
