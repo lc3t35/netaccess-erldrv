@@ -356,7 +356,6 @@ enable_protocol(Port, LapdId, EnaProtoData) ->
 %% @doc Sends a data message on an open channel.
 %%
 send(Channel, Iframe) ->
-	% the driver uses the first byte to distinguish between control & data
 	port_command(Channel, Iframe).
 	
 
