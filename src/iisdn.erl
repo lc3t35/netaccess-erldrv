@@ -68,6 +68,8 @@
 -export([board_id/1]).
 -export([l2_stats/1, mtp2_stats/1, l2_mtp2_stats/1]).
 -export([alarm_status/1, line_status/1]).
+-export([pp/1, pm_req_data/1, pm_rsp_data/1, pm_threshold_xing_data/1,
+		pm_fdl_msg_data/1, pm_alert_data/1]).
 
 -include("iisdn.hrl").
 
@@ -1799,7 +1801,168 @@ line_status(LineStatusBin) when is_binary(LineStatusBin) ->
 %%
 alarm_status(AlarmStatusBin) when is_binary(AlarmStatusBin) ->
 	<<RcvYellow:?IISDNu8bit, RcvBlue:?IISDNu8bit, RcvRed:?IISDNu8bit,
-			SndYellow:?IISDNu8bit>> = AlarmStatusBin,
+			SndYellow:?IISDNu8bit, _Rest/binary>> = AlarmStatusBin,
 	#alarm_status{rcv_yellow=RcvYellow, rcv_blue=RcvBlue, 
 			rcv_red=RcvRed, snd_yellow=SndYellow}.
+
+%% @type pp().  Performance Monitoring parameters.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>bpv</tt></dt><dd><tt>integer()</tt> bipolar violations</dd>
+%% 		<dt><tt>exz</tt></dt><dd><tt>integer()</tt> excessive zeroes</dd>
+%% 		<dt><tt>lcv</tt></dt><dd><tt>integer()</tt> line code violations</dd>
+%% 		<dt><tt>pcv</tt></dt><dd><tt>integer()</tt> path coding violations</dd>
+%% 		<dt><tt>cs</tt></dt><dd><tt>integer()</tt> controlled slips</dd>
+%% 		<dt><tt>oofs</tt></dt><dd><tt>integer()</tt> controlled slips</dd>
+%% 		<dt><tt>aiss</tt></dt><dd><tt>integer()</tt> alarm indication signal seconds</dd>
+%% 		<dt><tt>les</tt></dt><dd><tt>integer()</tt> line errored seconds</dd>
+%% 		<dt><tt>css</tt></dt><dd><tt>integer()</tt> controlled slip seconds</dd>
+%% 		<dt><tt>es</tt></dt><dd><tt>integer()</tt> errored seconds</dd>
+%% 		<dt><tt>bes</tt></dt><dd><tt>integer()</tt> bursty errored seconds</dd>
+%% 		<dt><tt>ses</tt></dt><dd><tt>integer()</tt> severely errored seconds</dd>
+%% 		<dt><tt>sefs</tt></dt><dd><tt>integer()</tt> severely errored framing seconds</dd>
+%% 		<dt><tt>dm</tt></dt><dd><tt>integer()</tt> degraded minutes</dd>
+%% 		<dt><tt>uas</tt></dt><dd><tt>integer()</tt> unavailable seconds</dd>
+%% 	</dl>
+%% @see ATT TR 54016
+%%
+%% @spec (PP::binary()) -> pp()
+%%
+pp(PP) when is_binary(PP) ->
+	<<BPV:?IISDNu32bit, EXZ:?IISDNu32bit, LCV:?IISDNu32bit, PCV:?IISDNu32bit, CS:?IISDNu32bit,
+			OOFS:?IISDNu32bit, AISS:?IISDNu32bit, LES:?IISDNu32bit, CSS:?IISDNu32bit,
+			ES:?IISDNu32bit, BES:?IISDNu32bit, SES:?IISDNu32bit, SEFS:?IISDNu32bit, DM:?IISDNu32bit, 
+			UAS:?IISDNu32bit, _Rest/binary>> = PP,
+	#pp{bpv=BPV, exz=EXZ, lcv=LCV, pcv=PCV, cs=CS, oofs=OOFS, aiss=AISS, les=LES, css=CSS,
+			es=ES, bes=BES, ses=SES, sefs=SEFS, dm=DM, uas=UAS}.
+
+%% @type pm_req_data().  Performance Monitoring request data.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>line</tt></dt><dd><tt>?IISDNlineX</tt></dd>
+%% 		<dt><tt>endx</tt></dt><dd><tt>?IISDNpmeNEAR_END</tt> or <tt>?IISDNpmeFAR_END</tt></dd>
+%% 		<dt><tt>pm_cmd</tt></dt><dd><tt>?IISDNpmcGET_THRSHLDS_15MIN</tt>,
+%% 			<tt>?IISDNpmcSET_THRSHLDS_15MIN</tt><tt>?IISDNpmcGET_THRSHLDS_24HR</tt>
+%% 			<tt>?IISDNpmcSET_THRSHLDS_24HR</tt><tt>?IISDNpmcRESET_PM_COUNTERS</tt>
+%% 			<tt>?IISDNpmcGET_15MIN_DATA</tt><tt>?IISDNpmcGET_24HR_DATA</tt>
+%% 			<tt>?IISDNpmcPLB_ACTIVATE</tt><tt>?IISDNpmcPLB_DEACTIVATE</tt>
+%% 			<tt>?IISDNpmcLLB_ACTIVATE</tt><tt>?IISDNpmcLLB_DEACTIVATE</tt>
+%% 			<tt>?IISDNpmcSEND_FDL_REQUEST</tt></dd>
+%% 		<dt><tt>fdl_request</tt></dt><dd><tt>integer()</tt> see ATT TR 54016 Table B</dd>
+%% 		<dt><tt>interval_id</tt></dt><dd><tt>integer()</tt> <tt>0-95</tt> or <tt>255</tt> for current interval</dd>
+%% 		<dt><tt>num_intervals</tt></dt><dd><tt>integer()</tt> <tt>0-?IISDN_PP_NUM_INTERVALS_PER_PACKET</tt></dd>
+%% 		<dt><tt>threshold</tt></dt><dd><tt><a href="#type-pp">pp()</a></tt> <tt>0</tt> entries are disabled</dd>
+%% 	</dl>
+%% @see ATT TR 54016
+%%
+%% @spec (PM::pm_req_data()) -> binary()
+%%
+pm_req_data(PM) when is_record(PM, pm_req_data) ->
+	PP = pp(PM#pm_req_data.threshold),
+	<<(PM#pm_req_data.line):?IISDNu8bit, (PM#pm_req_data.endx):?IISDNu8bit,
+			(PM#pm_req_data.pm_cmd):?IISDNu8bit, (PM#pm_req_data.fdl_request):?IISDNu8bit,
+			(PM#pm_req_data.interval_id):?IISDNu8bit, (PM#pm_req_data.num_intervals):?IISDNu8bit,
+			0:?IISDNu16bit, PP/binary>>.
+
+%% @type pm_rsp_data().  Performance Monitoring response data.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>line</tt></dt><dd><tt>?IISDNlineX</tt></dd>
+%% 		<dt><tt>endx</tt></dt><dd><tt>?IISDNpmeNEAR_END</tt> or <tt>?IISDNpmeFAR_END</tt></dd>
+%% 		<dt><tt>pm_cmd</tt></dt><dd><tt>?IISDNpmcGET_THRSHLDS_15MIN</tt>,
+%% 			<tt>?IISDNpmcSET_THRSHLDS_15MIN</tt><tt>?IISDNpmcGET_THRSHLDS_24HR</tt>
+%% 			<tt>?IISDNpmcSET_THRSHLDS_24HR</tt><tt>?IISDNpmcRESET_PM_COUNTERS</tt>
+%% 			<tt>?IISDNpmcGET_15MIN_DATA</tt><tt>?IISDNpmcGET_24HR_DATA</tt>
+%% 			<tt>?IISDNpmcPLB_ACTIVATE</tt><tt>?IISDNpmcPLB_DEACTIVATE</tt>
+%% 			<tt>?IISDNpmcLLB_ACTIVATE</tt><tt>?IISDNpmcLLB_DEACTIVATE</tt>
+%% 			<tt>?IISDNpmcSEND_FDL_REQUEST</tt></dd>
+%% 		<dt><tt>requested_interval_id</tt></dt><dd><tt>integer()</tt> <tt>0-95</tt> or <tt>255</tt>
+%% 				for interval in progress</dd>
+%% 		<dt><tt>pm_status</tt></dt><dd><tt>?IISDNpmsSUCCESS</tt>, <tt>?IISDNpmsFAIL_GENERAL</tt>,
+%% 				<tt>?IISDNpmsFAIL_UNKNOWN_REQUEST</tt></dd>
+%% 		<dt><tt>current_interval_id</tt></dt><dd><tt>integer()</tt><tt>0-95</tt></dd>
+%% 		<dt><tt>seconds_in_current_interval</tt></dt><dd><tt>integer()</tt><tt>0-899</tt> (15 mins)</dd>
+%% 		<dt><tt>num_valid_intervals</tt></dt><dd><tt>integer()</tt><tt>0-96</tt></dd>
+%% 		<dt><tt>num_intervals</tt></dt><dd><tt>integer()</tt> <tt>0-?IISDN_PP_NUM_INTERVALS_PER_PACKET</tt></dd>
+%% 		<dt><tt>pp</tt></dt><dd><tt><a href="#type-pp">pp()</a></tt></dd>
+%% 	</dl>
+%% @see ATT TR 54016
+%%
+%% @spec (PM::binary()) -> pm_rsp_data()
+%%
+pm_rsp_data(PM) when is_binary(PM) ->
+	<<Line:?IISDNu8bit, Endx:?IISDNu8bit, Pm_cmd:?IISDNu8bit, Requested_interval_id:?IISDNu8bit,
+			Pm_status:?IISDNu8bit, Current_interval_id:?IISDNu8bit, Seconds_in_current_interval:?IISDNu16bit,
+			Num_valid_intervals:?IISDNu8bit, Num_intervals:?IISDNu8bit, PP/binary>> = PM,
+	#pm_rsp_data{line=Line, endx=Endx, pm_cmd=Pm_cmd, requested_interval_id=Requested_interval_id,
+			pm_status=Pm_status, current_interval_id=Current_interval_id,
+			seconds_in_current_interval=Seconds_in_current_interval,
+			num_valid_intervals=Num_valid_intervals, num_intervals=Num_intervals, pp=pp(PP)}.
+
+%% @type pm_threshold_xing_data().  Performance Monitoring threshold crossing data.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>line</tt></dt><dd><tt>?IISDNlineX</tt></dd>
+%% 		<dt><tt>endx</tt></dt><dd><tt>?IISDNpmeNEAR_END</tt> or <tt>?IISDNpmeFAR_END</tt></dd>
+%% 		<dt><tt>interval_size</tt></dt><dd> <tt>IISDNpmi15MIN</tt> or <tt>IISDNpmi24HR</tt></dd>
+%% 		<dt><tt>interval_id</tt></dt><dd><tt>integer()</tt><tt>0-95</tt> or <tt>0</tt> for 24hrs</dd>
+%% 		<dt><tt>threshold_crossing_mask</tt></dt><dd><tt>?IISDNpmtcmBPV</tt>,<tt>?IISDNpmtcmEXZ</tt>,
+%% 				<tt>?IISDNpmtcmLCV</tt>, <tt>?IISDNpmtcmPCV</tt>, <tt>?IISDNpmtcmCS</tt>,
+%% 				<tt>?IISDNpmtcmOOFS</tt>, <tt>?IISDNpmtcmAISS</tt>, <tt>?IISDNpmtcmLES</tt>,
+%% 				<tt>?IISDNpmtcmCSS</tt>, <tt>?IISDNpmtcmES</tt>, <tt>?IISDNpmtcmBES</tt>,
+%% 				<tt>?IISDNpmtcmSES</tt>, <tt>?IISDNpmtcmSEFS</tt>, <tt>?IISDNpmtcmDM</tt>,
+%% 				<tt>?IISDNpmtcmUAS</tt></dd>
+%% 		<dt><tt>interval</tt></dt><dd><tt><a href="#type-pp">pp()</a></tt></dd>
+%% 		<dt><tt>threshold</tt></dt><dd><tt><a href="#type-pp">pp()</a></tt></dd>
+%% 	</dl>
+%% @see ATT TR 54016
+%%
+%% @spec (PM::binary()) -> pm_rsp_data()
+%%
+pm_threshold_xing_data(PM) when is_binary(PM) ->
+	<<Line:?IISDNu8bit, Endx:?IISDNu8bit, Interval_size:?IISDNu8bit,
+			Interval_id:?IISDNu8bit, Threshold_crossing_mask:?IISDNu32bit,
+			Interval:?SIZEOF_IISDN_PP/binary, Threshold:?SIZEOF_IISDN_PP/binary, _Rest/binary>> = PM,
+	#pm_threshold_xing_data{line=Line, endx=Endx, interval_size=Interval_size,
+			interval_id=Interval_id, threshold_crossing_mask=Threshold_crossing_mask,
+			interval=pp(Interval), threshold=pp(Threshold)}.
+
+%% @type pm_fdl_msg_data().  Performance Monitoring message data.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>line</tt></dt><dd><tt>?IISDNlineX</tt></dd>
+%% 		<dt><tt>msg_code</tt></dt><dd><tt>integer()</tt>FDL maintenance response message</dd>
+%% 		<dt><tt>data</tt></dt><dd><tt>binary()</tt></dd>
+%% 	</dl>
+%% @see ATT TR 54016
+%%
+%% @spec (FDL::binary()) -> pm_fdl_msg_data()
+%%
+pm_fdl_msg_data(FDL) when is_binary(FDL) ->
+	<<Line:?IISDNu8bit, MsgCode:?IISDNu8bit, Len:?IISDNs16bit, Mode/binary>> = FDL,
+	<<Data:Len/binary, _Rest/binary>> = More,
+	#pm_fdl_msg_data{line=Line, msg_code=MsgCode, data=Data}.
+
+%% @type pm_alert_data().  Performance Monitoring alert data.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>alert_type</tt></dt><dd><tt>?IISDNpmaTHRESHOLD_XING</tt>, <tt>?IISDNpmaFDL_RX_MOP</tt>,
+%% 				<tt>?IISDNpmaFDL_RX_BOP</tt></dd>
+%% 		<dt><tt>a</tt></dt><dd><tt><a href="#type-pm_threshold_xing_data">pm_threshold_xing_data()</a></tt>
+%% 				<tt><a href="#type-pm_fdl_msg_data">pm_fdl_msg_data()</a></tt></dd>
+%% 	</dl>
+%% @see ATT TR 54016
+%%
+%% @spec (AD::binary()) -> pm_alert_data()
+%%
+pm_alert_data(AD) when is_binary(AD) ->
+	<<Alert_type:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, A/Rest>> = AD,
+	case Alert_type of
+		?IISDNpmaTHRESHOLD_XING ->
+			#pm_alert_data{alert_type = Alert_type, a = pm_threshold_xing_data(A)};
+		?IISDNpmaFDL_RX_MOP ->
+			#pm_alert_data{alert_type = Alert_type, a = pm_fdl_msg_data(A)};
+		?IISDNpmaFDL_RX_MOP ->
+			#pm_alert_data{alert_type = Alert_type, a = pm_fdl_msg_data(A)}
+	end.
 
