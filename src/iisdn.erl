@@ -624,7 +624,11 @@ hardware_data(HW) when is_record(HW, hardware_data),
 			(HW#hardware_data.line_data)/binary, Csu/binary>>;
 hardware_data(HW) when is_record(HW, hardware_data), 
 		is_list(HW#hardware_data.line_data) ->
-	LD = line_data(HW#hardware_data.line_data),
+	LtoBin = fun(Line, Bin) ->
+				B = line_data(Line),
+				<<Bin/binary, B/binary>>
+			end,
+	LD = lists:foldl(LtoBin, <<>>, HW#hardware_data.line_data),
 	NewHW = HW#hardware_data{line_data=LD},
 	hardware_data(NewHW);
 hardware_data(HW) when is_binary(HW) ->
@@ -641,6 +645,10 @@ hardware_data(HW) when is_binary(HW) ->
 			(Iter, <<Digit:?IISDNu8bit, Rest/binary>>, Acc) ->
 				Iter(Iter, Rest, Acc ++ [Digit])
 			end,
+	LinetoL = fun (Iter, <<>>, List) -> List;
+			(Iter, <<LD:?SIZEOF_IISDN_LINE_DATA/binary, Rest/binary>>, Acc) ->
+				Iter(Iter, Rest, Acc ++ [line_data(LD)])
+			end,
 	#hardware_data{clocking=Clocking, clocking2=Clocking2,
 			enable_clocking2=Enable_clocking2, 
 			netref_clocking=Netref_clocking, netref_rate=Netref_rate,
@@ -648,7 +656,7 @@ hardware_data(HW) when is_binary(HW) ->
 			tdm_rate=Tdm_rate,
 			enable_8370_rliu_monitor=Enable_8370_rliu_monitor,
 			dbcount=Dbcount, enable_t810x_snap_mode=Enable_t810x_snap_mode,
-			clk_status=Clk_status, line_data=LineData,  % TODO: convert line_data
+			clk_status=Clk_status, line_data = LinetoL(LinetoL, LineData, []),
 			csu = U8toL(U8toL, Csu, [])}.
 
 
@@ -672,7 +680,7 @@ line_data(LD) when is_binary(LD) ->
 	<<Framing:?IISDNu8bit, Line_code:?IISDNu8bit, Pm_mode:?IISDNu8bit,
 			Line_length:?IISDNu8bit, Term:?IISDNu8bit, Line_type:?IISDNu8bit,
 			Integrate_alarms:?IISDNu8bit, Filter_unsolicited:?IISDNu8bit,
-			Filter_yellow:?IISDNu8bit, Bri_l1mode:?IISDNu8bit,
+			_Pad:?IISDNu8bit, Filter_yellow:?IISDNu8bit, Bri_l1mode:?IISDNu8bit,
 			BriL1_cmd:?IISDNu8bit, Bri_loop:?IISDNu8bit, 
 			Bril1_t3:?IISDNu8bit, Bril1_t4:?IISDNu16bit>> = LD,
 	#line_data{framing=Framing, line_code=Line_code,
