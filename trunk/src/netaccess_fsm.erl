@@ -21,10 +21,10 @@
 %%% 	binaries but are also received as events.</p>
 %%%
 %%% 	<h5>Message format:</h5>
-%%% 	<p><tt>{Port, L4L3m}</tt><br/>
+%%% 	<p><tt>{Port, L3L4m}</tt><br/>
 %%% 	<tt>{Port, DataBin}</tt></p>
 %%% 	<ul><li><tt>Port = pid()</tt></li>
-%%% 	<li><tt>L4L3m = <a href="iisdn.html#type-l3_l4">l3_l4()</a></tt></li>
+%%% 	<li><tt>L3L4m = <a href="iisdn.html#type-l3_l4">l3_l4()</a></tt></li>
 %%% 	<li><tt>DataBin = binary()</tt></li></ul>
 %%%
 %%% 	<h5>Examples:</h5>
