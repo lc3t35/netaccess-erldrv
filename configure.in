@@ -124,6 +124,34 @@ else
 	ENDIANESS=little
 fi
 AC_SUBST(ENDIANESS)
+AC_CHECK_SIZEOF(char)
+AC_CHECK_SIZEOF(unsigned char)
+AC_CHECK_SIZEOF(short)
+AC_CHECK_SIZEOF(unsigned short)
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(unsigned int)
+AC_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(unsigned long)
+AC_CHECK_SIZEOF(char *)
+SIZECHAR=$ac_cv_sizeof_char
+SIZEUCHAR=$ac_cv_sizeof_unsigned_char
+SIZESHORT=$ac_cv_sizeof_short
+SIZEUSHORT=$ac_cv_sizeof_unsigned_short
+SIZEINT=$ac_cv_sizeof_int
+SIZEUINT=$ac_cv_sizeof_unsigned_int
+SIZELONG=$ac_cv_sizeof_long
+SIZEULONG=$ac_cv_sizeof_unsigned_long
+SIZEPOINTER=$ac_cv_sizeof_char_p
+AC_SUBST(SIZECHAR)
+AC_SUBST(SIZEUCHAR)
+AC_SUBST(SIZESHORT)
+AC_SUBST(SIZEUSHORT)
+AC_SUBST(SIZEINT)
+AC_SUBST(SIZEUINT)
+AC_SUBST(SIZELONG)
+AC_SUBST(SIZEULONG)
+AC_SUBST(SIZEPOINTER)
+
 
 ##
 ## Functions:  check for library functions
