@@ -64,6 +64,7 @@
 -export([protocol_stat/1, q933a_pvc_status/1]).
 -export([board_id/1]).
 -export([l2_stats/1, mtp2_stats/1, l2_mtp2_stats/1]).
+-export([alarm_status/1, line_status/1]).
 
 -include("iisdn.hrl").
 
@@ -1621,3 +1622,62 @@ l2_mtp2_stats(L2MTP2StatsBin) when is_binary(L2MTP2StatsBin) ->
 	<<Mode:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit, _:?IISDNu8bit,
 			Stats/binary>> = L2MTP2StatsBin,
 	#l2_mtp2_stats{mode = Mode, stats = Stats}.
+
+%% @type line_status().  T1/E1 Line status.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>alarm_status</tt></dt><dd><tt>[alarm_status()]</tt></dd>
+%% 		<dt><tt>l1_state</tt></dt><dd><tt>[integer()]</tt></dd>
+%% 		<dt><tt>line_type</tt></dt><dd><tt>[integer()]</tt></dd>
+%% 		<dt><tt>mph_msg</tt></dt><dd><tt>[integer()]</tt></dd>
+%% 		<dt><tt>error_point</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (LineStatusBin) -> LineStatusRec
+%% 	LineStatusBin = binary()
+%% 	LineStatusRec = line_status()
+%%
+line_status(LineStatusBin) when is_binary(LineStatusBin) ->
+	Sizeof_AlarmStatus = (?IISDN_MAX_LINES * ?SIZEOF_IISDN_ALARM_STATUS),
+	Sizeof_L1State = (?IISDN_MAX_LINES * ?SIZEOF_IISDNu8bit),
+	Sizeof_LineType = (?IISDN_MAX_LINES * ?SIZEOF_IISDNs8bit),
+	Sizeof_MphMsg = (?IISDN_MAX_LINES * ?SIZEOF_IISDNs8bit),
+	<<Alarm_status:Sizeof_AlarmStatus/binary, L1State:Sizeof_L1State/binary,
+			LineType:Sizeof_LineType/binary, MphMsg:Sizeof_MphMsg/binary,
+			ErrorPoint:?IISDNu8bit, _Rest/binary>> = LineStatusBin,
+	AlarmtoL = fun (Iter, <<>>, List) -> List;
+			(Iter, <<AS:?SIZEOF_IISDN_ALARM_STATUS/binary, Rest/binary>>, Acc) ->
+				Iter(Iter, Rest, Acc ++ [alarm_status(AS)])
+			end,
+	U8toL = fun (Iter, <<>>, List) -> List;
+			(Iter, <<Digit:?IISDNu8bit, Rest/binary>>, Acc) ->
+				Iter(Iter, Rest, Acc ++ [Digit])
+			end,
+	S8toL = fun (Iter, <<>>, List) -> List;
+			(Iter, <<Digit:?IISDNs8bit, Rest/binary>>, Acc) ->
+				Iter(Iter, Rest, Acc ++ [Digit])
+			end,
+	#line_status{alarm_status = AlarmtoL(AlarmtoL, Alarm_status, []),
+			l1_state = U8toL(U8toL, L1State, []),
+			line_type = S8toL(S8toL, LineType, []),
+			mph_msg = S8toL(S8toL, MphMsg, []), error_point = ErrorPoint}.
+
+%% @type alarm_status().  T1/E1 Line alarm status.
+%% 	<p>A record which includes the following fields:</p>
+%% 	<dl>
+%% 		<dt><tt>rcv_yellow</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>rcv_blue</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>rcv_red</tt></dt><dd><tt>integer()</tt></dd>
+%% 		<dt><tt>snd_yellow</tt></dt><dd><tt>integer()</tt></dd>
+%% 	</dl>
+%%
+%% @spec (AlarmStatusBin) -> AlarmStatusRec
+%% 	AlarmStatusBin = binary()
+%% 	AlarmStatusRec = alarm_status()
+%%
+alarm_status(AlarmStatusBin) when is_binary(AlarmStatusBin) ->
+	<<RcvYellow:?IISDNu8bit, RcvBlue:?IISDNu8bit, RcvRed:?IISDNu8bit,
+			SndYellow:?IISDNu8bit>> = AlarmStatusBin,
+	#alarm_status{rcv_yellow=RcvYellow, rcv_blue=RcvBlue, 
+			rcv_red=RcvRed, snd_yellow=SndYellow}.
+

@@ -201,8 +201,9 @@ handle_call_async(_MsgType, {'EXIT', _Reason}, {Pid, _Tag}, State) ->
 
 
 %% shutdown the netaccess server
-handle_cast(stop, State) ->
-	{stop, shutdown, ok, State};
+handle_cast(stop, {ManagementPort, _Board, _StateData} = State) ->
+	catch port_close(ManagementPort),
+	{stop, shutdown, State};
 
 handle_cast({ioctl, Operation, Data, Port}, State) ->
 	catch erlang:port_call(Port, Operation, Data),
@@ -308,6 +309,14 @@ handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, Board, StateData}
 					"L3L4mTSI_STATUS", L3L4_rec]),
 			{noreply, State}
 	end;
+% an L3L4mLINE_STATUS message
+handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, Board, StateData} = State)
+		when is_record(L3L4_rec, l3_to_l4),
+		L3L4_rec#l3_to_l4.msgtype == ?L3L4mLINE_STATUS ->
+	LineStatus = (catch iisdn:line_status(L3L4_rec#l3_to_l4.data)),
+	error_logger:info_report(["Netaccess server received L3L4mLINE_STATUS", 
+			{port, Port}, {lapdid, L3L4_rec#l3_to_l4.lapdid}, {line_status, LineStatus}]),
+	{noreply, State};
 % an L3L4mERROR message
 handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, Board, StateData} = State)
 		when is_record(L3L4_rec, l3_to_l4),

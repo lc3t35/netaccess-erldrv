@@ -103,6 +103,7 @@
 -define(SIZEOF_IISDN_DASSCC_CONFIG, @SIZEOF_IISDN_DASSCC_CONFIG@).
 -define(SIZEOF_IISDN_Q933A_CONFIG, @SIZEOF_IISDN_Q933A_CONFIG@).
 -define(SIZEOF_IISDN_Q933A_PVC_STATUS, @SIZEOF_IISDN_Q933A_PVC_STATUS@).
+-define(SIZEOF_IISDN_ALARM_STATUS, @SIZEOF_IISDN_ALARM_STATUS@).
 
 
 
@@ -519,3 +520,19 @@
 		{msu_rx=0, msu_tx=0, msu_rx_err=0, msu_re_tx=0, neg_ack=0, octet_rx=0, octet_tx=0}).
 -record(l2_mtp2_stats, {mode=0, stats=0}).
 
+-define(L4L3mREQ_LINE_STATUS, 16#A6).
+-define(L3L4mLINE_STATUS,     16#23).
+-define(IISDNl1state_F1,      16#f1).   %  Green
+-define(IISDNl1state_F2,      16#f2).   %  RAI (Remote Alarm Indicator)
+-define(IISDNl1state_F3,      16#f3).   %  LOS (Loss of Signal)
+-define(IISDNl1state_F4,      16#f4).   %  AIS (Alarm Indicator Signal)
+-define(IISDNl1state_F5,      16#f5).   %  RAI & CRC-4 Alarm
+-define(IISDNl1state_OOF,     16#0f).   %  OOF (Out of Frame)
+-define(IISDNl1state_FAE,     16#ae).   %  Frame Alignment Error
+-record(line_status,
+		{alarm_status = lists:duplicate(?IISDN_MAX_LINES, #alarm_status{}),
+		l1_state = lists:duplicate(?IISDN_MAX_LINES, 0),
+		line_type = lists:duplicate(?IISDN_MAX_LINES, 0),
+		mph_msg = lists:duplicate(?IISDN_MAX_LINES, 0),
+		error_point = 0}).
+-record(alarm_status, {rcv_yellow=0, rcv_blue=0, rcv_red=0, snd_yellow=0}).

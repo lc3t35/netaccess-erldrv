@@ -221,6 +221,7 @@ AC_CHECK_SIZEOF(IISDN_DPNSSCC_CONFIG, [], [${iisdn_includes}])
 AC_CHECK_SIZEOF(IISDN_DASSCC_CONFIG, [], [${iisdn_includes}])
 AC_CHECK_SIZEOF(IISDN_Q933A_CONFIG, [], [${iisdn_includes}])
 AC_CHECK_SIZEOF(IISDN_Q933A_PVC_STATUS, [], [${iisdn_includes}])
+AC_CHECK_SIZEOF(IISDN_ALARM_STATUS, [], [${iisdn_includes}])
 SIZEOF_int=$ac_cv_sizeof_int
 SIZEOF_ushort=$ac_cv_sizeof_ushort
 SIZEOF_uint=$ac_cv_sizeof_uint
@@ -252,6 +253,7 @@ SIZEOF_IISDN_DPNSSCC_CONFIG=$ac_cv_sizeof_IISDN_DPNSSCC_CONFIG
 SIZEOF_IISDN_DASSCC_CONFIG=$ac_cv_sizeof_IISDN_DASSCC_CONFIG
 SIZEOF_IISDN_Q933A_CONFIG=$ac_cv_sizeof_IISDN_Q933A_CONFIG
 SIZEOF_IISDN_Q933A_PVC_STATUS=$ac_cv_sizeof_IISDN_Q933A_PVC_STATUS
+SIZEOF_IISDN_ALARM_STATUS=$ac_cv_sizeof_IISDN_ALARM_STATUS
 AC_SUBST(SIZEOF_int)
 AC_SUBST(SIZEOF_ushort)
 AC_SUBST(SIZEOF_uint)
@@ -283,6 +285,7 @@ AC_SUBST(SIZEOF_IISDN_DPNSSCC_CONFIG)
 AC_SUBST(SIZEOF_IISDN_DASSCC_CONFIG)
 AC_SUBST(SIZEOF_IISDN_Q933A_CONFIG)
 AC_SUBST(SIZEOF_IISDN_Q933A_PVC_STATUS)
+AC_SUBST(SIZEOF_IISDN_ALARM_STATUS)
 
 ## use the preprocessor to determine which values these #define's
 ## get in this environment and export them for building corresponding
