@@ -374,7 +374,7 @@ netaccess_control(ErlDrvData handle, unsigned int command,
 fprintf(stderr, "netaccess_control\n\r");
 	switch(command) {
 		case CANCEL_ASYNC:
-			int_result = driver_async_cancel(*buf);
+			int_result = driver_async_cancel(atol(*buf));
 			memcpy(*res, &int_result, sizeof(int_result));
 			return sizeof(int_result);
 		case FLUSH_QUEUE:
@@ -452,8 +452,9 @@ fprintf(stderr, "netaccess_control\n\r");
 		}
 		td->ref = driver_async(dd->port, QKEY,
 				do_ioctl, td, free_tdata);
-		memcpy(*res, &td->ref, sizeof(td->ref));
-		return sizeof(td->ref);
+		/*  return the reference as a string (list)  */
+		sprintf(*res, "%ld", td->ref);
+		return(strlen(*res));
 	}
 
 	return -1;              /*  port_control/3 will exit with badarg  */
@@ -502,7 +503,6 @@ fprintf(stderr, "netaccess_ready_input\n\r");
 			/*  these few errors can be ignored  */
 			case EAGAIN:
 			case EINTR:
-			case ENOSR:
 				driver_free_binary(ctrlbin);
 				driver_free_binary(databin);
 				break;
@@ -545,7 +545,6 @@ fprintf(stderr, "netaccess_ready_output\n\r");
 		if(message_to_board(dd->fd, iov) < 0) {
 			switch(errno) {
 				case EINTR:
-				case ENOSR:
 				case EAGAIN:
 					driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 1);
 					return;
@@ -603,32 +602,28 @@ netacess_ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 {
 	DriverData *dd = (DriverData *) handle;
 	ThreadData *td = (ThreadData *) t_data;
-	unsigned char ctd[4];	
+	unsigned char ctd[21];	
 
 fprintf(stderr, "netaccess_ready_async\n\r");
-	/*  TODO:  find a portable way to handle this!  */
-	/*  convert the async refernce (a long) to a list unsigned chars  */
-	memcpy(ctd, &td->ref, sizeof(ctd));
+	sprintf(ctd, "%ld", td->ref);
 
 	if(td->result < 0) 
-		output_atom_result(dd->port, ctd[0], ctd[1], ctd[2],
-				 ctd[3], "error", erl_errno_id(td->errno));
+		output_atom_result(dd->port, ctd, "error", erl_errno_id(td->errno));
 	else
 		switch(td->command) {
 			case SELECT_BOARD:      
 			case BOOT_BOARD:      
 			case ENABLE_MANAGEMENT_CHAN:
 			case RESET_BOARD:
-				output_atom_result(dd->port, ctd[0],  ctd[1],  ctd[2],
-					ctd[3], "ok", "done");
+				output_atom_result(dd->port, ctd, "ok", "done");
 				break;
 			case GET_VERSION:
-				output_string_result(dd->port, ctd[0], ctd[1], ctd[2],
-						ctd[3], "ok", td->ctlp->ic_dp, strlen(td->ctlp->ic_dp));
+				output_string_result(dd->port, ctd, "ok",
+						td->ctlp->ic_dp, strlen(td->ctlp->ic_dp));
 				break;
 			case GET_DRIVER_INFO:
-				output_binary_result(dd->port, ctd[0], ctd[1], ctd[2],
-						ctd[3], "ok", td->bin, td->ctlp->ic_len);
+				output_binary_result(dd->port, ctd, "ok",
+						td->bin, td->ctlp->ic_len);
 				break;
 		}
 	free_tdata(t_data);
@@ -720,66 +715,104 @@ fprintf(stderr, "free_tdata\n\r");
 
 /*  output result of ioctl to port e.g. {Port, Ref, {ok, Result}}  */
 int
-output_atom_result(ErlDrvPort port, int a, int b, int c, int d,
+output_atom_result(ErlDrvPort port, unsigned char *ref,
 				char *ret, char *result)
 {
-	ErlDrvTermData spec[] = {
-        	ERL_DRV_PORT, driver_mk_port(port),
-        		ERL_DRV_INT, a,
-        		ERL_DRV_INT, b,
-        		ERL_DRV_INT, c,
-        		ERL_DRV_INT, d,
-				ERL_DRV_NIL,
-        	ERL_DRV_LIST, 5,
-        		ERL_DRV_ATOM, driver_mk_atom(ret),
-				ERL_DRV_ATOM, driver_mk_atom(result),
-        	ERL_DRV_TUPLE, 2,
-        	ERL_DRV_TUPLE, 3,
-    };
+	ErlDrvTermData spec[13 + (strlen(ref) * 2)];
+	int i, j;
 
-    return driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
+	i = 0;
+	spec[i++] = ERL_DRV_PORT;
+	spec[i++] = driver_mk_port(port);
+
+	for(j = 0; j < strlen(ref); j++) {
+		spec[i++] = ERL_DRV_INT;
+		spec[i++] = ref[j];
+	}
+	spec[i++] = ERL_DRV_NIL;
+	spec[i++] = ERL_DRV_LIST;
+	spec[i++] = ++j;
+
+	spec[i++] = ERL_DRV_ATOM;
+	spec[i++] = driver_mk_atom(ret);
+	spec[i++] = ERL_DRV_ATOM;
+	spec[i++] = driver_mk_atom(result);
+
+	spec[i++] = ERL_DRV_TUPLE;
+	spec[i++] = 2;
+	spec[i++] = ERL_DRV_TUPLE;
+	spec[i] = 3;
+
+	return driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
 }
 
 /*  output result of ioctl to port e.g. {Port, Ref, {ok, <<Binary>>}}  */
 int
-output_binary_result(ErlDrvPort port, int a, int b, int c, int d,
+output_binary_result(ErlDrvPort port, unsigned char *ref,
 				char *ret, ErlDrvBinary *bin, int len)
 {
-	ErlDrvTermData spec[] = {
-        	ERL_DRV_PORT, driver_mk_port(port),
-        		ERL_DRV_INT, a,
-        		ERL_DRV_INT, b,
-        		ERL_DRV_INT, c,
-        		ERL_DRV_INT, d,
-				ERL_DRV_NIL,
-        	ERL_DRV_LIST, 5,
-        		ERL_DRV_ATOM, driver_mk_atom(ret),
-			ERL_DRV_BINARY, (ErlDrvTermData) bin, len, 0,
-        		ERL_DRV_TUPLE, 2,
-        	ERL_DRV_TUPLE, 3,
-    };
+	ErlDrvTermData spec[15 + (strlen(ref) * 2)];
+	int i, j;
+
+	i = 0;
+	spec[i++] = ERL_DRV_PORT;
+	spec[i++] = driver_mk_port(port);
+
+	for(j = 0; j < strlen(ref); j++) {
+		spec[i++] = ERL_DRV_INT;
+		spec[i++] = ref[j];
+	}
+	spec[i++] = ERL_DRV_NIL;
+	spec[i++] = ERL_DRV_LIST;
+	spec[i++] = ++j;
+
+	spec[i++] = ERL_DRV_ATOM;
+	spec[i++] = driver_mk_atom(ret);
+
+	spec[i++] = ERL_DRV_BINARY;
+	spec[i++] = (ErlDrvTermData) bin;
+	spec[i++] = len;
+	spec[i++] = 0;
+
+	spec[i++] = ERL_DRV_TUPLE;
+	spec[i++] = 2;
+	spec[i++] = ERL_DRV_TUPLE;
+	spec[i] = 3;
 
     return driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
 }
 
 /*  output result of ioctl to port e.g. {Port, Ref, {ok, "IISDN Ver 7.0"}}  */
 int
-output_string_result(ErlDrvPort port, int a, int b, int c, int d,
+output_string_result(ErlDrvPort port, unsigned char *ref,
 				char *ret, char *string, int len)
 {
-	ErlDrvTermData spec[] = {
-        	ERL_DRV_PORT, driver_mk_port(port),
-        		ERL_DRV_INT, a,
-        		ERL_DRV_INT, b,
-        		ERL_DRV_INT, c,
-        		ERL_DRV_INT, d,
-				ERL_DRV_NIL,
-        	ERL_DRV_LIST, 5,
-        		ERL_DRV_ATOM, driver_mk_atom(ret),
-			ERL_DRV_STRING, (ErlDrvTermData) string, len,
-        		ERL_DRV_TUPLE, 2,
-        	ERL_DRV_TUPLE, 3,
-    };
+	ErlDrvTermData spec[14 + (strlen(ref) * 2)];
+	int i, j;
+
+	i = 0;
+	spec[i++] = ERL_DRV_PORT;
+	spec[i++] = driver_mk_port(port);
+
+	for(j = 0; j < strlen(ref); j++) {
+		spec[i++] = ERL_DRV_INT;
+		spec[i++] = ref[j];
+	}
+	spec[i++] = ERL_DRV_NIL;
+	spec[i++] = ERL_DRV_LIST;
+	spec[i++] = ++j;
+
+	spec[i++] = ERL_DRV_ATOM;
+	spec[i++] = driver_mk_atom(ret);
+
+	spec[i++] = ERL_DRV_STRING;
+	spec[i++] = (ErlDrvTermData) string;
+	spec[i++] = len;
+
+	spec[i++] = ERL_DRV_TUPLE;
+	spec[i++] = 2;
+	spec[i++] = ERL_DRV_TUPLE;
+	spec[i] = 3;
 
     return driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
 }
