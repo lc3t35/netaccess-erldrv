@@ -1419,6 +1419,8 @@ hardware_data(HW) when is_binary(HW) ->
 %% @spec(LineData) -> LineData
 %% 	LineData = line_data() | binary()
 %%
+line_data(LD) when is_record(LD, line_data), is_atom(LD#line_data.line_type) ->
+	line_data(LD#line_data{line_type = line_type(LD#line_data.line_type)});
 line_data(LD) when is_record(LD, line_data) ->
 	<<(LD#line_data.framing):?IISDNu8bit,
 			(LD#line_data.line_code):?IISDNu8bit,
