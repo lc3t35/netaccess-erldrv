@@ -399,9 +399,3 @@
 -record(q933a_config,
 		{network_side=0, n391=0, n392=0, n393=0, t391=0, t392=0}).
 
-
--record(data_interface_configuration,
-		{dchan_descr_addr=0, num_dchan_descr=0,
-		dchan_event_queue_addr=0, num_l3l4_dchan_events=0,
-		num_l4l3_dchan_events=0}).
-
