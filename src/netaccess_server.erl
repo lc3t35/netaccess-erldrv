@@ -333,6 +333,13 @@ handle_info({Port, {'L3L4m', L3L4_rec, _DataBin}}, {Port, _Board, _StateData} = 
 			{error, ErrorCode#error_code.error_code},
 			{offending_message, ErrorCode#error_code.offending_message}]),
 	{noreply, State};
+% an L3L4mFATAL_ERROR message
+handle_info({Port, {'L3L4m', L3L4_rec, _DataBin}}, {Port, _Board, _StateData} = State)
+		when is_record(L3L4_rec, l3_to_l4),
+		L3L4_rec#l3_to_l4.msgtype == ?L3L4mFATAL_ERROR ->
+	error_logger:info_report(["Netaccess server received L3L4mFATAL_ERROR", 
+			{port, Port}, {lapdid, L3L4_rec#l3_to_l4.lapdid}]),
+	{stop, fatal_error, State};
 % an L3L4 SMI message arrived from the board
 handle_info({Port, {'L3L4m', L3L4, _DataBin}}, {Port, _Board, _StateData} = State) ->
 	error_logger:info_report(["Netaccess server received unhandled L3L4m", L3L4]),
