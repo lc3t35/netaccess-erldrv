@@ -81,6 +81,8 @@
 -define(IISDN_MAX_HDLC_CHANNEL, @IISDN_MAX_HDLC_CHANNEL@).
 -define(IISDN_MAX_LINES, @IISDN_MAX_LINES@).
 -define(IISDN_MAX_BOND_CHAN, @IISDN_MAX_BOND_CHAN@).
+-define(IISDN_RELAY_MAX_MATCHES, @IISDN_RELAY_MAX_MATCHES@).
+-define(IISDN_RELAY_MAX_INSERT, @IISDN_RELAY_MAX_INSERT@).
 
 %% structure sizes
 -define(SIZEOF_IISDN_LINE_DATA, @SIZEOF_IISDN_LINE_DATA@).
@@ -490,6 +492,26 @@
 		{b_channel_service_state=0, t_digit_racking=0, n_clear_retries=0}).
 -record(q933a,
 		{network_side=0, n391=0, n392=0, n393=0, t391=0, t392=0}).
+
+-define(L4L3mRELAY_ADD_RULE,    16#CC).
+-define(L4L3mRELAY_DEL_RULE,    16#CD).
+-define(L4L3mRELAY_CLEAR_RULES, 16#CE).
+-define(L4L3mREQ_RELAY_RULES,   16#CF).
+-define(L4L3mREQ_RELAY_STATS,   16#D0).
+-define(L3L4mRELAY_RULES,       16#45).
+-define(L3L4mRELAY_STATS,       16#46).
+
+-record(match,
+		{idx=0, msk=0, val=0}).
+-record(relay_rule,
+		{match=lists:duplicate(?IISDN_RELAY_MAX_MATCHES, #match{}),
+		dest=0, dest_id=0, delBytes=0, insBytes=0, 
+		insHeader=lists:duplicate(?IISDN_RELAY_MAX_INSERT, 0),
+		insTimeStamp=0, insTimeStampOffset=0}).
+-record(relay_stats,
+		{recv_cnt=0, recv_bytes=0, drop_cnt=0, xmit_cnt=0, 
+		xmit_bytes=0, xmit_deferred_cnt=0, xmit_overflow_cnt=0
+		current_deferred_queue_depth=0}).
 
 -define(L4L3mREQ_PROTOCOL_STATUS, 16#A5).
 -define(L3L4mPROTOCOL_STATUS,     16#21).
