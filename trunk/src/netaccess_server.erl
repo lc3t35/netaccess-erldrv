@@ -75,22 +75,22 @@ init_driver(ok, BoardName, BoardNumber) ->
 init_port(Port, BoardName, BoardNumber) when is_port(Port) ->
 	Result = blocking_ioctl(Port, ?SELECT_BOARD, BoardNumber),
 	init_select(Result, Port, {BoardName, BoardNumber});
-init_port(Error, _BoardName, _BoardNumber) ->
-	{stop, Error}.
+init_port({'EXIT', Reason}, _BoardName, _BoardNumber) ->
+	{stop, Reason}.
 
 init_select(ok, Port, Board) ->
 	Result = blocking_ioctl(Port, ?ENABLE_MANAGEMENT_CHAN, 0),
 	init_enable(Result, Port, Board);
-init_select(Error, Port, _Board) ->
+init_select(Reason, Port, _Board) ->
 	erlang:port_close(Port),
-	{stop, Error}.
+	{stop, Reason}.
 
 init_enable(ok, Port, Board) ->
 	NewState = {Port, Board, gb_trees:empty()},
 	{ok, NewState};
-init_enable(Error, Port, _Board) ->
+init_enable(Reason, Port, _Board) ->
 	erlang:port_close(Port),
-	{stop, Error}.
+	{stop, Reason}.
 
 	
 %% shutdown the netaccess server
@@ -209,23 +209,23 @@ handle_cast(_, State) ->
 
 
 %% an asynch task has completed
-handle_info({_Port, {ref, Ref}, Result}, {Port, Board, StateData} = State) ->
+handle_info({Channel, {ref, Ref}, Result}, {ManagementPort, Board, StateData} = State) ->
 	case gb_trees:lookup({ref, Ref}, StateData) of
 		{value, {From, _Time}} ->
 			% a generic ioctl operation
 			NewStateData = gb_trees:delete({ref, Ref}, StateData),
 			gen_server:reply(From, Result),
-			{noreply, {Port, Board, NewStateData}};
+			{noreply, {ManagementPort, Board, NewStateData}};
 		{value, {{Pid, _Tag} = From, Channel, _Time}} ->
 			% a select ioctl for an open
 			NewStateData = gb_trees:delete({ref, Ref}, StateData),
 			port_connect(Channel, Pid),
 			unlink(Channel),
 			gen_server:reply(From, Channel),
-			{noreply, {Port, Board, NewStateData}};
+			{noreply, {ManagementPort, Board, NewStateData}};
 		none ->
 			error_logger:error_report([{server, self()}, {ref, Ref},
-					{port, Port}, {result, Result},
+					{port, Channel}, {result, Result},
 					"Misdirected reply from netaccess driver"]),
 			{noreply, State}
 	end;
