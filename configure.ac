@@ -4,7 +4,7 @@
 ##
 AC_INIT(netaccess, 0.1, netaccess-bugs@motivity.ca)
 AC_CONFIG_AUX_DIR(config)
-AC_CONFIG_SRCDIR(src/netaccess_drv.c)
+AC_CONFIG_SRCDIR(c_src/netaccess_drv.c)
 AC_CONFIG_HEADERS(config.h)
 AM_INIT_AUTOMAKE
 
@@ -306,6 +306,6 @@ AC_CHECK_LIB(ei, ei_x_new)
 ## Output:  create output files
 ##
 
-AC_CONFIG_FILES([src/iisdn.hrl src/pridrv.hrl])
+AC_CONFIG_FILES([include/iisdn.hrl include/pridrv.hrl])
 AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT
