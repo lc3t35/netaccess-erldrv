@@ -14,8 +14,8 @@ e_src_DATA = netaccess_app.erl netaccess.erl \
 
 docdir = $(datadir)/doc
 if EDOC
-doc_DATA = ../doc/netaccess.html ../doc/netaccess_fsm.html \
-		../doc/iisdn.html ../doc/pridrv.html
+doc_DATA = ../doc/html/netaccess.html ../doc/html/netaccess_fsm.html \
+		../doc/html/iisdn.html ../doc/html/pridrv.html
 endif
 
 if DEBUG
@@ -25,8 +25,8 @@ endif
 ../ebin/%.beam:%.erl
 	$(ERLC) -b beam -W -v -o ../ebin -I ../include $(DEBUG_FLAGS) $<
 
-../doc/%.html:%.erl
-	$(ERL) -noshell -pa @EDOCPATH@ -run edoc_run file '"$<"' '[{dir,"../doc"}]' -s init stop
+../doc/html/%.html:%.erl
+	$(ERL) -noshell -pa @EDOCPATH@ -run edoc_run file '"$<"' '[{dir,"../doc/html"}]' -s init stop
 
 ../ebin/netaccess.beam:	netaccess.erl ../include/iisdn.hrl ../include/pridrv.hrl
 ../ebin/netaccess_server.beam:	netaccess_server.erl ../include/iisdn.hrl ../include/pridrv.hrl

@@ -619,7 +619,7 @@ call(ErlDrvData handle, unsigned int command,
 					set_busy_port(dd->port, 1);
 				}
 				ei_encode_version(*rbuf, &rindex);
-				ei_encode_atom(*rbuf, &rindex, "true");
+				ei_encode_atom(*rbuf, &rindex, "ok");
 				return(rindex);
 			}
 		}
@@ -716,8 +716,6 @@ call(ErlDrvData handle, unsigned int command,
 		}
 		/*  return the reference  */
 		if (ei_encode_version(*rbuf, &rindex)
-				|| ei_encode_tuple_header(*rbuf, &rindex, 2)
-				|| ei_encode_atom(*rbuf, &rindex, "ok")
 				|| ei_encode_long(*rbuf, &rindex, td->ref)) {
 			DBG("ei_encode failed");
 			return((int) ERL_DRV_ERROR_ERRNO);
@@ -884,8 +882,8 @@ done_ioctl(DriverData *dd, ThreadData *td)
 				driver_free(ret);
 				break;
 			case GET_VERSION:
-				/*  {Port, {ref, Ref}, {ok, Version}}  */
-				if (!(ret = driver_alloc(17 * sizeof(ErlDrvTermData)))) {
+				/*  {Port, {ref, Ref}, Version}  */
+				if (!(ret = driver_alloc(13 * sizeof(ErlDrvTermData)))) {
 					driver_failure_posix(dd->port, errno);
 					return;
 				}
@@ -897,22 +895,18 @@ done_ioctl(DriverData *dd, ThreadData *td)
 				ret[5] = td->ref;
 				ret[6] = ERL_DRV_TUPLE;
 				ret[7] = 2;
-				ret[8] = ERL_DRV_ATOM;
-				ret[9] = driver_mk_atom("ok");
-				ret[10] = ERL_DRV_STRING;
-				ret[11] = (ErlDrvTermData) td->data.ioctl.ctlp->ic_dp;
-				ret[12] = strlen(td->data.ioctl.ctlp->ic_dp);
-				ret[13] = ERL_DRV_TUPLE;
-				ret[14] = 2;
-				ret[15] = ERL_DRV_TUPLE;
-				ret[16] = 3;
-				if (driver_output_term(dd->port, ret, 17) < 1)
+				ret[8] = ERL_DRV_STRING;
+				ret[9] = (ErlDrvTermData) td->data.ioctl.ctlp->ic_dp;
+				ret[10] = strlen(td->data.ioctl.ctlp->ic_dp);
+				ret[11] = ERL_DRV_TUPLE;
+				ret[12] = 3;
+				if (driver_output_term(dd->port, ret, 13) < 1)
 					DBG("driver_output_term failed");
 				driver_free(ret);
 				break;
 			case GET_DRIVER_INFO:
-				/*  {Port, {ref, Ref}, {ok, Binary}}  */
-				if (!(ret = driver_alloc(18 * sizeof(ErlDrvTermData)))) {
+				/*  {Port, {ref, Ref}, Binary}  */
+				if (!(ret = driver_alloc(13 * sizeof(ErlDrvTermData)))) {
 					driver_failure_posix(dd->port, errno);
 					return;
 				}
@@ -924,17 +918,13 @@ done_ioctl(DriverData *dd, ThreadData *td)
 				ret[5] = td->ref;
 				ret[6] = ERL_DRV_TUPLE;
 				ret[7] = 2;
-				ret[8] = ERL_DRV_ATOM;
-				ret[9] = driver_mk_atom("ok");
-				ret[10] = ERL_DRV_BINARY;
-				ret[11] = (ErlDrvTermData) td->data.ioctl.bin;
-				ret[12] = td->data.ioctl.ctlp->ic_len;
-				ret[13] = 0;
-				ret[14] = ERL_DRV_TUPLE;
-				ret[15] = 2;
-				ret[16] = ERL_DRV_TUPLE;
-				ret[17] = 3;
-				if (driver_output_term(dd->port, ret, 18) < 1)
+				ret[8] = ERL_DRV_BINARY;
+				ret[9] = (ErlDrvTermData) td->data.ioctl.bin;
+				ret[10] = td->data.ioctl.ctlp->ic_len;
+				ret[11] = 0;
+				ret[12] = ERL_DRV_TUPLE;
+				ret[13] = 3;
+				if (driver_output_term(dd->port, ret, 13) < 1)
 					DBG("driver_output_term failed");
 				driver_free(ret);
 				break;

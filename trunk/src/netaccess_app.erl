@@ -31,7 +31,7 @@
 %%%
 %%% @doc Starts the netaccess application.
 %%%
-start(normal, _Listof) ->
+start(normal, _Args) ->
 	ok;
 start({takeover, _Node}, _StartArgs) ->
 	{error, not_implemented};
