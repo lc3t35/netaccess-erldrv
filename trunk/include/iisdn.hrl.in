@@ -704,15 +704,15 @@
 		{bpv=0, exz=0, lcv=0, pcv=0, cs=0, oofs=0, aiss=0, les=0, css=0, es=0,
 		bes=0, ses=0, sefs=0, dm=0, uas=0}).
 -record(pm_req_data,
-		{line=0, endx=0, pm_cmd=0, fdl_request=0, interval_id=0, num_intervals=0, threshold=#pp{}).
+		{line=0, endx=0, pm_cmd=0, fdl_request=0, interval_id=0, num_intervals=0, threshold=#pp{}}).
 -record(pm_rsp_data,
 		{line=0, endx=0, pm_cmd=0, requested_interval_id=0, pm_status=0, current_interval_id=0,
-		seconds_in_current_interval=0, num_valid_intervals=0, num_intervals=0, pp=#pp{}).
+		seconds_in_current_interval=0, num_valid_intervals=0, num_intervals=0, pp=#pp{}}).
 -record(pm_threshold_xing_data,
 		{line=0, endx=0, interval_size=0, interval_id=0, threshold_crossing_mask=0,
 		interval=0, threshold=0}).
 -record(pm_fdl_msg_data,
-		{line=0, msg_code=0, data=<<>>}).
+		{line=0, msg_code=0, data}).  % data=binary()
 -record(pm_alert_data,
-		{alert_type=0, a=#pm_threshold_xing_data{}).
+		{alert_type=0, a=#pm_threshold_xing_data{}}).
 
