@@ -136,32 +136,8 @@ static int netaccess_call(ErlDrvData handle, unsigned int command,
 			char *buf, int len, char **rbuf, int rlen, unsigned int *flags);
 
 
-struct erl_drv_entry netaccess_driver_entry = {
-	NULL,							/*  called after loading, redundant        */
-	netaccess_start,			/*  called when open_port/2 is invoked,
-									    return value -1 means failure          */
-	netaccess_stop,			/*  called when port is closed, 
-									    and when emulator halted               */
-	netaccess_output,			/*  called when we have output from
-									    erlang to the port                     */
-	netaccess_ready_input,	/*  called when we have input from 
-									    one of the driver's handles            */
-	netaccess_ready_output,	/*  called when output is possible to
-									    one of the driver's handles            */
-	"netaccess_drv",			/*  name supplied as command in open_port  */
-	netaccess_finish, 		/*  called before unloading the driver     */
-	NULL,							/*  handle:  deprecated                    */
-	netaccess_control,		/*  invoked by port_control/3              */
-	netaccess_timeout,		/*  handling of timeout in driver          */
-	netaccess_outputv,		/*  called when we have output from
-									    erlang to the port                     */
-	netacess_ready_async,	/*  ready on the async driver              */
-	netaccess_flush,			/*  called when the port is about to be 
-									 	 closed, and there is data in the driver
-										 queue that needs to be flushed before
-										 'stop' can be called                   */
-	netaccess_call				/*  called when port_call/3 is invoked     */
-};
+ErlDrvEntry  netaccess_driver_entry;
+
 
 /*  This is passed to most of the driver routines, it is our global data  */
 typedef struct dd {
@@ -209,6 +185,65 @@ extern int erts_async_max_threads;
 DRIVER_INIT(netaccess_drv)
 {
 fprintf(stderr, "DRIVER_INIT\n\r");
+	memset(&netaccess_driver_entry, 0, sizeof(netaccess_driver_entry));
+
+	/*  called after loading, redundant        */
+	netaccess_driver_entry.init = NULL;
+
+	/*  called when open_port/2 is invoked,
+									    return value -1 means failure          */
+	netaccess_driver_entry.start = netaccess_start;
+
+	/*  called when port is closed, 
+									    and when emulator halted               */
+	netaccess_driver_entry.stop = netaccess_stop;
+
+	/*  called when we have output from
+									    erlang to the port                     */
+	netaccess_driver_entry.output = netaccess_output;
+
+	/*  called when we have input from 
+									    one of the driver's handles            */
+	netaccess_driver_entry.ready_input = netaccess_ready_input;
+
+	/*  called when output is possible to
+									    one of the driver's handles            */
+	netaccess_driver_entry.ready_output = netaccess_ready_output;
+
+	/*  name supplied as command in open_port  */
+	netaccess_driver_entry.driver_name = "netaccess_drv";
+
+	/*  called before unloading the driver     */
+	netaccess_driver_entry.finish = netaccess_finish;
+
+	/*  handle:  deprecated                    */
+	netaccess_driver_entry.handle = NULL;
+
+	/*  invoked by port_control/3              */
+	netaccess_driver_entry.control = netaccess_control;
+
+	/*  handling of timeout in driver          */
+	netaccess_driver_entry.timeout = netaccess_timeout;
+
+	/*  called when we have output from
+									    erlang to the port                     */
+	netaccess_driver_entry.outputv = netaccess_outputv;
+
+	/*  ready on the async driver              */
+	netaccess_driver_entry.ready_async = netacess_ready_async;
+
+	/*  called when the port is about to be 
+									 	 closed, and there is data in the driver
+										 queue that needs to be flushed before
+										 'stop' can be called                   */
+	netaccess_driver_entry.flush = netaccess_flush;
+
+	/*  called when port_call/3 is invoked     */
+	netaccess_driver_entry.call = netaccess_call;
+
+	/*  called when an event selected by  driver_event() has occurred  */
+	netaccess_driver_entry.event = NULL;
+
 	return &netaccess_driver_entry;
 }
 
