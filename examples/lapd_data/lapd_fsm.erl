@@ -60,12 +60,10 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	P = iisdn:protocol_stat(L3L4m#l3_to_l4.data),
 	case 	P#protocol_stat.status of
 		?IISDNdsESTABLISHING ->
-			error_logger:info_msg("LAPDID ~w ESTABLISHING~n",
-					[element(2, StateData)]),
+			report_status(P, element(2, StateData)),
 			{next_state, establishing, StateData};
 		?IISDNdsESTABLISHED ->
-			error_logger:info_msg("LAPDID ~w ESTABLISHED~n",
-					[element(2, StateData)]),
+			report_status(P, element(2, StateData)),
 			{Delay, _} = random:uniform_s(element(3, StateData), now()),
 			gen_fsm:start_timer(Delay, timeout),
 			{next_state, established, StateData}
@@ -73,7 +71,10 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
-	{stop, Reason, StateData}.
+	{stop, Reason, StateData};
+establishing(Other, StateData) ->
+	error_logger:info_report(["Message not handled",
+			{lapdid, element(2, StateData)}, {state, establishing}, Other]).
 
 
 %% multiframe state established
@@ -81,9 +82,14 @@ established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mPROTOCOL_STATUS ->
 	P = iisdn:protocol_stat(L3L4m#l3_to_l4.data),
 	case 	P#protocol_stat.status of
+		?IISDNdsESTABLISHED ->
+			report_status(P, element(2, StateData)),
+			{next_state, established, StateData};
+		?IISDNdsESTABLISHING ->
+			report_status(P, element(2, StateData)),
+			{next_state, establishing, StateData};
 		?IISDNdsNOT_ESTABLISHED ->
-			error_logger:info_msg("LAPDID ~w NOT ESTABLISHED~n",
-					[element(2, StateData)]),
+			report_status(P, element(2, StateData)),
 			{next_state, not_established, StateData}
 	end;
 %% receive an IFRAME
@@ -102,7 +108,10 @@ established({timeout, Ref, timeout}, {Channel, LapdId, Timeout} = StateData) ->
 established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
-	{stop, Reason, StateData}.
+	{stop, Reason, StateData};
+established(Other, StateData) ->
+	error_logger:info_report(["Message not handled",
+			{lapdid, element(2, StateData)}, {state, established}, Other]).
 
 %% multiframe not established
 not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
@@ -110,20 +119,28 @@ not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	P = iisdn:protocol_stat(L3L4m#l3_to_l4.data),
 	case 	P#protocol_stat.status of
 		?IISDNdsESTABLISHING ->
-			error_logger:info_msg("LAPDID ~w ESTABLISHING~n",
-					[element(2, StateData)]),
-			{next_state, establishing, StateData}
+			report_status(P, element(2, StateData)),
+			{next_state, establishing, StateData};
+		?IISDNdsESTABLISHED ->
+			report_status(P, element(2, StateData)),
+			{next_state, established, StateData};
+		?IISDNdsNOT_ESTABLISHED ->
+			report_status(P, element(2, StateData)),
+			{next_state, not_established, StateData}
 	end;
 not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
-	{stop, Reason, StateData}.
+	{stop, Reason, StateData};
+not_established(Other, StateData) ->
+	error_logger:info_report(["Message not handled",
+			{lapdid, element(2, StateData)}, {state, not_established}, Other]).
 
 handle_event(_Event, StateName, StateData) ->
 	{next_state, StateName, StateData}.
 	
-handle_sync_event(_Event, _From, _StateName, StateData) ->
-	StateData.
+handle_sync_event(_Event, _From, StateName, StateData) ->
+	{next_state, StateName, StateData}.
 	
 handle_info(_Info, StateName, StateData) ->
 	{next_state, StateName, StateData}.
@@ -155,3 +172,107 @@ randb(S0, L, N) ->
 	{X, S1} = random:uniform_s(256, S0),
 	randb(S1, L ++ [X -1], N - 1).
 
+report_status(P, LapdId) ->
+	Status = case P#protocol_stat.status of
+		?IISDNdsNOT_ESTABLISHED ->
+			not_established;
+		?IISDNdsESTABLISHING ->
+			establishing;
+		?IISDNdsESTABLISHED ->
+			established;
+		_ ->
+			unknown
+	end,
+	State = case P#protocol_stat.l2_state of
+		?IISDNlpdsTEI_UNASSIGNED ->
+			tei_unassigned;
+		?IISDNlpdsTEI_ASSIGNED ->
+			tei_assigned;
+		?IISDNlpdsAWAITING_ESTABLISHMENT ->
+			awaiting_establishment;
+		?IISDNlpdsAWAITING_RELEASE ->
+			awaiting_release;
+		?IISDNlpdsMULTIFRAME_ESTABLISHED ->
+			multiframe_established;
+		?IISDNlpdsTIMER_RECOVERY ->
+			timer_recovery;
+		_ ->
+			unknown
+	end,
+	Error = case P#protocol_stat.l2_error of
+		?IISDNl2errNO_ERROR ->
+			none;
+		?IISDNl2errA ->
+			"Supervisory (F=1)";
+		?IISDNl2errB ->
+			"DM (F=1)";
+		?IISDNl2errC ->
+			"UA (F=1)";
+		?IISDNl2errD ->
+			"UA (F=0)";
+		?IISDNl2errE ->
+			"DM (F=0)";
+		?IISDNl2errF ->
+			"SABME received";
+		?IISDNl2errG ->
+			"SABME";
+		?IISDNl2errH ->
+			"DISC";
+		?IISDNl2errI ->
+			"Status Enquiry";
+		?IISDNl2errJ ->
+			"N(R) error";
+		?IISDNl2errK ->
+			"FRMR received";
+		?IISDNl2errL ->
+			"Receipt of unimplemented frame";
+		?IISDNl2errM ->
+			"Receipt of I field not permitted";
+		?IISDNl2errN ->
+			"Receipt of frame with wrong size";
+		?IISDNl2errO ->
+			"N201 error";
+		_ ->
+			unknown
+	end,
+	Detail = case P#protocol_stat.l2_detail of
+		?IISDNdsmskDM_RCVD ->
+			"DM received with F bit set";
+		?IISDNdsmskSABME_RCVD ->
+			"SABME/SABM received";
+		?IISDNdsmskSABME_SENT ->
+			"SABME/SABM sent";
+		?IISDNdsmskFRAME_MOD_8 ->
+			"Received frame with non-integral octets";
+		?IISDNdsmskBAD_CRC ->
+			"Received frame with bad CRC";
+		?IISDNdsmskBAD_LEN ->
+			"Received frame with bad length";
+		?IISDNdsmskUNKN_CTRL ->
+			"Received frame with unknown control field";
+		?IISDNdsmskUNKN_DLCI ->
+			"Received frame with unknown address";
+		?IISDNdsmskUNEXPECTED ->
+			"Received valid message type in bad state";
+		?IISDNdsmskDISC_RCVD ->
+			"Received disconnect message";
+		?IISDNdsmskT200 ->
+			"T200/N200 timeout";
+		?IISDNdsmskXID_RCVD ->
+			"XID received (V.120 UI mode)";
+		?IISDNdsmskUA_RCVD ->
+			"UA received";
+		?IISDNdsmskONR_ERROR ->
+			"Bt8474/8 ONR error";
+		_ ->
+			unknown
+	end,
+	error_logger:info_report([{lapdid, LapdId},
+			{status, Status},
+			{l2_state, State},
+			{l2_error, Error},
+			{l2_errpt, P#protocol_stat.l2_errpt},
+			{txcount, P#protocol_stat.txcount},
+			{rxcount, P#protocol_stat.rxcount},
+			{l2_detail, Detail},
+			{l2_detail_data, P#protocol_stat.l2_detail_data}]).
