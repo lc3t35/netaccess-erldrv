@@ -31,7 +31,7 @@ driver_info(R) when is_record(R, driver_info) ->
 	<<(R#driver_info.board_type):?SIZEOF_INT/native-signed-integer-unit:8,
 			(R#driver_info.hangup_on_red_alarm):?SIZEOF_INT/native-signed-integer-unit:8,
 			(R#driver_info.flow_control_board):?SIZEOF_INT/native-signed-integer-unit:8,
-			(R#driver_info.flow_control_wsrv:?SIZEOF_INT/native-signed-integer-unit:8,
+			(R#driver_info.flow_control_wsrv):?SIZEOF_INT/native-signed-integer-unit:8,
 			(R#driver_info.flow_control_rsrv):?SIZEOF_INT/native-signed-integer-unit:8,
 			(R#driver_info.hdrops):?SIZEOF_INT/native-signed-integer-unit:8,
 			(R#driver_info.sdrops):?SIZEOF_INT/native-signed-integer-unit:8,
