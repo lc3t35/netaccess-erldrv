@@ -24,9 +24,10 @@
 
 -define(MAXIFRAMESZ, 260).
 
--record(state, {server, port, lapdid, iframe, interval, interval_ref, hourly_ref}).
+-record(state, {server, port, lapdid, iframe, iframe_interval, 
+			iframe_ref, report_interval, report_ref}).
 
-init([ServerRef, LapdId, Interval]) ->
+init([ServerRef, LapdId, IframeInterval, ReportInterval]) ->
 	case ServerRef of
 		{local, Name} ->
 			ServerPid = whereis(Name);
@@ -43,7 +44,8 @@ init([ServerRef, LapdId, Interval]) ->
 			StateData = #state{server = ServerPid,
 					port = Port, lapdid = LapdId,
 					iframe = iframe(),
-					interval = Interval},
+					iframe_interval = IframeInterval,
+					report_interval = ReportInterval},
 			init_protocol(StateData);
 		{'EXIT', Reason} ->
 			{stop, Reason}
@@ -60,8 +62,8 @@ init_protocol(StateData) ->
 	% send an L4L3mENABLE_PROTOCOL to start LAPD 
 	netaccess:enable_protocol(StateData#state.port, 
 			StateData#state.lapdid, ProtoData),
-	H_ref = gen_fsm:start_timer(3600000, hourly),
-	NewStateData = StateData#state{hourly_ref = H_ref},
+	R_ref = gen_fsm:send_event_after(3600000, report),
+	NewStateData = StateData#state{report_ref = R_ref},
 	{ok, establishing, NewStateData}.
 
 
@@ -78,23 +80,23 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 			{next_state, not_established, StateData};
 		?IISDNdsESTABLISHED ->
 			report_status(P, StateData#state.lapdid),
-			{Delay, _} = random:uniform_s(StateData#state.interval, now()),
-			I_ref = gen_fsm:start_timer(Delay, interval),
-			NewStateData = StateData#state{interval_ref = I_ref},
+			{Delay, _} = random:uniform_s(StateData#state.iframe_interval, now()),
+			I_ref = gen_fsm:send_event_after(Delay, iframe),
+			NewStateData = StateData#state{iframe_ref = I_ref},
 			{next_state, established, NewStateData}
 	end;
 establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
-	print_stats(L3L4m#l3_to_l4.data),
+	print_stats(L3L4m#l3_to_l4.data, StateData),
 	{next_state, establishing, StateData};
 establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
-establishing({timeout, _Ref, hourly}, StateData) ->
+establishing(report, StateData) ->
 	netaccess:req_l2_stats(StateData#state.port, StateData#state.lapdid),
-	H_ref = gen_fsm:start_timer(3600000, hourly),
-	{next_state, establishing, StateData#state{hourly_ref = H_ref}};
+	R_ref = gen_fsm:send_event_after(3600000, report),
+	{next_state, establishing, StateData#state{report_ref = R_ref}};
 establishing(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
 			{lapdid, StateData#state.lapdid}, {state, establishing}, Other]),
@@ -110,11 +112,11 @@ established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 			report_status(P, StateData#state.lapdid),
 			{next_state, established, StateData};
 		?IISDNdsESTABLISHING ->
-			gen_fsm:cancel_timer(StateData#state.interval_ref),
+			gen_fsm:cancel_timer(StateData#state.iframe_ref),
 			report_status(P, StateData#state.lapdid),
 			{next_state, establishing, StateData};
 		?IISDNdsNOT_ESTABLISHED ->
-			gen_fsm:cancel_timer(StateData#state.interval_ref),
+			gen_fsm:cancel_timer(StateData#state.iframe_ref),
 			report_status(P, StateData#state.lapdid),
 			{next_state, not_established, StateData}
 	end;
@@ -126,18 +128,18 @@ established({Channel, <<Hash:8/unit:8, Data/binary>>}, StateData) ->
 		_ ->
 			{stop, bad_hash, StateData}
 	end;	
-established({timeout, _Ref, interval}, StateData) ->
+established(iframe, StateData) ->
 	% send an IFRAME
 	netaccess:send(StateData#state.port, StateData#state.iframe),
-	I_ref = gen_fsm:start_timer(StateData#state.interval, interval),
-	{next_state, established, StateData#state{interval_ref = I_ref}};
-established({timeout, _Ref, hourly}, StateData) ->
+	I_ref = gen_fsm:send_event_after(StateData#state.iframe_interval, iframe),
+	{next_state, established, StateData#state{iframe_ref = I_ref}};
+established(report, StateData) ->
 	netaccess:req_l2_stats(StateData#state.port, StateData#state.lapdid),
-	H_ref = gen_fsm:start_timer(3600000, hourly),
-	{next_state, establishing, StateData#state{hourly_ref = H_ref}};
+	R_ref = gen_fsm:send_event_after(3600000, report),
+	{next_state, establishing, StateData#state{report_ref = R_ref}};
 established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
-	print_stats(L3L4m#l3_to_l4.data),
+	print_stats(L3L4m#l3_to_l4.data, StateData),
 	{next_state, established, StateData};
 established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
@@ -145,7 +147,7 @@ established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	{stop, Reason, StateData};
 established(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
-			{lapdid, element(2, StateData)}, {state, established}, Other]),
+			{lapdid, StateData#state.lapdid}, {state, established}, Other]),
 	{next_state, established, StateData}.
 
 %% multiframe not established
@@ -158,25 +160,25 @@ not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 			{next_state, establishing, StateData};
 		?IISDNdsESTABLISHED ->
 			report_status(P, StateData#state.lapdid),
-			{Delay, _} = random:uniform_s(StateData#state.interval, now()),
-			I_ref = gen_fsm:start_timer(Delay, interval),
-			{next_state, established, StateData#state{interval_ref = I_ref}};
+			{Delay, _} = random:uniform_s(StateData#state.iframe_interval, now()),
+			I_ref = gen_fsm:send_event_after(Delay, iframe),
+			{next_state, established, StateData#state{iframe_ref = I_ref}};
 		?IISDNdsNOT_ESTABLISHED ->
 			report_status(P, StateData#state.lapdid),
 			{next_state, not_established, StateData}
 	end;
 not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
-	print_stats(L3L4m#l3_to_l4.data),
+	print_stats(L3L4m#l3_to_l4.data, StateData),
 	{next_state, not_established, StateData};
 not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
-not_established({timeout, _Ref, hourly}, StateData) ->
+not_established(report, StateData) ->
 	netaccess:req_l2_stats(StateData#state.port, StateData#state.lapdid),
-	H_ref = gen_fsm:start_timer(3600000, hourly),
-	{next_state, establishing, StateData#state{hourly_ref = H_ref}};
+	R_ref = gen_fsm:send_event_after(3600000, report),
+	{next_state, establishing, StateData#state{report_ref = R_ref}};
 not_established(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
 			{lapdid, StateData#state.lapdid}, {state, not_established}, Other]),
@@ -195,8 +197,8 @@ terminate(Reason, StateName, StateData) ->
 	error_logger:info_report([{lapdid, StateData#state.lapdid},
 			{statename, StateName}, {reason, Reason}]),
 	catch netaccess:close(StateData#state.port),
-	catch gen_fsm:cancel_timer(StateData#state.interval_ref),
-	gen_fsm:cancel_timer(StateData#state.hourly_ref).
+	catch gen_fsm:cancel_timer(StateData#state.iframe_ref),
+	gen_fsm:cancel_timer(StateData#state.report_ref).
 
 code_change(_OldVsn, StateName, StateData, _Extra) ->
 	{ok, StateName, StateData}.
@@ -327,42 +329,44 @@ report_status(P, LapdId) ->
 			{l2_detail, Detail},
 			{l2_detail_data, P#protocol_stat.l2_detail_data}]).
 
-print_stats(L2Mtp2StatsBin) when is_binary(L2Mtp2StatsBin) ->
-	print_stats(iisdn:l2_mtp2_stats(L2Mtp2StatsBin));
-print_stats(L2Mtp2StatsRec) when is_record(L2Mtp2StatsRec, l2_mtp2_stats) ->
-	print_l2_stats(iisdn:l2_stats(L2Mtp2StatsRec#l2_mtp2_stats.stats)).
-print_l2_stats(L2Stats) when is_record(L2Stats, l2_stats) ->
-	error_logger:info_report(["Level 2 Statistics",
+print_stats(L2Mtp2StatsBin, StateData) when is_binary(L2Mtp2StatsBin) ->
+	print_stats(iisdn:l2_mtp2_stats(L2Mtp2StatsBin), StateData);
+print_stats(L2Mtp2StatsRec, StateData) when is_record(L2Mtp2StatsRec, l2_mtp2_stats) ->
+	print_l2_stats(iisdn:l2_stats(L2Mtp2StatsRec#l2_mtp2_stats.stats), StateData).
+print_l2_stats(L2Stats, StateData) when is_record(L2Stats, l2_stats) ->
+	error_logger:info_report(["Level 2 Statistics Report",
+			{port, StateData#state.port},
+			{lapdid, StateData#state.lapdid},
 			{iframe_tx, L2Stats#l2_stats.iframe_tx},
-			{rr_cmd_tx, L2Stats#l2_stats.rr_cmd_tx},
-			{rnr_cmd_tx, L2Stats#l2_stats.rnr_cmd_tx},
-			{rej_cmd_tx, L2Stats#l2_stats.rej_cmd_tx},
-			{sabm_tx, L2Stats#l2_stats.sabm_tx},
-			{sabme_tx, L2Stats#l2_stats.sabme_tx},
-			{disc_tx, L2Stats#l2_stats.disc_tx},
-			{rr_rsp_tx, L2Stats#l2_stats.rr_rsp_tx},
-			{rnr_rsp_tx, L2Stats#l2_stats.rnr_rsp_tx},
-			{rej_rsp_tx, L2Stats#l2_stats.rej_rsp_tx},
-			{dm_tx, L2Stats#l2_stats.dm_tx},
-			{ua_tx, L2Stats#l2_stats.ua_tx},
-			{frmr_tx, L2Stats#l2_stats.frmr_tx},
 			{iframe_rx, L2Stats#l2_stats.iframe_rx},
+			{rr_cmd_tx, L2Stats#l2_stats.rr_cmd_tx},
 			{rr_cmd_rx, L2Stats#l2_stats.rr_cmd_rx},
+			{rnr_cmd_tx, L2Stats#l2_stats.rnr_cmd_tx},
 			{rnr_cmd_rx, L2Stats#l2_stats.rnr_cmd_rx},
+			{rej_cmd_tx, L2Stats#l2_stats.rej_cmd_tx},
 			{rej_cmd_rx, L2Stats#l2_stats.rej_cmd_rx},
+			{sabm_tx, L2Stats#l2_stats.sabm_tx},
 			{sabm_rx, L2Stats#l2_stats.sabm_rx},
+			{sabme_tx, L2Stats#l2_stats.sabme_tx},
 			{sabme_rx, L2Stats#l2_stats.sabme_rx},
+			{disc_tx, L2Stats#l2_stats.disc_tx},
 			{disc_rx, L2Stats#l2_stats.disc_rx},
+			{rr_rsp_tx, L2Stats#l2_stats.rr_rsp_tx},
 			{rr_rsp_rx, L2Stats#l2_stats.rr_rsp_rx},
+			{rnr_rsp_tx, L2Stats#l2_stats.rnr_rsp_tx},
 			{rnr_rsp_rx, L2Stats#l2_stats.rnr_rsp_rx},
+			{rej_rsp_tx, L2Stats#l2_stats.rej_rsp_tx},
 			{rej_rsp_rx, L2Stats#l2_stats.rej_rsp_rx},
+			{dm_tx, L2Stats#l2_stats.dm_tx},
 			{dm_rx, L2Stats#l2_stats.dm_rx},
+			{ua_tx, L2Stats#l2_stats.ua_tx},
 			{ua_rx, L2Stats#l2_stats.ua_rx},
+			{frmr_tx, L2Stats#l2_stats.frmr_tx},
 			{frmr_rx, L2Stats#l2_stats.frmr_rx},
 			{crc_errors, L2Stats#l2_stats.crc_errors},
 			{rcv_errors, L2Stats#l2_stats.rcv_errors},
-			{retrans_cnt, L2Stats#l2_stats.retrans_cnt},
-			{poll_errors, L2Stats#l2_stats.poll_errors},
 			{ui_tx, L2Stats#l2_stats.ui_tx},
-			{ui_rx, L2Stats#l2_stats.ui_rx}]).
+			{ui_rx, L2Stats#l2_stats.ui_rx},
+			{retrans_cnt, L2Stats#l2_stats.retrans_cnt},
+			{poll_errors, L2Stats#l2_stats.poll_errors}]).
 	
