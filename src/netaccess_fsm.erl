@@ -81,45 +81,59 @@ behaviour_info(Other) ->
 %%  The gen_fsm API functions
 %%----------------------------------------------------------------------
 
+%% @hidden
 start(Module, Args, Options) ->
 	gen_fsm:start(?MODULE, [Module, Args], Options).
 
+%% @hidden
 start(FsmRef, Module, Args, Options) ->
 	gen_fsm:start(FsmRef, ?MODULE, [Module, Args], Options).
 
+%% @hidden
 start_link(Module, Args, Options) ->
 	gen_fsm:start_link(?MODULE, [Module, Args], Options).
 
+%% @hidden
 start_link(FsmRef, Module, Args, Options) ->
 	gen_fsm:start_link(FsmRef, ?MODULE, [Module, Args], Options).
 
+%% @hidden
 send_event(FsmRef, Event) ->
 	gen_fsm:send_event(FsmRef, Event).
 
+%% @hidden
 sync_send_event(FsmRef, Event) ->
 	gen_fsm:sync_send_event(FsmRef, Event).
 
+%% @hidden
 sync_send_event(FsmRef, Event, Timeout) ->
 	gen_fsm:sync_send_event(FsmRef, Event, Timeout).
 
+%% @hidden
 send_all_state_event(FsmRef, Event) ->
 	gen_fsm:send_all_state_event(FsmRef, Event).
 
+%% @hidden
 sync_send_all_state_event(FsmRef, Event) ->
 	gen_fsm:sync_send_all_state_event(FsmRef, Event).
 
+%% @hidden
 sync_send_all_state_event(FsmRef, Event, Timeout) ->
 	gen_fsm:sync_send_all_state_event(FsmRef, Event, Timeout).
 
+%% @hidden
 reply(Caller, Reply) ->
 	gen_fsm:reply(Caller, Reply).
 
+%% @hidden
 send_event_after(Time, Event) ->
 	gen_fsm:send_event_after(Time, Event).
 
+%% @hidden
 start_timer(Time, Msg) ->
 	gen_fsm:start_timer(Time, Msg).
 
+%% @hidden
 cancel_timer(Ref) ->
 	gen_fsm:cancel_timer(Ref).
 
