@@ -906,7 +906,7 @@ done_ioctl(DriverData *dd, ThreadData *td)
 				break;
 			case GET_DRIVER_INFO:
 				/*  {Port, {ref, Ref}, Binary}  */
-				if (!(ret = driver_alloc(13 * sizeof(ErlDrvTermData)))) {
+				if (!(ret = driver_alloc(14 * sizeof(ErlDrvTermData)))) {
 					driver_failure_posix(dd->port, errno);
 					return;
 				}
@@ -924,7 +924,7 @@ done_ioctl(DriverData *dd, ThreadData *td)
 				ret[11] = 0;
 				ret[12] = ERL_DRV_TUPLE;
 				ret[13] = 3;
-				if (driver_output_term(dd->port, ret, 13) < 1)
+				if (driver_output_term(dd->port, ret, 14) < 1)
 					DBG("driver_output_term failed");
 				driver_free(ret);
 				break;
