@@ -97,7 +97,7 @@
 %%% TODO:  how to organize these macros/records/functions
 -define(L3mENABLE_PROTOCOL,  16#B6).
 
-
+-define(L4L3mENABLE_PROTOCOL,  16#B6).
 -record('PRI_ENA_PROTO_DATA',
 	{command=0, command_parameter=0, level1, level2, level3}).
 
@@ -371,6 +371,41 @@
 -define(PRIl3modDPNSS,        7).
 -define(PRIl3modDASS,         8).
 -define(PRIl3modQ933_ANNEX_A, 9).
+
+% switch_type
+-define(PRIstATT_4ESS,        16#00).
+-define(PRIstATT_5ESS,        16#01).
+-define(PRIstNTI_DMS100,      16#02).
+-define(PRIstNTI_DMS250,      16#03).
+-define(PRIstMD110_T1,        16#04).
+-define(PRIstMD110_E1,        16#05).
+-define(PRIstSIEMENS,         16#06).
+-define(PRIstNTT,             16#07).
+-define(PRIstUNKNOWN,         16#08).
+-define(PRIstMAX_SWITCH_TYP,  16#08).
+
+% variant
+-define(PRIvarATT_CUSTOM,     16#00).
+-define(PRIvarNTI_CUSTOM,     16#01).
+-define(PRIvarNATL_ISDN_1,    16#02).
+-define(PRIvarNATL_ISDN_2,    16#03).
+-define(PRIvarJATE,           16#04).
+-define(PRIvarCTR3,           16#05).
+-define(PRIvarNET3,           16#05).
+-define(PRIvarCTR4,           16#06).
+-define(PRIvarNET5,           16#06).
+-define(PRIvar1TR6_BRI,       16#07).
+-define(PRIvar1TR6_PRI,       16#08).
+-define(PRIvarVN3,            16#09).
+-define(PRIvarITU,            16#0A).
+-define(PRIvarCCITT,          16#0A).
+-define(PRIvarQ933,           16#0B).
+-define(PRIvarQ933_T123,      16#0C).
+-define(PRIvarTS014,          16#0D).
+-define(PRIvarTS013,          16#0E).
+-define(PRIvarARINC_746,      16#0F).
+-define(PRIvarGR_303,         16#10).
+-define(PRIvarGR_303_TMC,     16#11).
 
 -record('PRI_LEVEL3_CNFG',
 		{l3_mode=0, cnfg=#'PRI_Q931_CNFG'{}}).

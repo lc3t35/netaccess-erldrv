@@ -26,6 +26,7 @@
 			reset_board/1,get_version/1, get_driver_info/1]).
 -export([set_hardware/2, set_hardware/3, set_hardware/4, req_hw_status/1]).
 -export([set_tsi/3, req_tsi_status/1]).
+-export([enable_protocol/3, enable_protocol/4, enable_protocol/7]).
 
 -include("pridrv.hrl").
 -include("naii.hrl").
@@ -282,9 +283,12 @@ req_tsi_status(TsiMapBins, NumMaps, TsiTerms) ->
 	
 
 %%
-%% enable_protocol(Port, Command, CommandParameter, Level1,
-%%                 Level2, Level3) ->  
+%% enable_protocol(Port, Lapdid, Command)
+%% enable_protocol(Port, Lapdid, Command, CommandParameter)
+%% enable_protocol(Port, Lapdid, Command, CommandParameter,
+%%                 Level1, Level2, Level3) ->
 %% 
+%%    Lapdid           = int()
 %%    Command          = int()
 %%    CommandParameter = int()
 %%    Level1           = record() of type pri_level1_config
@@ -294,8 +298,23 @@ req_tsi_status(TsiMapBins, NumMaps, TsiTerms) ->
 %% Use the naii library to decode/encode these records and the
 %% binaries received/sent to the boards.
 %%
-enable_protocol(Port, Command, CommandParameter,
-		Level1, Level2, Level3) -> ok.
+enable_protocol(Port, Lapdid, Command) ->
+	enable_protocol(Port, Lapdid, Command, 0).
+enable_protocol(Port, Lapdid, Command, CommandParameter) ->
+	enable_protocol(Port, Lapdid, Command, CommandParameter,
+			<<>>, <<>>, <<>>).
+enable_protocol(Port, Lapdid, Command, CommandParameter,
+		Level1, Level2, Level3) ->
+	EP = #'PRI_ENA_PROTO_DATA'{
+			command=Command, 
+			command_parameter=CommandParameter, 
+			level1=Level1, level2=Level2, level3=Level3},
+	L4L3m = #'L4_to_L3_struct'{
+			lapdid = Lapdid,
+			msgtype = ?L4L3mENABLE_PROTOCOL,
+			data = naii:'PRI_ENA_PROTO_DATA'(EP)},
+	port_command(Port, naii:'L4_to_L3_struct'(L4L3m)).
+	
 	
 
 %%----------------------------------------------------------------------
