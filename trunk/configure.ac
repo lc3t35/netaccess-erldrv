@@ -126,6 +126,7 @@ CPPFLAGS="${CPPFLAGS} -I${ERL_TOP}/usr/include"
 CPPFLAGS="${CPPFLAGS} -I${ERL_TOP}/lib/${erl_interface_path}/include"
 AC_CHECK_HEADERS([fcntl.h unistd.h])
 AC_CHECK_HEADERS([stropts.h])
+AC_CHECK_HEADERS([sys/uio.h])
 AC_CHECK_HEADERS([erl_driver.h])
 AC_CHECK_HEADERS([ei.h])
 

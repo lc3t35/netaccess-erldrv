@@ -179,13 +179,13 @@ handle_call_sync(MsgType, L4L3_Bin, From, {'EXIT', _Reason}, {Port, Board, State
 			Timeout = timeout(2000),
 			NewStateData = gb_trees:update(MsgType, {From, Timeout, []}, StateData),
 			% send to port
-			erlang:port_command(Port, L4L3_Bin),
+			erlang:port_call(Port, ?L4L3m, L4L3_Bin),
 			error_logger:error_report(["Stale request", {msgtyp, MsgType}, {tree, StateData}]),
 			{noreply, {Port, Board, NewStateData}}
 	end;
 %% insertion succeeded, send to port
 handle_call_sync(MsgType, L4L3_Bin, From, NewStateData, {Port, Board, _StateData} = State) ->
-	erlang:port_command(Port, L4L3_Bin),
+	erlang:port_call(Port, ?L4L3m, L4L3_Bin),
 	{noreply, {Port, Board, NewStateData}}.
 	
 %% Asynchronous requests
@@ -196,7 +196,7 @@ handle_call_async(L4L3_Rec, From, State)  when is_record(L4L3_Rec, l4_to_l3) ->
 	handle_call_async(L4L3_Rec#l4_to_l3.msgtype, Result, From, State).
 %% send to port
 handle_call_async(L4L3_Rec, _From, L4L3_Bin, {Port, _Board, _StateData} = State) when is_binary(L4L3_Bin) ->
-	erlang:port_command(Port, L4L3_Bin),
+	erlang:port_call(Port, ?L4L3m, L4L3_Bin),
 	{reply, true, State};
 %% failed to encode record
 handle_call_async(_MsgType, {'EXIT', _Reason}, {Pid, _Tag}, State) ->

@@ -16,14 +16,16 @@
 
 -define(DEFAULT_BOARDNAME, "/dev/pri0").
 
-%% ioctl commands
--define(BOOT_BOARD, 0).
+%% commands used in call to erlang:port_call/3
+-define(BOOT_BOARD,             0).
 -define(ENABLE_MANAGEMENT_CHAN, 1).
--define(RESET_BOARD,  2).
--define(GET_VERSION,  3).
--define(GET_DRIVER_INFO, 4).
--define(SELECT_BOARD, 5).
--define(CANCEL_ASYNC, 10).
+-define(RESET_BOARD,            2).
+-define(GET_VERSION,            3).
+-define(GET_DRIVER_INFO,        4).
+-define(SELECT_BOARD,           5).
+-define(CANCEL_ASYNC,          10).
+-define(L4L3m,                 43).
+-define(IFRAME,                92).
 
 -define(SIZEOF_int, @SIZEOF_int@).
 -define(SIZEOF_ushort, @SIZEOF_ushort@).
