@@ -440,7 +440,7 @@ req_tsi_status(ServerRef) ->
 %%
 %% @doc Specifies and enables layer 1, 2 &amp; 3 processing on an open channel.
 %%
-enable_protocol(Channel, LapdId, EnaProtoData) 
+enable_protocol(Channel, LapdId, EnaProtoData)  ->
 	enable_protocol(Channel, LapdId,  0, EnaProtoData).
 
 %% @spec (Channel, LapdId, LogicalLinkID, EnaProtoData) -> ok
@@ -468,7 +468,7 @@ enable_protocol(Channel, LapdId, LogicalLinkID, EnaProtoData)
 %%
 %% @doc Add relay rules on a channel previously enabled for packet relay.
 %%
-relay_add_rule(Channel, LapdId, LogicalLinkID, RelayRules) 
+relay_add_rule(Channel, LapdId, LogicalLinkID, RelayRules)  ->
 	relay_add_rule(Channel, LapdId, LogicalLinkID, RelayRules, <<>>).
 %% @hidden
 relay_add_rule(Channel, LapdId, LogicalLinkID, [RelayRule|T], Rules) 
@@ -477,7 +477,7 @@ relay_add_rule(Channel, LapdId, LogicalLinkID, [RelayRule|T], Rules)
 	NewBin = <<Rules/binary, NewRule/binary>>,
 	relay_add_rule(Channel, LapdId, LogicalLinkID, T, NewBin);
 relay_add_rule(Channel, LapdId, LogicalLinkID, [], Rules) ->
-	EmptyRule = iisdn:relay_rule(#relay_rule()),
+	EmptyRule = iisdn:relay_rule(#relay_rule{}),
 	DataBin = <<Rules/binary, EmptyRule/binary>>,
 	L4L3_rec = #l4_to_l3{lapdid = LapdId, lli = LogicalLinkID,
 			msgtype = ?L4L3mRELAY_ADD_RULE, data = DataBin},
