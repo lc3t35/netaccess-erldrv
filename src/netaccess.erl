@@ -386,7 +386,7 @@ get_driver_info(Port) ->
 %%
 %% set hardware settings on board such as clocking, framing
 %%
-%% returns {ok, 
+%% returns true or fails
 %% 
 
 % may be called without line settings and CSU flags, we'll use defaults
@@ -429,7 +429,7 @@ set_hardware(Port, HardwareSettings, LineSettings, CsuFlags)
 	L4_Ref = 16#FFFF,
 	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mSET_HARDWARE, L4_Ref, 0, 0),
 	L4_to_L3_struct = concat_binary([L4L3_Bin, HardwareBin, LineBins, CsuBin]),
-	do_call({smi, Port, L4_Ref, L4_to_L3_struct}).
+	do_call({'L4L3m', Port, L4_Ref, L4_to_L3_struct}).
 
 
 %%
@@ -441,9 +441,9 @@ req_hw_status(Port) ->
 	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mREQ_HW_STATUS, 16#FFFF, 0, 0),
 	port_command(Port, L4L3_Bin),
 	receive 
-		{Port, {error, Reason}} -> {error, Reason};
-		{Port, {?L3L4_Mask(_LapdId, ?L3L4mHARDWARE_STATUS, _L4Ref, _CallRef,
-				_BChan, _IFace, _BChanMask, _Lli, _DataChan, Rest), _DataBin}} ->
+		{Port, {'L3L4m', ?L3L4_Mask(_LapdId, ?L3L4mHARDWARE_STATUS,
+				_L4Ref, _CallRef, _BChan, _IFace, _BChanMask, _Lli,
+				_DataChan, Rest), _DataBin}} ->
 			?PRI_HARDWARE_DATA = Rest,
 			?HardwareMask = HardwareBin,
 			{ok, ?HardwareTerms, req_hw_status(LineBins,
@@ -451,7 +451,7 @@ req_hw_status(Port) ->
 					binary_to_list(CsuBin)}; 
 		{Port, {error, Reason}} -> {error, Reason}
 	after
-		100 -> {error, timeout}
+		1000 -> {error, timeout}
 	end.
 req_hw_status(<<>>, LineBinSize, LineTerms) -> LineTerms;
 req_hw_status(LineBins, LineBinSize, LineTerms) ->
@@ -490,16 +490,16 @@ req_tsi_status(Port) ->
 	L4L3_Bin = ?L4L3_Mask(0, ?L4L3mREQ_TSI_STATUS, 16#FFFF, 0, 0),
 	port_command(Port, L4L3_Bin),
 	receive 
-		{Port, {error, Reason}} -> {error, Reason};
-		{Port, {?L3L4_Mask(_LapdId, ?L3L4mTSI_STATUS, _L4Ref, _CallRef,
-				_BChan, _IFace, _BChanMask, _Lli, _DataChan, Rest), _DataBin}} ->
+		{Port, {'L3L4m', ?L3L4_Mask(_LapdId, ?L3L4mTSI_STATUS,
+				_L4Ref, _CallRef, _BChan, _IFace, _BChanMask,
+				_Lli, _DataChan, Rest), _DataBin}} ->
 			?PRI_TSI_DATA = Rest,
 			{ok, {num_mappings, NumMappings},
 					{granularity, Granularity}, {last, Last},
 					req_tsi_status(TsiMapBins, NumMappings, [])};
 		{Port, {error, Reason}} -> {error, Reason}
 	after
-		100 -> {error, timeout}
+		1000 -> {error, timeout}
 	end.
 req_tsi_status(TsiMapBins, 0, TsiTerms) -> TsiTerms;
 req_tsi_status(TsiMapBins, NumMaps, TsiTerms) ->
@@ -553,9 +553,13 @@ handle_call({ioctl, Operation, Data, Port}, From, State) ->
 	end;
 
 %% send an SMI message to the board
-handle_call({smi, Port, L4_Ref, L4L3_Msg}, From, State) ->
-	catch erlang:port_command(Port, L4L3_Msg),
-	{noreply, State};
+handle_call({'L4L3m', Port, L4_Ref, L4L3_Msg}, From, State) ->
+	case catch erlang:port_command(Port, L4L3_Msg) of
+		true ->
+			{reply, true, State};
+		Error ->
+			{reply, Error, State}
+	end;
 
 %% shutdown the netaccess server
 handle_call(stop, _From, State) ->
@@ -578,9 +582,23 @@ handle_info({Port, {ref, Ref}, Result}, State) when is_port(Port) ->
 	gen_server:reply(From, Result),
 	{noreply, NewState};
 
+% an L3L4 SMI control message has arrived from the board
+handle_info({Port, {'L3L4m', ?L3L4_Mask(LapdId, MsgType, L4Ref,
+		CallRef, BChan, Iface, BChanMask, Lli, DataChan, Data) = CtrlBin,
+		DataBin}}, State) ->
+io:fwrite("Port=~w, MsgType=~.16x, L4Ref=~.16x, CallRef=~.16x, BChan=~w, Iface=~w, BChanMask=~.16x, Lli=~.16x, DataChan=~w~n", [Port, MsgType,"0x", L4Ref,"0x", CallRef,"0x", BChan, Iface, BChanMask,"0x", Lli,"0x", DataChan]),
+	{Pid, _Time} = gb_trees:get({port, Port}, State),
+	Pid ! {Port, {'L3L4m', CtrlBin, DataBin}},
+	{noreply, State};
+
+% an L3L4 SMI control message has arrived from the board
+handle_info({Port, {'L3L4m', <<>>, DataBin}}, State) ->
+	{Pid, _Time} = gb_trees:get({port, Port}, State),
+	Pid ! {Port, {data, DataBin}},
+	{noreply, State};
+
 % a port has closed normally
 handle_info({'EXIT', Port, normal}, State) ->
-io:format("port shutdown:  {'EXIT', ~p, normal}~n",[Port]),
 	NewState = clean_port(Port, State),
 	{noreply, NewState};
 
