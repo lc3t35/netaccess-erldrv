@@ -90,14 +90,9 @@
 #endif
 
 #define DEV_PATH "/dev/pri0"
-
-/*  TODO:  make this a runtime option  */
-#define MAXIFRAMESZ 260     /*  maximum size of a received IFRAME  */
-#define LOWWATER (4 * MAXIFRAMESZ)
-#define HIGHWATER (8 * MAXIFRAMESZ)
-
-#define CANCEL_ASYNC 10
-#define FLUSH_QUEUE  11
+#define DEFAULT_MAXIFRAMESIZE  260
+#define DEFAULT_LOWWATER       0
+#define DEFAULT_HIGHWATER      8
 
 #define BOOT_BOARD             0
 #define ENABLE_MANAGEMENT_CHAN 1
@@ -105,10 +100,16 @@
 #define GET_VERSION            3
 #define GET_DRIVER_INFO        4
 #define SELECT_BOARD           5
+#define CANCEL_ASYNC          10
+#define FLUSH_QUEUE           11
+#define MAXIFRAMESIZE         20
+#define LOWWATER              21
+#define HIGHWATER             22
+#define QSIZE                 23
 #define THREAD_L4L3           43
 #define THREAD_IFRAME         92
 
-#if defined(DEBUG)
+#if defined(DRIVER_DEBUG)
 #  define DBG(string) fprintf(stderr, string "\r\n");
 #  define DBGARG(string, arg) fprintf(stderr, string "\r\n", arg);
 #else
@@ -121,13 +122,15 @@ static ErlDrvEntry  driver_entry;
 
 /*  This is passed to most of the driver routines, it is our global data  */
 typedef struct {
-	int fd;                         /* File descriptor */
-	ErlDrvPort port;                /* The port identifier */
-	int low;                        /* low water mark */
-	int high;                       /* high water mark */
+	int fd;                         /* File descriptor             */
+	ErlDrvPort port;                /* The port identifier         */
+	int maxiframesize;              /* maximum receive IFRAME size */
+	int qsize;                      /* Outstanding write requests  */
+	int lowwater;                   /* low water mark in queue     */
+	int highwater;                  /* high water mark ine queue   */
 } DriverData;
 
-/*  This data is needed for a thread executing an ioctl request  */
+/*  This data is needed for a thread executing an ioctl request   */
 typedef struct {
 	struct strioctl *ctlp;          /* streams control data        */
 	download_t *bp;                 /* structure to hold boot file */
@@ -152,7 +155,7 @@ typedef struct {
 	int command;                    /* ioctl command               */
 	int fd;                         /* File descriptor             */
 	long ref;                       /* handle to async task        */
-	int tresult;                     /* return from async function  */
+	int tresult;                    /* return from async function  */
 	int terrno;                     /* errno from async function   */
 	union {
 		ThreadIoctlData ioctl;       /* iotctl specific data        */
@@ -199,7 +202,6 @@ static void free_iframe(ThreadData *td);
 static void do_ioctl(ThreadData *td);
 static void done_ioctl(DriverData *dd, ThreadData *td);
 static void free_ioctl(ThreadData *td);
-static int message_to_board(int fd, SysIOVec *iov);
 static int message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl,
 		int ctrllen, ErlDrvBinary *data, int datalen);
 
@@ -304,7 +306,6 @@ start(ErlDrvPort port, char *command)
 
 	DBG("start");
 	set_port_control_flags(port, 0); /*  port_control/3 returns a list */
-
 	if(!(dd = driver_alloc(sizeof(DriverData))))
 		return ERL_DRV_ERROR_ERRNO;
 
@@ -320,12 +321,12 @@ start(ErlDrvPort port, char *command)
 	}
 	pd.events = (POLLIN | POLLRDBAND | POLLPRI);
 	driver_event(port, (ErlDrvEvent) dd->fd, (ErlDrvEventData) &pd);
-
 	fcntl(dd->fd, F_SETFL, (fcntl(dd->fd, F_GETFL, 0) & ~O_NONBLOCK));
 	dd->port = port;	
-	dd->low = LOWWATER;       /*  queue low water mark   */
-	dd->high = HIGHWATER;     /*  queue high water mark  */
-
+	dd->maxiframesize = DEFAULT_MAXIFRAMESIZE;
+	dd->lowwater = DEFAULT_LOWWATER;
+	dd->highwater = DEFAULT_HIGHWATER;
+	dd->qsize = 0;
 	return((ErlDrvData) dd);
 }
 
@@ -369,8 +370,7 @@ static void
 outputv(ErlDrvData handle, ErlIOVec *ev)
 {
 	DriverData *dd = (DriverData *) handle;
-	int sz, i;
-	struct erl_drv_event_data pd;
+	int i;
 	ThreadData *td;
 
 	DBG("outputv");
@@ -403,17 +403,8 @@ outputv(ErlDrvData handle, ErlIOVec *ev)
 	}
 	td->ref = driver_async(dd->port, NULL, (void *)(void *)do_iframe,
 			(void *)td, (void *)(void *)free_iframe);
-
-#if 0
-	/*  if there's a queue just add to it  */
-	if((sz = driver_sizeq(dd->port)) > 0) {
-			driver_enqv(dd->port, ev, 0);
-			if((sz + 1) >= dd->high) {          /*  queue full, throttle  */
-				DBG("queue high water mark");
-				set_busy_port(dd->port, 1);
-			} return;
-	}
-#endif
+	if (++dd->qsize >= dd->highwater)
+		set_busy_port(dd->port, 1);
 }
 	
 
@@ -457,7 +448,8 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 	ThreadData *td = (ThreadData *) t_data;
 
 	DBG("ready_async");
-
+	if (--dd->qsize <= dd->lowwater)
+		set_busy_port(dd->port, 0);
 	switch (td->command) {
 		case THREAD_L4L3:
 			done_l4l3(dd, td);
@@ -465,7 +457,7 @@ ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 		case THREAD_IFRAME:
 			done_iframe(dd, td);
 			break;
-		case SELECT_BOARD:
+		case SELECT_BOARD:      
 		case BOOT_BOARD:      
 		case ENABLE_MANAGEMENT_CHAN:
 		case RESET_BOARD:
@@ -508,7 +500,7 @@ call(ErlDrvData handle, unsigned int command,
 {
 	DriverData *dd = (DriverData *) handle;
 	long ref;
-	int qsize;
+	long value;
 	ThreadData *td;
 	struct strioctl *strioctl;
 	int version, index, rindex, type, size;
@@ -519,6 +511,50 @@ call(ErlDrvData handle, unsigned int command,
       return((int) ERL_DRV_ERROR_GENERAL);
 
 	switch(command) {
+		case MAXIFRAMESIZE:
+			DBG("MAXIFRAMESIZE");
+			if (ei_decode_long(buf, &index, &value))
+				return((int) ERL_DRV_ERROR_BADARG);
+			if (ei_encode_version(*rbuf, &rindex)
+					|| ei_encode_long(*rbuf, &rindex, dd->maxiframesize)) {
+				DBG("ei_encode failed");
+				return((int) ERL_DRV_ERROR_ERRNO);
+			}
+			dd->maxiframesize = value;
+			return(rindex);
+			break;
+		case HIGHWATER:
+			DBG("HIGHWATER");
+			if (ei_decode_long(buf, &index, &value))
+				return((int) ERL_DRV_ERROR_BADARG);
+			if (ei_encode_version(*rbuf, &rindex)
+					|| ei_encode_long(*rbuf, &rindex, dd->highwater)) {
+				DBG("ei_encode failed");
+				return((int) ERL_DRV_ERROR_ERRNO);
+			}
+			dd->highwater = value;
+			return(rindex);
+			break;
+		case LOWWATER:
+			DBG("LOWWATER");
+			if (ei_decode_long(buf, &index, &value))
+				return((int) ERL_DRV_ERROR_BADARG);
+			if (ei_encode_version(*rbuf, &rindex)
+					|| ei_encode_long(*rbuf, &rindex, dd->lowwater)) {
+				DBG("ei_encode failed");
+				return((int) ERL_DRV_ERROR_ERRNO);
+			}
+			dd->lowwater = value;
+			return(rindex);
+			break;
+		case QSIZE:
+			DBG("QSIZE");
+			if (ei_encode_version(*rbuf, &rindex)
+					|| ei_encode_long(*rbuf, &rindex, dd->qsize)) {
+				DBG("ei_encode failed");
+				return((int) ERL_DRV_ERROR_ERRNO);
+			}
+			return(rindex);
 		case CANCEL_ASYNC:
 			DBG("CANCEL_ASYNC");
 			if (ei_decode_long(buf, &index, &ref))
@@ -538,19 +574,6 @@ call(ErlDrvData handle, unsigned int command,
 			}
 			return(rindex);
 			break;
-#if 0
-		case FLUSH_QUEUE:
-			DBG("FLUSH_QUEUE");
-    		qsize = driver_sizeq(dd->port);
-			driver_deq(dd->port, qsize);        
-			if (ei_encode_version(*rbuf, &rindex)
-					|| ei_encode_atom(*rbuf, &rindex, "true")) {
-				DBG("ei_encode failed");
-				return((int) ERL_DRV_ERROR_ERRNO);
-			} else
-				/*  TODO:  implement something?  */
-				return(rindex);
-#endif
 	}
 	/*  these are potentially blocking tasks so we must be threaded  */
 	if (erts_async_max_threads > 0) {
@@ -576,6 +599,8 @@ call(ErlDrvData handle, unsigned int command,
 				}
 				td->ref = driver_async(dd->port, NULL, (void *)(void *)do_l4l3,
 						(void *)td, (void *)(void *)free_l4l3);
+				if (++dd->qsize >= dd->highwater)
+					set_busy_port(dd->port, 1);
 				ei_encode_version(*rbuf, &rindex);
 				ei_encode_atom(*rbuf, &rindex, "true");
 				return(rindex);
@@ -592,16 +617,11 @@ call(ErlDrvData handle, unsigned int command,
 		switch(command) {
 			case SELECT_BOARD:
 				DBG("SELECT_BOARD");
-				if (ei_decode_long(buf, &index, &ref)) {
-					free_ioctl(td);
+				if (ei_decode_long(buf, &index, &ref))
 					return((int) ERL_DRV_ERROR_BADARG);
-				}
 				strioctl->ic_cmd = PRIDRViocSEL_BOARD;
-				strioctl->ic_len = 1;                
-				if(!(strioctl->ic_dp = (char *) driver_alloc(10)))  /* board string */   {
-					free_ioctl(td);
-					return((int) ERL_DRV_ERROR_ERRNO);
-				}
+				strioctl->ic_len = 1;
+				strioctl->ic_dp = (char *) driver_alloc(10);  /* board string */
 				strioctl->ic_dp[0] = ref;                     /* board num  */
 				break;
 #ifdef _LP64 /*  passing a pointer in an ioctl requires 64-bit compilation
@@ -671,6 +691,8 @@ call(ErlDrvData handle, unsigned int command,
 		}
 		td->ref = driver_async(dd->port, NULL, (void *)(void *)do_ioctl,
 				(void *)td, (void *)(void *)free_ioctl);
+		if (++dd->qsize >= dd->highwater)
+			set_busy_port(dd->port, 1);
 		/*  return the reference  */
 		if (ei_encode_version(*rbuf, &rindex)
 				|| ei_encode_tuple_header(*rbuf, &rindex, 2)
@@ -698,8 +720,6 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 	ErlDrvBinary *ctrlbin, *databin;
 	struct strbuf strctrl, strdata;
 	int flags = 0;
-	int vsize, qsize;
-	SysIOVec *iov;
 
 
 	DBG("event");
@@ -713,7 +733,7 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 		strctrl.buf = ctrlbin->orig_bytes;
 	
 		/*  construct a streams buffer for the data message  */
-		if (!(databin = driver_alloc_binary(MAXIFRAMESZ))) {
+		if (!(databin = driver_alloc_binary(dd->maxiframesize))) {
 			driver_failure_posix(dd->port, errno);
 			driver_free_binary(ctrlbin);
 			return;
@@ -747,34 +767,9 @@ event(ErlDrvData handle, ErlDrvEvent event, ErlDrvEventData event_data)
 		driver_free_binary(databin);
 	}
 	
-/*  TODO:  remove this  */
 	if (event_data->revents & POLLOUT) {
 		DBG("POLLOUT");
-		while((iov = driver_peekq(dd->port, &vsize)) != NULL) {
-			qsize = driver_sizeq(dd->port);
-			/*  send the next message to the board  */	
-			if(message_to_board(dd->fd, iov) < 0) {
-				switch(errno) {
-					case EINTR:
-					case EAGAIN:
-						driver_event(dd->port, event, event_data);
-						return;
-					default:
-						driver_deq(dd->port, qsize);  /*  dump the whole queue  */
-						driver_failure_posix(dd->port, errno);
-						return;
-				}
-			}
-			driver_deq(dd->port, iov[0].iov_len); /* dequeue this sent message */
-			if(qsize <= dd->low) {              /*  queue emptying, unthrottle  */
-				DBG("queue low water mark");
-				set_busy_port(dd->port, 0);
-			}
-		}
-		event_data->events = (event_data->events & ~POLLOUT);
-		driver_event(dd->port, event, event_data);
 	}
-
 	if (event_data->revents & POLLWRBAND) {
 		DBG("POLLWRBAND");
 	}
@@ -1079,23 +1074,3 @@ message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl, int ctrllen,
 	return driver_output_term(port, msg, 16);
 }
 
-
-/*  send an SMI message to the board  */
-int
-message_to_board(int fd, SysIOVec *iov)
-{
-	struct strbuf buf;
-
-	/*  the first byte is the type; control or data  */
-	if(iov->iov_base[0] == 0) {
-		buf.len = (iov->iov_len - 1);
-		buf.buf = &iov->iov_base[1];
-		/*  send a control message to the board with high priority  */
-		return(putmsg(fd, &buf, NULL, RS_HIPRI));
-	} else {
-		buf.len = (iov->iov_len - 1);
-		buf.buf = &iov->iov_base[1];
-		/*  send a data message to the board  */
-		return(putmsg(fd, NULL, &buf, 0));
-	}
-}

@@ -27,7 +27,6 @@ AC_ARG_ENABLE(debug,
 	[case "${enableval}" in
 		yes)
 			debug=true
-			CPPFLAGS="${CPPFLAGS} -DDEBUG"
 			;;
 		no)
 			debug=false
