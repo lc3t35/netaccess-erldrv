@@ -67,9 +67,9 @@ init_protocol(StateData) ->
 	% send an L4L3mENABLE_PROTOCOL to start LAPD 
 	netaccess:enable_protocol(StateData#state.port, 
 			StateData#state.lapdid, ProtoData),
-	R_ref = gen_fsm:send_event_after(3600000, report_timer),
+	R_ref = gen_fsm:send_event_after(StateData#state.report_interval, report_timer),
 	NewStateData = StateData#state{report_ref = R_ref},
-	{ok, establishing, NewStateData}.
+	{ok, not_established, NewStateData}.
 
 
 %% waiting to establish multiframe state
@@ -100,7 +100,7 @@ establishing({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	{stop, Reason, StateData};
 establishing(report_timer, StateData) ->
 	netaccess:req_l2_stats(StateData#state.port, StateData#state.lapdid),
-	R_ref = gen_fsm:send_event_after(3600000, report_timer),
+	R_ref = gen_fsm:send_event_after(StateData#state.report_interval, report_timer),
 	{next_state, establishing, StateData#state{report_ref = R_ref}};
 establishing(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
@@ -140,7 +140,7 @@ established(iframe_timer, StateData) ->
 	{next_state, established, StateData#state{iframe_ref = I_ref}};
 established(report_timer, StateData) ->
 	netaccess:req_l2_stats(StateData#state.port, StateData#state.lapdid),
-	R_ref = gen_fsm:send_event_after(3600000, report_timer),
+	R_ref = gen_fsm:send_event_after(StateData#state.report_interval, report_timer),
 	{next_state, established, StateData#state{report_ref = R_ref}};
 established({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
@@ -182,7 +182,7 @@ not_established({_Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	{stop, Reason, StateData};
 not_established(report_timer, StateData) ->
 	netaccess:req_l2_stats(StateData#state.port, StateData#state.lapdid),
-	R_ref = gen_fsm:send_event_after(3600000, report_timer),
+	R_ref = gen_fsm:send_event_after(StateData#state.report_interval, report_timer),
 	{next_state, not_established, StateData#state{report_ref = R_ref}};
 not_established(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
