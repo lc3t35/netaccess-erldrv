@@ -4,6 +4,12 @@ This package is built with the GNU Build System.  A good reference
 for the whole process is at:
   http://sources.redhat.com/autobook/autobook/autobook.html#SEC_Top
 
+The manuals are here:
+
+	http://www.gnu.org/manual/automake/html_mono/automake.html
+	http://www.gnu.org/manual/autoconf/html_mono/autoconf.html
+	http://www.gnu.org/manual/libtool/html_mono/libtool.html
+
 
 Requirements:
 
@@ -33,8 +39,12 @@ Building:
 	run `libtoolize --automake`   (creates config/ltmain.sh)
 	run `automake --add-missing`  (creates Makefile.in)
 	[Note:  you should be able to run autoreconf to do all 
-	        the above but it just hangs on my system  -vance]
+	        the above afterwards when changes are made]
 
 	run ./configure               (creates Makefile)
 	run make                      (builds entire package)
+
+Options:
+
+	./configure --enable-debug --enable-threads
 

@@ -292,7 +292,7 @@ stop() ->
 %%
 %% open a channel on a netaccess board
 %%
-%% returns {ok, Port} or {error, Reason}
+%% returns {ok, Port} or fails
 %%
 open() ->
 	do_call({open, "netaccess_drv"}).
@@ -306,7 +306,7 @@ open(Board) when atom(Board) ->
 %%
 %% close a channel on a netaccess board
 %%
-%% returns ok or {error, Reason}
+%% returns true
 %%
 close(Port) ->
 	do_call({close, Port}).
@@ -315,7 +315,7 @@ close(Port) ->
 %%
 %% select a netaccess board for the channel 
 %%
-%% returns {ok, done} or {error, Reason}
+%% returns {ok, done} or fails
 %%
 select_board(Port, Board) when integer(Board) ->
 	do_ioctl({ioctl, ?SELECT_BOARD, [Board], Port}).
@@ -324,7 +324,7 @@ select_board(Port, Board) when integer(Board) ->
 %%
 %% enable a management channel on an open netaccess board
 %%
-%% returns {ok, done} or {error, Reason}
+%% returns {ok, done} or fails
 %%
 enable_management_chan(Port) ->
 	do_ioctl({ioctl, ?ENABLE_MANAGEMENT_CHAN, [], Port}).
@@ -349,7 +349,7 @@ boot(Port, Filename) when list(Filename) ->
 %%
 %% perform a reset on an open netaccess board
 %%
-%% returns {ok, done} or {error, Reason}
+%% returns {ok, done} or fails
 %%
 reset_board(Port) ->
 	do_ioctl({ioctl, ?RESET_BOARD, [], Port}).
@@ -515,54 +515,40 @@ init([]) ->
 		{error, ErrorDescriptor} ->
 			{stop, erl_ddll:format_error(ErrorDescriptor)};
 		ok ->
-			{ok, []}
+			{ok, gb_trees:empty()}
 	end.
 
 
 %% open a port to the netaccess board
 handle_call({open, Board}, {Pid, _Tag}, State) ->
 	case catch erlang:open_port({spawn, Board}, []) of
-		{'EXIT', Reason} ->
-			Reply = {error, Reason};
-		Port when port(Port) ->
-			case catch erlang:port_connect(Port, Pid) of
-				true ->
-					% unlink(Port),
-					Reply = {ok, Port};
-				{'EXIT', Reason} ->
-					Reply = {error, Reason}
-			end
-	end,
-	{reply, Reply, State};
-
+		Port when is_port(Port) -> 
+			NewState = gb_trees:insert({port, Port}, {Pid, now()}, State),
+			{reply, {ok, Port}, NewState};
+		Error ->
+			{reply, Error, State}
+	end;
 
 %% close a port on a netaccess board
 handle_call({close, Port}, _From, State) ->
-	case catch erlang:port_close(Port) of
-		{'EXIT', Reason} ->
-			Reply = {error, Reason};
-		true -> Reply = ok
-	end,
-	{reply, Reply, State};
-	
+	NewState = clean_port(Port, State),
+	{reply, catch erlang:port_close(Port), NewState};
 
 %% perform an ioctl on an open channel to a netaccess board
-handle_call({ioctl, Operation, Data, Port}, _From, State) ->
+handle_call({ioctl, Operation, Data, Port}, From, State) ->
 	case catch erlang:port_control(Port, Operation, Data) of
-		{'EXIT', Reason} ->
-			error_logger:error_msg('netaccess failed call operation'),
-			Reply = {error, Reason};
-		Ref ->
-			Reply = {ok, Ref}
-	end,
-	{reply, Reply, State};
-
+		Ref when is_list(Ref) ->
+			NewState = gb_trees:insert({ref, Ref},
+					{Port, From, now()}, State),
+			{noreply, NewState};
+		Error ->
+			{reply, Error, State}
+	end;
 
 %% send an SMI message to the board
 handle_call({smi, Port, L4_Ref, L4L3_Msg}, From, State) ->
-	erlang:port_command(Port, L4L3_Msg),
+	catch erlang:port_command(Port, L4L3_Msg),
 	{noreply, State};
-
 
 %% shutdown the netaccess server
 handle_call(stop, _From, State) ->
@@ -572,22 +558,34 @@ handle_call(_, _, State) ->
 	{noreply, State}.
 
 handle_cast({ioctl, Operation, Data, Port}, State) ->
-	case catch erlang:port_control(Port, Operation, Data) of
-		{'EXIT', Reason} ->
-			error_logger:error_msg('netaccess failed cast operation');
-		_ -> ok
-	end,
+	catch erlang:port_control(Port, Operation, Data),
 	{noreply, State};
 	
 handle_cast(_, State) ->
 	{noreply, State}.
 
+% an asynch task has completed
+handle_info({Port, Ref, Result}, State) when is_port(Port) ->
+	{Port, From, _Time} = gb_trees:get({ref, Ref}, State),
+	NewState = gb_trees:delete({ref, Ref}, State),
+	gen_server:reply(From, Result),
+	{noreply, NewState};
+
+% a port has closed normally
+handle_info({'EXIT', Port, normal}, State) ->
+io:format("port shutdown:  {'EXIT', ~p, normal}~n",[Port]),
+	NewState = clean_port(Port, State),
+	{noreply, NewState};
+
+% a port has closed abnormally
 handle_info({'EXIT', Port, Reason}, State) ->
-	error_logger:error_msg('Port controlling netaccess_drv terminated'),
-	{stop, normal, State};
+	error_logger:error_report([{'Port', Port}, {'Reason', Reason},
+			"Port closed unexpectedly"]),
+	NewState = clean_port(Port, State),
+	{noreply, NewState};
 
 handle_info(Unknown, State) ->
-	io:format("~p~n", [Unknown]),
+	error_logger:error_report([{'Unknown message', Unknown}, State]),
 	{noreply, State}.
 
 % someone wants us to shutdown and cleanup
@@ -607,38 +605,35 @@ code_change(_, _, _) -> ok.
 
 do_ioctl(Request) ->
 	do_ioctl(Request, 20000).
-do_ioctl({ioctl, Operation, Data, Port}, Timeout) ->
-	case do_call({ioctl, Operation, Data, Port}) of
-		{error, Reason} ->
-			{error, Reason};
-		{ok, Ref} -> 
-			receive
-				{Port, Ref, Result} -> Result
-			after
-				Timeout ->
-					do_cast({ioctl, ?CANCEL_ASYNC, Ref, Port}),
-					{error, timeout}
-			end
-	end.
+do_ioctl(Request, Timeout) ->
+	gen_server:call(netaccess_server, Request, Timeout).
 
 do_call(Request) ->
-	Server = 
-		case whereis(netaccess_server) of
-			undefined -> {ok, Pid} = start(), Pid;
-			Pid -> Pid
-		end,
-	gen_server:call(Server, Request).
+	gen_server:call(netaccess_server, Request).
 
 do_cast(Request) ->
-	Server = 
-		case whereis(netaccess_server) of
-			undefined -> {ok, Pid} = start(), Pid;
-			Pid -> Pid
-		end,
-	gen_server:cast(Server, Request).
+	gen_server:cast(netaccess_server, Request).
 
 % merges a list of option settings with the list of default values
 mergeopts([], Merged) -> Merged;
 mergeopts([{Option, Value}|T], Defaults) ->
 	Merged = lists:keyreplace(Option, 1, Defaults, {Option, Value}),
 	mergeopts(T, Merged).
+
+clean_port(Port, State) when is_port(Port) ->
+	I = gb_trees:iterator(State),
+	clean_state(Port, State, I).
+
+clean_state(Port, State, I) ->
+	case gb_trees:next(I) of
+		{{port, Port}, {_Pid, _Time}, S} ->
+			NewState = gb_trees:delete({port, Port}, State),
+			clean_state(Port, NewState, S);
+		{{ref, Ref}, {Port, _From, _Time}, S} ->
+			NewState = gb_trees:delete({ref, Ref}, State),
+			clean_state(Port, NewState, S);
+		{Key, _, S} ->
+			clean_state(Port, State, S);
+		none ->
+			State
+	end.

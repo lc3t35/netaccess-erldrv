@@ -101,7 +101,13 @@
 #define GET_DRIVER_INFO 4
 #define SELECT_BOARD 5
 
-
+#if defined(DEBUG)
+#  define DBG(string) fprintf(stderr, string "\r\n");
+#  define DBGARG(string, arg) fprintf(stderr, string "\r\n", arg);
+#else
+#  define DBG(string)
+#  define DBGARG(string, arg)
+#endif
 
 
 /**********************************************************************
@@ -112,6 +118,16 @@
 
 static void do_ioctl(void *t_data);
 static void free_tdata(void *t_data);
+static int message_to_board(int fd, SysIOVec *iov);
+static int message_to_port(ErlDrvPort port, ErlDrvBinary *ctrl,
+		int ctrllen, ErlDrvBinary *data, int datalen);
+static int output_atom_result(ErlDrvPort port, unsigned char *ref,
+		char *ret, char *result);
+static int output_binary_result(ErlDrvPort port, unsigned char *ref,
+		char *ret, ErlDrvBinary *bin, int len);
+static int output_string_result(ErlDrvPort port, unsigned char *ref,
+		char *ret, char *string, int len);
+static int output_error(ErlDrvPort port, char *string);
 
 /**********************************************************************
  **********************************************************************
@@ -155,7 +171,7 @@ typedef struct td {
 	struct strioctl *ctlp;          /* streams control data        */ 
 	download_t *bp;                 /* structure to hold boot file */
 	int result;                     /* return from async function  */
-	int errno;                      /* errno from async function   */
+	int terrno;                      /* errno from async function   */
 	ErlDrvBinary *bin;              /* driver binary for result    */
 } ThreadData;
 
@@ -184,7 +200,7 @@ extern int erts_async_max_threads;
  **********************************************************************/
 DRIVER_INIT(netaccess_drv)
 {
-fprintf(stderr, "DRIVER_INIT\n\r");
+	DBG("DRIVER_INIT");
 	memset(&netaccess_driver_entry, 0, sizeof(netaccess_driver_entry));
 
 	/*  called after loading, redundant        */
@@ -265,7 +281,7 @@ netaccess_start(ErlDrvPort port, char *command)
 	char *s;
 	DriverData *dd;
 
-fprintf(stderr, "netaccess_start\n\r");
+	DBG("netaccess_start");
 	set_port_control_flags(port, 0); /*  port_control/3 returns a list */
 
 	if((dd = driver_alloc(sizeof(DriverData))) == NULL)
@@ -306,7 +322,7 @@ netaccess_stop(ErlDrvData handle)
 {
 	DriverData *dd = (DriverData *) handle;
 
-fprintf(stderr, "netaccess_stop\n\r");
+	DBG("netaccess_stop");
 	/*  unregister the device handle  */
 	driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_READ, 0);
 	driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 0);
@@ -328,7 +344,7 @@ static void
 netaccess_output(ErlDrvData handle, char *buff, int bufflen)
 {
 	DriverData *dd = (DriverData *) handle;
-fprintf(stderr, "netaccess_output\n\r");
+	DBG("netaccess_output");
 
 }
 
@@ -402,13 +418,15 @@ netaccess_control(ErlDrvData handle, unsigned int command,
 	ThreadData *td;
 	struct strioctl *cntl_ptr;
 
-fprintf(stderr, "netaccess_control\n\r");
+	DBG("netaccess_control");
 	switch(command) {
 		case CANCEL_ASYNC:
-			int_result = driver_async_cancel(atol(*buf));
+			DBG("CANCEL_ASYNC");
+			int_result = driver_async_cancel(atol(buf));
 			memcpy(*res, &int_result, sizeof(int_result));
 			return sizeof(int_result);
 		case FLUSH_QUEUE:
+			DBG("FLUSH_QUEUE");
     		qsize = driver_sizeq(dd->port);
 			int_result = driver_deq(dd->port, qsize);        
 			memcpy(*res, &int_result, sizeof(int_result));
@@ -427,6 +445,7 @@ fprintf(stderr, "netaccess_control\n\r");
 
 		switch(command) {
 			case SELECT_BOARD:
+				DBG("SELECT_BOARD");
 				cntl_ptr->ic_cmd = PRIDRViocSEL_BOARD;
 				cntl_ptr->ic_len = 1;                
 				cntl_ptr->ic_dp = (char *) driver_alloc(10);  /* board string */  
@@ -436,6 +455,7 @@ fprintf(stderr, "netaccess_control\n\r");
                  on 64 bit kernels.  if the kernel is 32 bit or if it is
                  64 bit and the Erlang emulator is built 64 bit this works */
 			case BOOT_BOARD:      
+				DBG("BOOT_BOARD");
 				cntl_ptr->ic_cmd = PRIDRViocBOOT;
 				cntl_ptr->ic_timout = 60;               /* 60 second timeout   */
 				/* we receive a large binary which is the boot image.          */
@@ -457,17 +477,21 @@ fprintf(stderr, "netaccess_control\n\r");
 				break;
 #endif	/*  _LP64   */
 			case ENABLE_MANAGEMENT_CHAN:
+				DBG("ENABLE_MANAGEMENT_CHAN");
 				cntl_ptr->ic_cmd = PRIDRViocENA_MGT_CHAN;
 				break;
 			case RESET_BOARD:
+				DBG("RESET_BOARD");
 				cntl_ptr->ic_cmd = PRIDRViocRESET_BOARD;
 				break;
 			case GET_VERSION:
+				DBG("GET_VERSION");
 				cntl_ptr->ic_cmd = PRIDRViocGET_VERSION;
 				cntl_ptr->ic_len = PRI_VERSION_STRING_LEN;
 				cntl_ptr->ic_dp = (char *) driver_alloc(PRI_VERSION_STRING_LEN);
 				break;
 			case GET_DRIVER_INFO:
+				DBG("GET_DRIVER_INFO");
 				cntl_ptr->ic_cmd = PRIDRViocGET_DRIVER_INFO;
 				cntl_ptr->ic_len = sizeof(driver_info_t);
 				td->bin = driver_alloc_binary(sizeof(driver_info_t));
@@ -478,6 +502,7 @@ fprintf(stderr, "netaccess_control\n\r");
 				cntl_ptr->ic_dp = (char *) td->bin->orig_bytes;
 				break;
 			default:
+				DBG("unknown command");
 				free_tdata(td);
 				return -1;     /*  port_control/3 will exit with badarg  */
 		}
@@ -508,7 +533,7 @@ netaccess_ready_input(ErlDrvData handle, ErlDrvEvent event)
 	struct strbuf strctrl, strdata;
 	int flags = 0;
 
-fprintf(stderr, "netaccess_ready_input\n\r");
+	DBG("netaccess_ready_input");
 	/*  construct a streams buffer for the control message  */
 	ctrlbin = driver_alloc_binary(sizeof(L3_to_L4_struct));
 	if (ctrlbin == NULL) {
@@ -569,7 +594,7 @@ netaccess_ready_output(ErlDrvData handle, ErlDrvEvent event)
 	int vsize, qsize;
 	SysIOVec *iov;
 
-fprintf(stderr, "netaccess_ready_output\n\r");
+	DBG("netaccess_ready_output");
 	while((iov = driver_peekq(dd->port, &vsize)) != NULL) {
 		qsize = driver_sizeq(dd->port);
 		/*  send the next message to the board  */	
@@ -603,7 +628,7 @@ static void
 netaccess_finish(void) 
 {
 	
-fprintf(stderr, "netaccess_finish\n\r");
+	DBG("netaccess_finish");
 }
 
 
@@ -617,7 +642,7 @@ static void
 netaccess_timeout(ErlDrvData handle)
 {
 	DriverData *dd = (DriverData *) handle;
-fprintf(stderr, "netaccess_timeout\n\r");
+	DBG("netaccess_timeout");
 
 }
 
@@ -635,11 +660,11 @@ netacess_ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 	ThreadData *td = (ThreadData *) t_data;
 	unsigned char ctd[21];	
 
-fprintf(stderr, "netaccess_ready_async\n\r");
+	DBG("netaccess_ready_async");
 	sprintf(ctd, "%ld", td->ref);
 
 	if(td->result < 0) 
-		output_atom_result(dd->port, ctd, "error", erl_errno_id(td->errno));
+		output_atom_result(dd->port, ctd, "error", erl_errno_id(td->terrno));
 	else
 		switch(td->command) {
 			case SELECT_BOARD:      
@@ -657,7 +682,7 @@ fprintf(stderr, "netaccess_ready_async\n\r");
 						td->bin, td->ctlp->ic_len);
 				break;
 		}
-	free_tdata(t_data);
+	free_tdata(td);
 }
 
 
@@ -672,7 +697,7 @@ netaccess_flush(ErlDrvData handle)
 {
 	DriverData *dd = (DriverData *) handle;
 
-fprintf(stderr, "netaccess_flush\n\r");
+	DBG("netaccess_flush");
 }
 
 
@@ -688,8 +713,18 @@ netaccess_call(ErlDrvData handle, unsigned int command,
 {
 	DriverData *dd = (DriverData *) handle;
 
-fprintf(stderr, "netaccess_call\n\r");
+	DBG("netaccess_call");
+
+	return((int) ERL_DRV_ERROR_GENERAL);
 }
+
+
+
+/**********************************************************************
+ **********************************************************************
+ *  internal functions                                                *
+ **********************************************************************
+ **********************************************************************/
 
 
 /**********************************************************************
@@ -707,10 +742,10 @@ do_ioctl(void *t_data)
 	ThreadData *td = (ThreadData *) t_data;
 	int ret;
 
-fprintf(stderr, "do_iotcl\n\r");
+	DBG("do_iotcl");
 	td->result = ioctl(td->fd, I_STR, (struct strioctl *) td->ctlp);
 	if (td->result < 0) 
-		td->errno = errno;
+		td->terrno = errno;
 }
 
 
@@ -726,7 +761,7 @@ free_tdata(void *t_data)
 {
 	ThreadData *td = (ThreadData *) t_data;
 
-fprintf(stderr, "free_tdata\n\r");
+	DBG("free_tdata");
 	if (td->bin != NULL)
 		driver_free_binary(td->bin);
 	if (td->bp != NULL) {
@@ -745,7 +780,7 @@ fprintf(stderr, "free_tdata\n\r");
 
 
 /*  output result of ioctl to port e.g. {Port, Ref, {ok, Result}}  */
-int
+static int
 output_atom_result(ErlDrvPort port, unsigned char *ref,
 				char *ret, char *result)
 {
@@ -778,7 +813,7 @@ output_atom_result(ErlDrvPort port, unsigned char *ref,
 }
 
 /*  output result of ioctl to port e.g. {Port, Ref, {ok, <<Binary>>}}  */
-int
+static int
 output_binary_result(ErlDrvPort port, unsigned char *ref,
 				char *ret, ErlDrvBinary *bin, int len)
 {
@@ -814,7 +849,7 @@ output_binary_result(ErlDrvPort port, unsigned char *ref,
 }
 
 /*  output result of ioctl to port e.g. {Port, Ref, {ok, "IISDN Ver 7.0"}}  */
-int
+static int
 output_string_result(ErlDrvPort port, unsigned char *ref,
 				char *ret, char *string, int len)
 {
@@ -850,7 +885,7 @@ output_string_result(ErlDrvPort port, unsigned char *ref,
 
 
 /*  output error e.g.     {Port, {error, einval}}     */
-int
+static int
 output_error(ErlDrvPort port, char *string)
 {
 	ErlDrvTermData spec[] = {
