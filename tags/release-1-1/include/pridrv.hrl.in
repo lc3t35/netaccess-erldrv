@@ -1,0 +1,43 @@
+%%% $Id$
+%%% @configure_input@                                                   %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% pridrv.hrl  Erlang header file defining the structures in pridrv.h  %%%
+%%%                                                                     %%%
+%%%             This file defines the IOCTL interface                   %%%
+%%%---------------------------------------------------------------------%%%
+%%% Copyright Motivity Telecom Inc. 2003-2005                           %%%
+%%% Author Vance Shipley <vances@motivity.ca>                           %%%
+%%%                                                                     %%%
+%%% All rights reserved. No part of this computer program(s) may be     %%%
+%%% used, reproduced, stored in any retrieval system, or transmitted,   %%%
+%%% in any form or by any means, electronic, mechanical, photocopying,  %%%
+%%% recording, or otherwise without prior written permission of         %%%
+%%% Motivity Telecom Inc.                                               %%%
+%%%---------------------------------------------------------------------%%%
+
+
+-define(DEFAULT_BOARDNAME, "/dev/pri0").
+
+%% commands used in call to erlang:port_call/3
+-define(BOOT_BOARD,             0).
+-define(ENABLE_MANAGEMENT_CHAN, 1).
+-define(RESET_BOARD,            2).
+-define(GET_VERSION,            3).
+-define(GET_DRIVER_INFO,        4).
+-define(SELECT_BOARD,           5).
+-define(CANCEL_ASYNC,          10).
+-define(MAXIFRAMESIZE,         20).
+-define(LOWWATER,              21).
+-define(HIGHWATER,             22).
+-define(QSIZE,                 23).
+-define(L4L3m,                 43).
+-define(IFRAME,                92).
+
+-define(SIZEOF_int, @SIZEOF_int@).
+-define(SIZEOF_ushort, @SIZEOF_ushort@).
+-define(SIZEOF_uint, @SIZEOF_uint@).
+
+-record(driver_info, {board_type, hangup_on_red_alarm, flow_control_board,
+		flow_control_wsrv, flow_control_rsrv, hdrops, sdrops,
+		tx_msg_size, rx_msg_size, tx_num_bufs, rx_num_bufs,
+		max_data_channels}).

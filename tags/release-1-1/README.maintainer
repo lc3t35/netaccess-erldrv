@@ -1,0 +1,59 @@
+## $Id$
+##
+## README.maintainer
+
+This package is built with the GNU Build System.  A good reference
+for the whole process is at:
+  http://sources.redhat.com/autobook/autobook/autobook.html#SEC_Top
+
+The manuals are here:
+
+	http://www.gnu.org/manual/automake/html_mono/automake.html
+	http://www.gnu.org/manual/autoconf/html_mono/autoconf.html
+	http://www.gnu.org/manual/libtool/html_mono/libtool.html
+
+
+Requirements:
+
+	You'll need recent versions of the following GNU tools:
+		autoconf, automake, libtool, make, m4, perl, gcc
+
+
+Making changes:
+
+	The only files which should (theoretically) be edited are:
+		configure.ac & Makefile.am	
+
+
+Building:
+
+	run aclocal                   (creates aclocal.m4)
+	run autoheader                (creates config.h.in)
+	run autoconf                  (creates configure & autom4te.cache)
+	run `libtoolize --automake`   (creates config/ltmain.sh)
+	run `automake --add-missing`  (creates Makefile.in)
+
+	[Note:  you should be able to run `autoreconf` to do all 
+	        the above afterwards when changes are made]
+
+	run ./configure               (creates Makefile)
+	run make                      (builds entire package)
+
+Options to configure:
+
+  --enable-debug          Turn on debugging
+  --enable-threads        build for a threaded emulator
+  --enable-select         use the select() system call
+
+  --enable-maintainer-mode       Maintain/build distribution.
+
+Environment variables:
+  ERL_TOP     Erlang top level directory
+  ERLC        Erlang compiler command
+  ERLCFLAGS   Erlang compiler flags
+  ERL         Erlang emulator command
+  NETACC_TOP  Netaccess driver package top level directory
+
+
+Report bugs to <netaccess-bugs@motivity.ca>.
+

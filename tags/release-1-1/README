@@ -1,0 +1,25 @@
+## $Id$
+##
+## README
+
+This package implements an Erlang linked in device driver and API for
+the Netaccess(TM) WAN Cards from Brooktrout Technology.  
+
+To build:
+	./configure
+	make
+	make install
+
+Options to configure:
+  --enable-threads        Build for a threaded emulator
+  --enable-debug          Turn on debugging
+
+Environment variables:
+  ERL_TOP     Erlang top level directory
+  ERLC        Erlang compiler command
+  ERLCFLAGS   Erlang compiler flags
+  ERL         Erlang emulator command
+  NETACC_TOP  Netaccess driver package top level directory
+
+Report bugs to <netaccess-bugs@motivity.ca>.
+

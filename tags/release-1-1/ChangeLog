@@ -1,0 +1,16 @@
+2002-11-13  Vance Shipley <vances@motivity.ca>
+
+        * implemented functions to set/query timeslot interchange
+        * implemented portable (32 or 64 bit) handling of thread references
+
+
+2002-9-17  Vance Shipley <vances@motivity.ca>
+
+        * updated for Brooktrout Netaccess Driver Version 7.5 (BRKTS7864)
+
+
+2002-9-13  Vance Shipley <vances@motivity.ca>
+
+        * created checks for Erlang headers
+        * created checks for Netaccess headers
+
