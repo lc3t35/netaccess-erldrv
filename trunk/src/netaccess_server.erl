@@ -290,8 +290,8 @@ handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = Stat
 
 
 % an L3L4 SMI message arrived from the board
-handle_info({Port, {'L3L4m', L3L4_rec, DataBin} = Msg}, {Port, StateData} = State) ->
-	error_logger:info_report(["Netaccess server received unhandled L3L4m", L3L4_rec]),
+handle_info({Port, {'L3L4m', L3L4, DataBin} = Msg}, {Port, StateData} = State) ->
+	error_logger:info_report(["Netaccess server received unhandled L3L4m", L3L4]),
 	{noreply, State};
 
 % port has closed normally
