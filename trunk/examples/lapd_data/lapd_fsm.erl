@@ -24,7 +24,9 @@
 
 -define(MAXIFRAMESZ, 260).
 
-init([ServerRef, LapdId, Timing]) ->
+-record(state, {server, port, lapdid, interval, interval_ref, hourly_ref}).
+
+init([ServerRef, LapdId, Interval]) ->
 	case ServerRef of
 		{local, Name} ->
 			ServerPid = whereis(Name);
@@ -37,23 +39,29 @@ init([ServerRef, LapdId, Timing]) ->
 	end,
 	% open a lapid on the board
 	case netaccess:open(ServerPid) of
-		Channel when is_port(Channel) ->
-			init_protocol(Channel, LapdId, Timing);
+		Port when is_port(Port) ->
+			StateData = #state{server = ServerPid,
+					port = Port, lapdid = LapdId,
+					interval = Interval},
+			init_protocol(StateData);
 		{'EXIT', Reason} ->
 			{stop, Reason}
 	end.
 
-init_protocol(Channel, LapdId, Timing) ->
+init_protocol(StateData) ->
  	L1 = #level1{l1_mode = ?IISDNl1modHDLC,
 			num_txbuf = 4, num_rxbuf = 4},
 	L2Parms = #l2_lap_params{mode = ?IISDNl2modLAP_D,
-			dce_dte = ?IISDNdirSYMMETRIC},
+			dce_dte = ?IISDNdirSYMMETRIC, l2_detail = 1},
 	D = #data_interface{enable = 1},
  	L2 = #level2{par = L2Parms, data_interface = D},
 	ProtoData = #ena_proto_data{level1 = L1, level2 = L2},
 	% send an L4L3mENABLE_PROTOCOL to start LAPD 
-	netaccess:enable_protocol(Channel, LapdId, ProtoData),
-	{ok, establishing, {Channel, LapdId, Timing}}.
+	netaccess:enable_protocol(StateData#state.port, 
+			StateData#state.lapdid, ProtoData),
+	H_ref = gen_fsm:start_timer(3600000, hourly),
+	NewStateData = StateData#state{hourly_ref = H_ref},
+	{ok, establishing, NewStateData}.
 
 
 %% waiting to establish multiframe state
@@ -62,16 +70,17 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	P = iisdn:protocol_stat(L3L4m#l3_to_l4.data),
 	case 	P#protocol_stat.status of
 		?IISDNdsESTABLISHING ->
-			report_status(P, element(2, StateData)),
+			report_status(P, StateData#state.lapdid),
 			{next_state, establishing, StateData};
 		?IISDNdsNOT_ESTABLISHED ->
-			report_status(P, element(2, StateData)),
+			report_status(P, StateData#state.lapdid),
 			{next_state, not_established, StateData};
 		?IISDNdsESTABLISHED ->
-			report_status(P, element(2, StateData)),
-			{Delay, _} = random:uniform_s(element(3, StateData), now()),
-			gen_fsm:start_timer(Delay, timeout),
-			{next_state, established, StateData}
+			report_status(P, StateData#state.lapdid),
+			{Delay, _} = random:uniform_s(StateData#state.interval, now()),
+			I_ref = gen_fsm:start_timer(Delay, interval),
+			NewStateData = StateData#state{interval_ref = I_ref},
+			{next_state, established, NewStateData}
 	end;
 establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
@@ -81,11 +90,13 @@ establishing({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
-establishing({timeout, _Ref, timeout}, StateData) ->
-	{next_state, establishing, StateData};
+establishing({timeout, _Ref, hourly}, StateData) ->
+	netaccess:req_l2_stats(StateData#state.server, StateData#state.lapdid),
+	H_ref = gen_fsm:start_timer(3600000, hourly),
+	{next_state, establishing, StateData#state{hourly_ref = H_ref}};
 establishing(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
-			{lapdid, element(2, StateData)}, {state, establishing}, Other]),
+			{lapdid, StateData#state.lapdid}, {state, establishing}, Other]),
 	{next_state, establishing, StateData}.
 
 
@@ -95,13 +106,15 @@ established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	P = iisdn:protocol_stat(L3L4m#l3_to_l4.data),
 	case 	P#protocol_stat.status of
 		?IISDNdsESTABLISHED ->
-			report_status(P, element(2, StateData)),
+			report_status(P, StateData#state.lapdid),
 			{next_state, established, StateData};
 		?IISDNdsESTABLISHING ->
-			report_status(P, element(2, StateData)),
+			gen_fsm:cancel_timer(StateData#state.interval_ref),
+			report_status(P, StateData#state.lapdid),
 			{next_state, establishing, StateData};
 		?IISDNdsNOT_ESTABLISHED ->
-			report_status(P, element(2, StateData)),
+			gen_fsm:cancel_timer(StateData#state.interval_ref),
+			report_status(P, StateData#state.lapdid),
 			{next_state, not_established, StateData}
 	end;
 %% receive an IFRAME
@@ -112,11 +125,15 @@ established({Channel, <<Hash:8/unit:8, Data/binary>>}, StateData) ->
 		_ ->
 			{stop, bad_hash, StateData}
 	end;	
-established({timeout, _Ref, timeout}, {Channel, LapdId, Timeout} = StateData) ->
+established({timeout, _Ref, interval}, StateData) ->
 	% send an IFRAME
-	netaccess:send(Channel, iframe()),
-	gen_fsm:start_timer(Timeout, timeout),
-	{next_state, established, StateData};
+	netaccess:send(StateData#state.port, iframe()),
+	I_ref = gen_fsm:start_timer(StateData#state.interval, interval),
+	{next_state, established, StateData#state{interval_ref = I_ref}};
+established({timeout, _Ref, hourly}, StateData) ->
+	netaccess:req_l2_stats(StateData#state.server, StateData#state.lapdid),
+	H_ref = gen_fsm:start_timer(3600000, hourly),
+	{next_state, establishing, StateData#state{hourly_ref = H_ref}};
 established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mL2_STATS ->
 	print_stats(L3L4m#l3_to_l4.data),
@@ -136,14 +153,15 @@ not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 	P = iisdn:protocol_stat(L3L4m#l3_to_l4.data),
 	case 	P#protocol_stat.status of
 		?IISDNdsESTABLISHING ->
-			report_status(P, element(2, StateData)),
+			report_status(P, StateData#state.lapdid),
 			{next_state, establishing, StateData};
 		?IISDNdsESTABLISHED ->
-			report_status(P, element(2, StateData)),
-			{Delay, _} = random:uniform_s(element(3, StateData), now()),
-			{next_state, established, StateData, Delay};
+			report_status(P, StateData#state.lapdid),
+			{Delay, _} = random:uniform_s(StateData#state.interval, now()),
+			I_ref = gen_fsm:start_timer(Delay, interval),
+			{next_state, established, StateData#state{interval_ref = I_ref}};
 		?IISDNdsNOT_ESTABLISHED ->
-			report_status(P, element(2, StateData)),
+			report_status(P, StateData#state.lapdid),
 			{next_state, not_established, StateData}
 	end;
 not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
@@ -154,11 +172,13 @@ not_established({Channel, L3L4m}, StateData) when is_record(L3L4m, l3_to_l4),
 		L3L4m#l3_to_l4.msgtype == ?L3L4mERROR ->
 	Reason = iisdn:error_code(L3L4m#l3_to_l4.data),
 	{stop, Reason, StateData};
-not_established({timeout, _Ref, timeout}, StateData) ->
-	{next_state, not_established, StateData};
+not_established({timeout, _Ref, hourly}, StateData) ->
+	netaccess:req_l2_stats(StateData#state.server, StateData#state.lapdid),
+	H_ref = gen_fsm:start_timer(3600000, hourly),
+	{next_state, establishing, StateData#state{hourly_ref = H_ref}};
 not_established(Other, StateData) ->
 	error_logger:info_report(["Message not handled",
-			{lapdid, element(2, StateData)}, {state, not_established}, Other]),
+			{lapdid, StateData#state.lapdid}, {state, not_established}, Other]),
 	{next_state, not_established, StateData}.
 
 handle_event(_Event, StateName, StateData) ->
@@ -170,9 +190,12 @@ handle_sync_event(_Event, _From, StateName, StateData) ->
 handle_info(_Info, StateName, StateData) ->
 	{next_state, StateName, StateData}.
 
-terminate(Reason, StateName, {Channel, LapdId, _Timeout}) ->
-	error_logger:info_report([{lapdid, LapdId}, {statename, StateName}, {reason, Reason}]),
-	catch netaccess:close(Channel).
+terminate(Reason, StateName, StateData) ->
+	error_logger:info_report([{lapdid, StateData#state.lapdid},
+			{statename, StateName}, {reason, Reason}]),
+	catch netaccess:close(StateData#state.port),
+	catch gen_fsm:cancel_timer(StateData#state.interval_ref),
+	gen_fsm:cancel_timer(StateData#state.hourly_ref).
 
 code_change(_OldVsn, StateName, StateData, _Extra) ->
 	{ok, StateName, StateData}.
@@ -306,7 +329,7 @@ report_status(P, LapdId) ->
 print_stats(L2Mtp2StatsBin) when is_binary(L2Mtp2StatsBin) ->
 	print_stats(iisdn:l2_mtp2_stats(L2Mtp2StatsBin));
 print_stats(L2Mtp2StatsRec) when is_record(L2Mtp2StatsRec, l2_mtp2_stats) ->
-	print_l2_stats(L2Mtp2StatsRec#l2_mtp2_stats.stats).
+	print_l2_stats(iisdn:l2_stats(L2Mtp2StatsRec#l2_mtp2_stats.stats)).
 print_l2_stats(L2Stats) when is_record(L2Stats, l2_stats) ->
 	error_logger:info_report(["Level 2 Statistics",
 			{iframe_tx, L2Stats#l2_stats.iframe_tx},
