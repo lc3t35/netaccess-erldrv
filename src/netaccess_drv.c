@@ -148,10 +148,10 @@ struct erl_drv_entry netaccess_driver_entry = {
 									    one of the driver's handles            */
 	netaccess_ready_output,	/*  called when output is possible to
 									    one of the driver's handles            */
-	"netaccess_drv",				/*  name supplied as command in open_port  */
+	"netaccess_drv",			/*  name supplied as command in open_port  */
 	netaccess_finish, 		/*  called before unloading the driver     */
 	NULL,							/*  handle:  deprecated                    */
-	netaccess_control,		/*  invoked by port_command/3              */
+	netaccess_control,		/*  invoked by port_control/3              */
 	netaccess_timeout,		/*  handling of timeout in driver          */
 	netaccess_outputv,		/*  called when we have output from
 									    erlang to the port                     */
@@ -208,6 +208,7 @@ extern int erts_async_max_threads;
  **********************************************************************/
 DRIVER_INIT(netaccess_drv)
 {
+fprintf(stderr, "DRIVER_INIT\n\r");
 	return &netaccess_driver_entry;
 }
 
@@ -229,6 +230,7 @@ netaccess_start(ErlDrvPort port, char *command)
 	char *s;
 	DriverData *dd;
 
+fprintf(stderr, "netaccess_start\n\r");
 	set_port_control_flags(port, 0); /*  port_control/3 returns a list */
 
 	if((dd = driver_alloc(sizeof(DriverData))) == NULL)
@@ -269,6 +271,7 @@ netaccess_stop(ErlDrvData handle)
 {
 	DriverData *dd = (DriverData *) handle;
 
+fprintf(stderr, "netaccess_stop\n\r");
 	/*  unregister the device handle  */
 	driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_READ, 0);
 	driver_select(dd->port, (ErlDrvEvent) dd->fd, DO_WRITE, 0);
@@ -291,6 +294,7 @@ static void
 netaccess_output(ErlDrvData handle, char *buff, int bufflen)
 {
 	DriverData *dd = (DriverData *) handle;
+fprintf(stderr, "netaccess_output\n\r");
 
 }
 
@@ -312,6 +316,7 @@ netaccess_outputv(ErlDrvData handle, ErlIOVec *ev)
 	DriverData *dd = (DriverData *) handle;
 	int sz;
 
+fprintf(stderr, "netaccess_outputv\n\r");
 	if(ev->vsize != 3) {
 		output_error("einval");
 		return;
@@ -366,6 +371,7 @@ netaccess_control(ErlDrvData handle, unsigned int command,
 	ThreadData *td;
 	struct strioctl *cntl_ptr;
 
+fprintf(stderr, "netaccess_control\n\r");
 	switch(command) {
 		case CANCEL_ASYNC:
 			int_result = driver_async_cancel(*buf);
@@ -468,6 +474,7 @@ netaccess_ready_input(ErlDrvData handle, ErlDrvEvent event)
 	struct strbuf strctrl, strdata;
 	char *databuf;
 
+fprintf(stderr, "netaccess_ready_input\n\r");
 	/*  construct a streams buffer for the control message  */
 	ctrlbin = driver_alloc_binary(sizeof(L4_to_L3_struct));
 	strctrl.maxlen = sizeof(L4_to_L3_struct);
@@ -508,6 +515,7 @@ netaccess_ready_output(ErlDrvData handle, ErlDrvEvent event)
 	int vsize, qsize;
 	SysIOVec *iov;
 
+fprintf(stderr, "netaccess_ready_output\n\r");
 	while((iov = driver_peekq(dd->port, &vsize)) != NULL) {
 		if(vsize < 3) {
 			qsize = driver_sizeq(dd->port);
@@ -546,6 +554,7 @@ static void
 netaccess_finish(void) 
 {
 	
+fprintf(stderr, "netaccess_finish\n\r");
 }
 
 
@@ -559,6 +568,7 @@ static void
 netaccess_timeout(ErlDrvData handle)
 {
 	DriverData *dd = (DriverData *) handle;
+fprintf(stderr, "netaccess_timeout\n\r");
 
 }
 
@@ -576,6 +586,7 @@ netacess_ready_async(ErlDrvData handle, ErlDrvThreadData t_data)
 	ThreadData *td = (ThreadData *) t_data;
 	unsigned char ctd[4];	
 
+fprintf(stderr, "netaccess_ready_async\n\r");
 	/*  TODO:  find a portable way to handle this!  */
 	/*  convert the async refernce (a long) to a list unsigned chars  */
 	memcpy(ctd, &td->ref, sizeof(ctd));
@@ -616,6 +627,7 @@ netaccess_flush(ErlDrvData handle)
 {
 	DriverData *dd = (DriverData *) handle;
 
+fprintf(stderr, "netaccess_flush\n\r");
 }
 
 
@@ -631,6 +643,7 @@ netaccess_call(ErlDrvData handle, unsigned int command,
 {
 	DriverData *dd = (DriverData *) handle;
 
+fprintf(stderr, "netaccess_call\n\r");
 }
 
 
@@ -649,6 +662,7 @@ do_ioctl(void *t_data)
 	ThreadData *td = (ThreadData *) t_data;
 	int ret;
 
+fprintf(stderr, "do_iotcl\n\r");
 	td->result = ioctl(td->fd, I_STR, (struct strioctl *) td->ctlp);
 	if (td->result < 0) 
 		td->errno = errno;
@@ -667,6 +681,7 @@ free_tdata(void *t_data)
 {
 	ThreadData *td = (ThreadData *) t_data;
 
+fprintf(stderr, "free_tdata\n\r");
 	if (td->bin != NULL)
 		driver_free_binary(td->bin);
 	if (td->bp != NULL) {

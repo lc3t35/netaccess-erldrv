@@ -35,6 +35,15 @@
 -define(SELECT_BOARD, 5).
 -define(CANCEL_ASYNC, 10).
 
+-define(PRIs8bit, 8/?ENDIANESS-signed-integer-unit).
+-define(PRIu8bit, 8/?ENDIANESS-unsigned-integer-unit).
+-define(PRIs16bit, 16/?ENDIANESS-signed-integer-unit).
+-define(PRIu16bit, 16/?ENDIANESS-unsigned-integer-unit).
+-define(PRIs32bit, 32/?ENDIANESS-signed-integer-unit).
+-define(PRIu32bit, 32/?ENDIANESS-unsigned-integer-unit).
+
+-define(PRI_MAX_LINES, 8).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% This module implements the Erlang side of the netaccess device driver
@@ -178,6 +187,65 @@ get_driver_info(Port) ->
 	end.
 	
 
+%%
+%% 
+set_hardware([{clk_status,ClkStatus}, {clocking,Clocking},
+		{clocking2,Clocking2}, {ctbus_mode,CtBusMode},
+		{dbcount,DbCount}, {enable_8370_rliu_monitor,Enable8370RliuMonitor},
+		{enable_clocking2,EnableClocking2},
+		{enable_t810x_snap_mode,EnableT810xSnapMode},
+		{force_framer_init,ForceFramerinit},
+		{netref_clocking,NetRefClocking}, {netref_rate,NetRefRate},
+		{tdm_rate,TdmRate}]) ->
+
+	L4L3_CommonHeader =
+			<<LapdId:?PRIu8bit, MsgType:?PRIu8bit, L4Ref:?PRIu8bit,
+					CallRef:?PRIu8bit, Lli:?PRIu8bit>>,
+
+	PriHardwareData =
+			<<Clocking:?PRIu8bit, Clocking2:?PRIu8bit,
+			EnableClocking2:?PRIu8bit, NetRefClocking:?PRIu8bit,
+			NetRefRate:?PRIu8bit, CtBusMode:?PRIu8bit,
+			ForceFramerInit:?PRIu8bit, TdmRate:?PRIu8bit,
+			Enable8370RliuMonitor:?PRIu8bit, DbCount:?PRIu8bit,
+			EnableT810xSnapMode:?PRIu8bit, ClkStatus:?PRIu8bit>>
+			++ PriLineData ++ PriCsu,
+
+	PriLineData =
+			<<Framing:?PRIu8bit, LineCode:?PRIu8bit, PmMode:?PRIu8bit,
+			LineLength:?PRIu8bit, Term:?PRIu8bit, LineType:?PRIu8bit,
+			IntegrateAlarms:?PRIu8bit, FilterUnsolicited:?PRIu8bit,
+			Pad:?PRIu8bit, FilterYellow:?PRIu8bit, BriL1Mode:?PRIu8bit,
+			BriL1Cmd:?PRIu8bit, BriLoop:?PRIu8bit, BriL1T3:?PRIu8bit,
+			BriL1T4:?PRIu16bit>>
+
+	PriCsu = 
+
+% may be called with an unordered subset of settings
+set_hardware(HardwareSettings, LineSettings, CsuFlags) ->
+	HardwareDefaults = [{clocking,0}, {clocking2,0}, {enable_clocking2,0},
+			{netref_clocking,0}, {netref_rate,0},
+			{ctbus_mode,0}, {force_framer_init,0}, {tdm_rate,0},
+			{enable_8370_rliu_monitor,0}, {dbcount,0},
+			{enable_t810x_snap_mode,0}, {clk_status,0}],
+	LineDefaults = [{framing, 0}, {line_code, 0}, {pm_mode, 0},
+			{line_length, 0}, {term, 0}, {line_type, 0},
+			{integrate_alarms, 0}, {filter_unsolicited, 0},
+			{filter_yellow, 0}, {bri_l1mode, 0}, {briL1_cmd, 0},
+			{bri_loop, 0}, {briL1_T3, 0}, {briL1_T4, 0}],
+	HardwareMerged = mergeopts(HardwareSettings, HardwareDefaults),
+	LineMerged = mergeopts(LineSettings, LineDefaults),
+	set_hardware(lists:kersort(1, HardwareMerged),
+			lists:kersort(1, LineMerged), CsuFlags).
+set_hardware(HardwareSettings, LineSettings) ->
+	set_hardware(HardwareSettings, LineSettings,
+			lists:duplicate(?PRI_MAX_LINES, 0)).
+set_hardware(HardwareSettings) ->
+	set_hardware(HardwareSettings, lists:duplicate(?PRI_MAX_LINES, 
+			,
+			lists:duplicate(?PRI_MAX_LINES, 0)).
+	
+
 %%----------------------------------------------------------------------
 %%  The gen_server call backs
 %%----------------------------------------------------------------------
@@ -306,3 +374,9 @@ do_cast(Request) ->
 			Pid -> Pid
 		end,
 	gen_server:cast(Server, Request).
+
+% merges a list of option settings with the list of default values
+mergeopts([], Merged) -> Merged;
+mergeopts([{Option, Value}|T], Defaults) ->
+	Merged = lists:keyreplace(Option, 1, Defaults, {Option, Value}),
+	mergeopts(T, Merged).
