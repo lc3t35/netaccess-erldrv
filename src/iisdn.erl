@@ -85,6 +85,8 @@
 %% 				call control applications only.</dd>
 %% 		<dt><tt>lli</tt></dt><dd><tt>integer()</tt>
 %% 				Logical Link ID or DLCI.  Used wth LAPD, LAPB and V.120.</dd>
+%% 		<dt><tt>data</tt></dt><dd><tt>binary()</tt>
+%%				The message specific data.</dd>
 %% 	</dl>
 %%
 %% @spec (L4L3mRec) -> L4L3mBin
@@ -134,7 +136,7 @@ l4_to_l3(?L4L3mENABLE_PROTOCOL, Header, Data) ->
 %% 		<dt><tt>data_channel</tt></dt><dd><tt>integer()</tt>
 %% 				Identifies the data stream.  Unused in Solaris driver implementation.</dd>
 %% 		<dt><tt>data</tt></dt><dd><tt>binary()</tt>
-%%				The message specific data being received.</dd>
+%%				The message specific data.</dd>
 %% 	</dl>
 %%
 %% @spec (L3L4mBin) -> L3L4mRec
