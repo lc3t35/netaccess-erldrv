@@ -27,6 +27,8 @@
 %% call backs needed for gen_server behaviour
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	terminate/2, code_change/3]).
+%% optional call back for gen_server status
+-export([format_status/2]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -370,6 +372,13 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
+%% status information
+format_status(Opt, [_PDict, State]) ->
+	{Port, {BoardName, BoardNumber}, StateData} = State,
+	Data = [{"Port", Port}, {"BoardName", BoardName},
+			{"BoardNumber", BoardNumber},
+			{"StateData", gb_trees:to_list(StateData)}]
+	[{data, Data}].
 
 %%----------------------------------------------------------------------
 %%  internal functions
