@@ -853,7 +853,7 @@ message_to_board(int fd, SysIOVec *iov)
 {
 	struct strbuf ctrlp, datap;
 
-	/*  the first byte is the type  */
+	/*  the first byte is the type; control or data  */
 	if(iov->iov_base[0] == 0) {
 		ctrlp.len = (iov->iov_len - 1);
 		ctrlp.buf = &iov->iov_base[1];
