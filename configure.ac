@@ -4,8 +4,8 @@
 ##
 ## Boilerplate:  standard boilerplate code
 ##
-AC_INIT(netaccess, 1.1, netaccess-bugs@motivity.ca)
-AC_COPYRIGHT([Copyright (c) 2001-2005 Motivity Telecom Inc])
+AC_INIT(netaccess, 1.2, netaccess-bugs@motivity.ca)
+AC_COPYRIGHT([Copyright (c) 2001-2007 Vance Shipley])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_SRCDIR(c_src/netaccess_drv.c)
 AC_CONFIG_HEADERS(config.h)

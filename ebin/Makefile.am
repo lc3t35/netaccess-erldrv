@@ -11,6 +11,9 @@ if DEBUG
 ERL_DEBUG_FLAGS = +debug_info
 endif
 
+netaccess.app:	netaccess.app.src
+		sed -e "s;%VERSION%;$(VERSION);" < netaccess.app.src > netaccess.app
+
 %.beam:$(top_srcdir)/src/%.erl
 	$(ERLC) $(ERLCFLAGS) -I $(top_builddir)/include $(ERL_DEBUG_FLAGS) $<
 
