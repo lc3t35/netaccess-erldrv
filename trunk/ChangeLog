@@ -1,3 +1,7 @@
+2007-08-18  Vance Shipley <vances@motivity.ca>
+        * moved to Google Code:  https://netaccess-erldrv.googlecode.com/svn
+        * changed to a New BSD License
+
 2005-03-8  Vance Shipley <vances@motivity.ca>
 
         * implemented performamce management functions
